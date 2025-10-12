@@ -1,0 +1,12 @@
+{
+  "name": "@byearlybird/flock",
+  "module": "lib/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tinybench": "^5.0.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
