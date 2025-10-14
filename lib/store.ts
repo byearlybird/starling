@@ -20,12 +20,13 @@ export type Store<TValue extends object> = ReturnType<
 	typeof createStore<TValue>
 >;
 
-export function createStore<TValue extends object>() {
+export function createStore<TValue extends object>(collectionKey: string) {
 	let state_ = new Map<string, EncodedObject>();
 	const eventstamp_ = monotonicFactory();
 	const emitter_ = mitt<Events<TValue>>();
 
 	return {
+		collectionKey,
 		insert(key: string, value: TValue) {
 			if (state_.has(key)) throw new Error(`Duplicate key: ${key}`);
 			const encoded = encode(value, eventstamp_());
@@ -54,6 +55,10 @@ export function createStore<TValue extends object>() {
 				record[key] = data;
 			}
 			return record;
+		},
+		getState(key: string): EncodedObject | null {
+			const item = state_.get(key);
+			return item ?? null;
 		},
 		mergeState(data: Data) {
 			const inserted: TValue[] = [];

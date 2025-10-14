@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { createStore } from "./store";
 
 test("insert adds a new object to the store", () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 
 	store.insert("user1", { name: "Alice", age: 30 });
 
@@ -13,7 +13,7 @@ test("insert adds a new object to the store", () => {
 });
 
 test("insert with duplicate key throws error", () => {
-	const store = createStore<{ name: string }>();
+	const store = createStore<{ name: string }>("users");
 
 	store.insert("user1", { name: "Alice" });
 
@@ -23,7 +23,7 @@ test("insert with duplicate key throws error", () => {
 });
 
 test("update modifies an existing object", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>();
+	const store = createStore<{ name: string; age: number; city?: string }>("users");
 
 	store.insert("user1", { name: "Alice", age: 30 });
 	store.update("user1", { age: 31, city: "NYC" });
@@ -35,7 +35,7 @@ test("update modifies an existing object", () => {
 });
 
 test("update with non-existent key throws error", () => {
-	const store = createStore<{ name: string }>();
+	const store = createStore<{ name: string }>("users");
 
 	expect(() => {
 		store.update("user1", { name: "Alice" });
@@ -43,7 +43,7 @@ test("update with non-existent key throws error", () => {
 });
 
 test("values returns all objects in the store", () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 
 	store.insert("user1", { name: "Alice", age: 30 });
 	store.insert("user2", { name: "Bob", age: 25 });
@@ -61,7 +61,7 @@ test("insert then update workflow preserves original data", () => {
 	const store = createStore<{
 		name: string;
 		profile: { age: number; email?: string };
-	}>();
+	}>("users");
 
 	store.insert("user1", {
 		name: "Alice",
@@ -85,7 +85,7 @@ test("insert then update workflow preserves original data", () => {
 });
 
 test("onInsert callback is called when inserting", () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 	const mockCallback = mock();
 
 	store.onInsert(mockCallback);
@@ -97,7 +97,7 @@ test("onInsert callback is called when inserting", () => {
 });
 
 test("onUpdate callback is called when updating", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>();
+	const store = createStore<{ name: string; age: number; city?: string }>("users");
 	const mockCallback = mock();
 
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -113,7 +113,7 @@ test("onUpdate callback is called when updating", () => {
 });
 
 test("onInsert callback receives correct data for multiple inserts", () => {
-	const store = createStore<{ name: string }>();
+	const store = createStore<{ name: string }>("users");
 	const mockCallback = mock();
 
 	store.onInsert(mockCallback);
@@ -127,7 +127,7 @@ test("onInsert callback receives correct data for multiple inserts", () => {
 });
 
 test("onUpdate callback receives merged data", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>();
+	const store = createStore<{ name: string; age: number; city?: string }>("users");
 	const mockCallback = mock();
 
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -147,7 +147,7 @@ test("onUpdate callback receives merged data", () => {
 });
 
 test("unsubscribe from onInsert stops receiving callbacks", () => {
-	const store = createStore<{ name: string }>();
+	const store = createStore<{ name: string }>("users");
 	const mockCallback = mock();
 
 	const unsubscribe = store.onInsert(mockCallback);
@@ -164,7 +164,7 @@ test("unsubscribe from onInsert stops receiving callbacks", () => {
 });
 
 test("unsubscribe from onUpdate stops receiving callbacks", () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 	const mockCallback = mock();
 
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -183,7 +183,7 @@ test("unsubscribe from onUpdate stops receiving callbacks", () => {
 });
 
 test("multiple callbacks can be registered and unsubscribed independently", () => {
-	const store = createStore<{ name: string }>();
+	const store = createStore<{ name: string }>("users");
 	const mockCallback1 = mock();
 	const mockCallback2 = mock();
 
@@ -205,7 +205,7 @@ test("multiple callbacks can be registered and unsubscribed independently", () =
 });
 
 test("mergeState adds new keys and emits events", async () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 
 	// First add one user locally
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -219,7 +219,7 @@ test("mergeState adds new keys and emits events", async () => {
 	await Bun.sleep(5);
 
 	// Merge remote state with one existing (user1) and one new (user2)
-	const tempStore = createStore<{ name: string; age: number }>();
+	const tempStore = createStore<{ name: string; age: number }>("users");
 	tempStore.insert("user1", { name: "Alice", age: 31 });
 	tempStore.insert("user2", { name: "Bob", age: 25 });
 
@@ -241,7 +241,7 @@ test("mergeState adds new keys and emits events", async () => {
 });
 
 test("mergeState merges existing keys with newer eventstamps", async () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 	store.insert("user1", { name: "Alice", age: 30 });
 
 	const mockUpdate = mock();
@@ -249,7 +249,7 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 
 	// Simulate remote update with newer eventstamp
 	await Bun.sleep(5);
-	const tempStore = createStore<{ name: string; age: number }>();
+	const tempStore = createStore<{ name: string; age: number }>("users");
 	tempStore.insert("user1", { name: "Alice", age: 31 });
 
 	store.mergeState(tempStore.state());
@@ -262,10 +262,10 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 });
 
 test("mergeState keeps local changes with newer eventstamps", async () => {
-	const store = createStore<{ name: string; age: number }>();
+	const store = createStore<{ name: string; age: number }>("users");
 
 	// Create initial state in temp store (older)
-	const tempStore1 = createStore<{ name: string; age: number }>();
+	const tempStore1 = createStore<{ name: string; age: number }>("users");
 	tempStore1.insert("user1", { name: "Alice", age: 30 });
 	const olderState = tempStore1.state();
 
@@ -287,4 +287,23 @@ test("mergeState keeps local changes with newer eventstamps", async () => {
 	const values = store.values();
 	// Local newer value should win
 	expect(values.user1?.age).toBe(31);
+});
+
+test("getState returns encoded object for existing key", () => {
+	const store = createStore<{ name: string; age: number }>("users");
+
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	const state = store.getState("user1");
+
+	expect(state).not.toBeNull();
+	expect(typeof state).toBe("object");
+});
+
+test("getState returns null for non-existent key", () => {
+	const store = createStore<{ name: string; age: number }>("users");
+
+	const state = store.getState("user1");
+
+	expect(state).toBeNull();
 });

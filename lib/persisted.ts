@@ -1,26 +1,21 @@
 import type { Data, Store } from "./store";
-
-type Driver = {
-	get: (key: string) => Promise<string>;
-	set: (key: string, values: string) => Promise<void>;
-};
+import type { Driver } from "./types";
 
 export function makePersisted<TValue extends object>(
 	store: Store<TValue>,
 	{
-		key,
 		driver,
 		serialize = JSON.stringify,
 		deserialize = JSON.parse,
 		onError = console.error,
 	}: {
-		key: string;
 		driver: Driver;
 		serialize?: (data: Data) => string;
 		deserialize?: (data: string) => Data;
 		onError?: (error: unknown) => void;
 	},
 ) {
+	const key = `__${store.collectionKey}`;
 	const init = (async () => {
 		try {
 			const persisted = await driver.get(key);
