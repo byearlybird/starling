@@ -23,7 +23,9 @@ test("insert with duplicate key throws error", () => {
 });
 
 test("update modifies an existing object", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>("users");
+	const store = createStore<{ name: string; age: number; city?: string }>(
+		"users",
+	);
 
 	store.insert("user1", { name: "Alice", age: 30 });
 	store.update("user1", { age: 31, city: "NYC" });
@@ -93,11 +95,15 @@ test("onInsert callback is called when inserting", () => {
 	store.insert("user1", { name: "Alice", age: 30 });
 
 	expect(mockCallback).toHaveBeenCalledTimes(1);
-	expect(mockCallback).toHaveBeenCalledWith([{ name: "Alice", age: 30 }]);
+	expect(mockCallback).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Alice", age: 30 } },
+	]);
 });
 
 test("onUpdate callback is called when updating", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>("users");
+	const store = createStore<{ name: string; age: number; city?: string }>(
+		"users",
+	);
 	const mockCallback = mock();
 
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -108,7 +114,7 @@ test("onUpdate callback is called when updating", () => {
 
 	expect(mockCallback).toHaveBeenCalledTimes(1);
 	expect(mockCallback).toHaveBeenCalledWith([
-		{ name: "Alice", age: 31, city: "NYC" },
+		{ key: "user1", value: { name: "Alice", age: 31, city: "NYC" } },
 	]);
 });
 
@@ -122,12 +128,18 @@ test("onInsert callback receives correct data for multiple inserts", () => {
 	store.insert("user2", { name: "Bob" });
 
 	expect(mockCallback).toHaveBeenCalledTimes(2);
-	expect(mockCallback).toHaveBeenNthCalledWith(1, [{ name: "Alice" }]);
-	expect(mockCallback).toHaveBeenNthCalledWith(2, [{ name: "Bob" }]);
+	expect(mockCallback).toHaveBeenNthCalledWith(1, [
+		{ key: "user1", value: { name: "Alice" } },
+	]);
+	expect(mockCallback).toHaveBeenNthCalledWith(2, [
+		{ key: "user2", value: { name: "Bob" } },
+	]);
 });
 
 test("onUpdate callback receives merged data", () => {
-	const store = createStore<{ name: string; age: number; city?: string }>("users");
+	const store = createStore<{ name: string; age: number; city?: string }>(
+		"users",
+	);
 	const mockCallback = mock();
 
 	store.insert("user1", { name: "Alice", age: 30 });
@@ -139,10 +151,10 @@ test("onUpdate callback receives merged data", () => {
 
 	expect(mockCallback).toHaveBeenCalledTimes(2);
 	expect(mockCallback).toHaveBeenNthCalledWith(1, [
-		{ name: "Alice", age: 30, city: "NYC" },
+		{ key: "user1", value: { name: "Alice", age: 30, city: "NYC" } },
 	]);
 	expect(mockCallback).toHaveBeenNthCalledWith(2, [
-		{ name: "Alice", age: 31, city: "NYC" },
+		{ key: "user1", value: { name: "Alice", age: 31, city: "NYC" } },
 	]);
 });
 
@@ -227,11 +239,15 @@ test("mergeState adds new keys and emits events", async () => {
 
 	// Should emit insert for new key (user2)
 	expect(mockInsert).toHaveBeenCalledTimes(1);
-	expect(mockInsert).toHaveBeenCalledWith([{ name: "Bob", age: 25 }]);
+	expect(mockInsert).toHaveBeenCalledWith([
+		{ key: "user2", value: { name: "Bob", age: 25 } },
+	]);
 
 	// Should emit update for existing key (user1)
 	expect(mockUpdate).toHaveBeenCalledTimes(1);
-	expect(mockUpdate).toHaveBeenCalledWith([{ name: "Alice", age: 31 }]);
+	expect(mockUpdate).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Alice", age: 31 } },
+	]);
 
 	const values = store.values();
 	expect(values).toEqual({
@@ -255,7 +271,9 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 	store.mergeState(tempStore.state());
 
 	expect(mockUpdate).toHaveBeenCalledTimes(1);
-	expect(mockUpdate).toHaveBeenCalledWith([{ name: "Alice", age: 31 }]);
+	expect(mockUpdate).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Alice", age: 31 } },
+	]);
 
 	const values = store.values();
 	expect(values.user1?.age).toBe(31);

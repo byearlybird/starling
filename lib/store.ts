@@ -10,8 +10,8 @@ type DeepPartial<T> = T extends object
 	: T;
 
 type Events<TValue> = {
-	insert: TValue[];
-	update: TValue[];
+	insert: { key: string; value: TValue }[];
+	update: { key: string; value: TValue }[];
 };
 
 export type Data = Record<string, EncodedObject>;
@@ -31,7 +31,7 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			if (state_.has(key)) throw new Error(`Duplicate key: ${key}`);
 			const encoded = encode(value, eventstamp_());
 			state_.set(key, encoded);
-			emitter_.emit("insert", [value]);
+			emitter_.emit("insert", [{ key, value }]);
 		},
 		update(key: string, value: DeepPartial<TValue>) {
 			const current = state_.get(key);
@@ -40,7 +40,7 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			const [merged] = merge(current, encoded);
 			const decoded = decode<TValue>(merged);
 			state_.set(key, merged);
-			emitter_.emit("update", [decoded]);
+			emitter_.emit("update", [{ key, value: decoded }]);
 		},
 		values(): Record<string, TValue> {
 			const record: Record<string, TValue> = {};
@@ -61,8 +61,8 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			return item ?? null;
 		},
 		mergeState(data: Data) {
-			const inserted: TValue[] = [];
-			const updated: TValue[] = [];
+			const inserted: { key: string; value: TValue }[] = [];
+			const updated: { key: string; value: TValue }[] = [];
 
 			for (const [key, remoteValue] of Object.entries(data)) {
 				const localValue = state_.get(key);
@@ -70,11 +70,11 @@ export function createStore<TValue extends object>(collectionKey: string) {
 					const [merged, changed] = merge(localValue, remoteValue);
 					if (changed) {
 						state_.set(key, merged);
-						updated.push(decode<TValue>(merged));
+						updated.push({ key, value: decode<TValue>(merged) });
 					}
 				} else {
 					state_.set(key, remoteValue);
-					inserted.push(decode<TValue>(remoteValue));
+					inserted.push({ key, value: decode<TValue>(remoteValue) });
 				}
 			}
 
@@ -85,11 +85,11 @@ export function createStore<TValue extends object>(collectionKey: string) {
 				emitter_.emit("update", updated);
 			}
 		},
-		onInsert(callback: (data: TValue[]) => void) {
+		onInsert(callback: (data: { key: string; value: TValue }[]) => void) {
 			emitter_.on("insert", callback);
 			return () => emitter_.off("insert", callback);
 		},
-		onUpdate(callback: (data: TValue[]) => void) {
+		onUpdate(callback: (data: { key: string; value: TValue }[]) => void) {
 			emitter_.on("update", callback);
 			return () => emitter_.off("update", callback);
 		},
