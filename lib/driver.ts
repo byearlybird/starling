@@ -1,14 +1,13 @@
 import type { get as idbGet, set as idbSet } from "idb-keyval";
 import type { Driver } from "./types";
 
-export function createMemoryDriver(): Driver {
-	const map_ = new Map<string, string>();
+export function createMemoryDriver(map = new Map<string, string>()): Driver {
 	return {
 		get(key: string) {
-			return Promise.resolve(map_.get(key) || null);
+			return Promise.resolve(map.get(key) || null);
 		},
 		set(key: string, values: string) {
-			map_.set(key, values);
+			map.set(key, values);
 			return Promise.resolve();
 		},
 	};

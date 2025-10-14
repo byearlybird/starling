@@ -15,7 +15,59 @@ export function makePersisted<TValue extends object>(
 		onError?: (error: unknown) => void;
 	},
 ) {
-	const key = `__${store.collectionKey}`;
+	const persist = createDebouncedPersist({
+		store,
+		driver,
+		key: `__${store.collectionKey}`,
+		serialize,
+		deserialize,
+		onError,
+		debounceMs: 100,
+	});
+
+	const disposeInsert = store.onInsert(() => {
+		persist.trigger();
+	});
+
+	const disposeUpdate = store.onUpdate(() => {
+		persist.trigger();
+	});
+
+	const dispose = () => {
+		persist.cancel();
+		disposeInsert();
+		disposeUpdate();
+	};
+
+	return {
+		init: persist.init,
+		dispose,
+	};
+}
+
+export function createDebouncedPersist<TValue extends object>({
+	store,
+	driver,
+	key,
+	serialize,
+	deserialize,
+	onError,
+	debounceMs,
+}: {
+	store: Store<TValue>;
+	driver: Driver;
+	key: string;
+	serialize: (data: Data) => string;
+	deserialize: (data: string) => Data;
+	onError: (error: unknown) => void;
+	debounceMs: number;
+}): {
+	init: Promise<void>;
+	trigger: () => void;
+	cancel: () => void;
+} {
+	let timer: Timer | null = null;
+
 	const init = (async () => {
 		try {
 			const persisted = await driver.get(key);
@@ -24,36 +76,31 @@ export function makePersisted<TValue extends object>(
 				store.__unsafe_replace(data);
 			}
 		} catch (error) {
-			onError?.(error);
+			onError(error);
 		}
 	})();
 
-	const persist = async () => {
+	const persistFn = async () => {
 		try {
 			await init;
 			const values = store.state();
 			const serialized = serialize(values);
 			await driver.set(key, serialized);
 		} catch (error) {
-			onError?.(error);
+			onError(error);
 		}
-	};
-
-	const disposeInsert = store.onInsert(async () => {
-		await persist();
-	});
-
-	const disposeUpdate = store.onUpdate(async () => {
-		await persist();
-	});
-
-	const dispose = () => {
-		disposeInsert();
-		disposeUpdate();
 	};
 
 	return {
 		init,
-		dispose,
+		trigger: () => {
+			if (timer) clearTimeout(timer);
+			timer = setTimeout(async () => {
+				await persistFn();
+			}, debounceMs);
+		},
+		cancel: () => {
+			if (timer) clearTimeout(timer);
+		},
 	};
 }

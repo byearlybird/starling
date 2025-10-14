@@ -28,7 +28,10 @@ export function decode<T extends object>(obj: EncodedObject): T {
 	return unflatten(flattened);
 }
 
-export function merge(obj1: EncodedObject, obj2: EncodedObject): [EncodedObject, boolean] {
+export function merge(
+	obj1: EncodedObject,
+	obj2: EncodedObject,
+): [EncodedObject, boolean] {
 	const result: EncodedObject = {};
 	let changed = false;
 
