@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { createMemoryDriver } from "./driver";
+import { createMemoryDriver } from "./drivers/memory-driver";
 import { createPersist } from "./persisted";
 import { createStore } from "./store";
 
