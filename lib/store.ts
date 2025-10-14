@@ -14,8 +14,14 @@ type Events<TValue> = {
 	update: TValue[];
 };
 
+export type Data = Record<string, EncodedObject>;
+
+export type Store<TValue extends object> = ReturnType<
+	typeof createStore<TValue>
+>;
+
 export function createStore<TValue extends object>() {
-	const state_ = new Map<string, EncodedObject>();
+	let state_ = new Map<string, EncodedObject>();
 	const eventstamp_ = monotonicFactory();
 	const emitter_ = mitt<Events<TValue>>();
 
@@ -42,6 +48,13 @@ export function createStore<TValue extends object>() {
 			}
 			return record;
 		},
+		state(): Data {
+			const record: Data = {};
+			for (const [key, data] of state_.entries()) {
+				record[key] = data;
+			}
+			return record;
+		},
 		onInsert(callback: (data: TValue[]) => void) {
 			emitter_.on("insert", callback);
 			return () => emitter_.off("insert", callback);
@@ -49,6 +62,10 @@ export function createStore<TValue extends object>() {
 		onUpdate(callback: (data: TValue[]) => void) {
 			emitter_.on("update", callback);
 			return () => emitter_.off("update", callback);
+		},
+		__unsafe_replace(data: Data) {
+			const replacement = new Map<string, EncodedObject>(Object.entries(data));
+			state_ = replacement;
 		},
 	};
 }
