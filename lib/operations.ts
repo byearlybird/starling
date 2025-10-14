@@ -28,8 +28,9 @@ export function decode<T extends object>(obj: EncodedObject): T {
 	return unflatten(flattened);
 }
 
-export function merge(obj1: EncodedObject, obj2: EncodedObject): EncodedObject {
+export function merge(obj1: EncodedObject, obj2: EncodedObject): [EncodedObject, boolean] {
 	const result: EncodedObject = {};
+	let changed = false;
 
 	// Collect all property keys from both objects
 	const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)]);
@@ -42,11 +43,16 @@ export function merge(obj1: EncodedObject, obj2: EncodedObject): EncodedObject {
 			result[key] = value1;
 		} else if (!value1 && value2) {
 			result[key] = value2;
+			changed = true; // New property added
 		} else if (value1 && value2) {
 			result[key] =
 				value1.__eventstamp >= value2.__eventstamp ? value1 : value2;
+			// Mark as changed if obj2's value won (had newer eventstamp)
+			if (result[key] === value2) {
+				changed = true;
+			}
 		}
 	}
 
-	return result;
+	return [result, changed];
 }

@@ -203,3 +203,88 @@ test("multiple callbacks can be registered and unsubscribed independently", () =
 	expect(mockCallback1).toHaveBeenCalledTimes(1);
 	expect(mockCallback2).toHaveBeenCalledTimes(2);
 });
+
+test("mergeState adds new keys and emits events", async () => {
+	const store = createStore<{ name: string; age: number }>();
+
+	// First add one user locally
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	const mockInsert = mock();
+	const mockUpdate = mock();
+	store.onInsert(mockInsert);
+	store.onUpdate(mockUpdate);
+
+	// Wait to ensure newer eventstamps
+	await Bun.sleep(5);
+
+	// Merge remote state with one existing (user1) and one new (user2)
+	const tempStore = createStore<{ name: string; age: number }>();
+	tempStore.insert("user1", { name: "Alice", age: 31 });
+	tempStore.insert("user2", { name: "Bob", age: 25 });
+
+	store.mergeState(tempStore.state());
+
+	// Should emit insert for new key (user2)
+	expect(mockInsert).toHaveBeenCalledTimes(1);
+	expect(mockInsert).toHaveBeenCalledWith([{ name: "Bob", age: 25 }]);
+
+	// Should emit update for existing key (user1)
+	expect(mockUpdate).toHaveBeenCalledTimes(1);
+	expect(mockUpdate).toHaveBeenCalledWith([{ name: "Alice", age: 31 }]);
+
+	const values = store.values();
+	expect(values).toEqual({
+		user1: { name: "Alice", age: 31 },
+		user2: { name: "Bob", age: 25 },
+	});
+});
+
+test("mergeState merges existing keys with newer eventstamps", async () => {
+	const store = createStore<{ name: string; age: number }>();
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	const mockUpdate = mock();
+	store.onUpdate(mockUpdate);
+
+	// Simulate remote update with newer eventstamp
+	await Bun.sleep(5);
+	const tempStore = createStore<{ name: string; age: number }>();
+	tempStore.insert("user1", { name: "Alice", age: 31 });
+
+	store.mergeState(tempStore.state());
+
+	expect(mockUpdate).toHaveBeenCalledTimes(1);
+	expect(mockUpdate).toHaveBeenCalledWith([{ name: "Alice", age: 31 }]);
+
+	const values = store.values();
+	expect(values.user1?.age).toBe(31);
+});
+
+test("mergeState keeps local changes with newer eventstamps", async () => {
+	const store = createStore<{ name: string; age: number }>();
+
+	// Create initial state in temp store (older)
+	const tempStore1 = createStore<{ name: string; age: number }>();
+	tempStore1.insert("user1", { name: "Alice", age: 30 });
+	const olderState = tempStore1.state();
+
+	// Wait to ensure newer eventstamps
+	await Bun.sleep(5);
+
+	// Add to main store with newer timestamp
+	store.insert("user1", { name: "Alice", age: 31 });
+
+	const mockUpdate = mock();
+	store.onUpdate(mockUpdate);
+
+	// Try to merge older state - should keep local newer value
+	store.mergeState(olderState);
+
+	// Update should NOT be called (nothing changed - local values are newer)
+	expect(mockUpdate).toHaveBeenCalledTimes(0);
+
+	const values = store.values();
+	// Local newer value should win
+	expect(values.user1?.age).toBe(31);
+});

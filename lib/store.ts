@@ -36,7 +36,7 @@ export function createStore<TValue extends object>() {
 			const current = state_.get(key);
 			if (!current) throw new Error(`Key not found: ${key}`);
 			const encoded = encode(value, eventstamp_());
-			const merged = merge(current, encoded);
+			const [merged] = merge(current, encoded);
 			const decoded = decode<TValue>(merged);
 			state_.set(key, merged);
 			emitter_.emit("update", [decoded]);
@@ -54,6 +54,31 @@ export function createStore<TValue extends object>() {
 				record[key] = data;
 			}
 			return record;
+		},
+		mergeState(data: Data) {
+			const inserted: TValue[] = [];
+			const updated: TValue[] = [];
+
+			for (const [key, remoteValue] of Object.entries(data)) {
+				const localValue = state_.get(key);
+				if (localValue) {
+					const [merged, changed] = merge(localValue, remoteValue);
+					if (changed) {
+						state_.set(key, merged);
+						updated.push(decode<TValue>(merged));
+					}
+				} else {
+					state_.set(key, remoteValue);
+					inserted.push(decode<TValue>(remoteValue));
+				}
+			}
+
+			if (inserted.length > 0) {
+				emitter_.emit("insert", inserted);
+			}
+			if (updated.length > 0) {
+				emitter_.emit("update", updated);
+			}
 		},
 		onInsert(callback: (data: TValue[]) => void) {
 			emitter_.on("insert", callback);

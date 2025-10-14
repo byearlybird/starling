@@ -120,7 +120,7 @@ test("merge combines two objects with only first object properties", () => {
 		},
 	};
 
-	const merged = merge(obj1, obj2);
+	const [merged, changed] = merge(obj1, obj2);
 
 	expect(merged).toEqual({
 		name: {
@@ -132,6 +132,7 @@ test("merge combines two objects with only first object properties", () => {
 			__eventstamp: "2024-01-01T00:00:00Z",
 		},
 	});
+	expect(changed).toBe(true); // New property added
 });
 
 test("merge prefers newer eventstamp when properties conflict", () => {
@@ -148,7 +149,7 @@ test("merge prefers newer eventstamp when properties conflict", () => {
 		},
 	};
 
-	const merged = merge(obj1, obj2);
+	const [merged, changed] = merge(obj1, obj2);
 
 	expect(merged).toEqual({
 		name: {
@@ -156,6 +157,7 @@ test("merge prefers newer eventstamp when properties conflict", () => {
 			__eventstamp: "2024-01-02T00:00:00Z",
 		},
 	});
+	expect(changed).toBe(true); // obj2 had newer value
 });
 
 test("merge prefers older value when first eventstamp is newer", () => {
@@ -172,7 +174,7 @@ test("merge prefers older value when first eventstamp is newer", () => {
 		},
 	};
 
-	const merged = merge(obj1, obj2);
+	const [merged, changed] = merge(obj1, obj2);
 
 	expect(merged).toEqual({
 		score: {
@@ -180,6 +182,7 @@ test("merge prefers older value when first eventstamp is newer", () => {
 			__eventstamp: "2024-01-03T00:00:00Z",
 		},
 	});
+	expect(changed).toBe(false); // obj1's value was kept (no change)
 });
 
 test("merge handles objects with different properties", () => {
@@ -204,7 +207,7 @@ test("merge handles objects with different properties", () => {
 		},
 	};
 
-	const merged = merge(obj1, obj2);
+	const [merged, changed] = merge(obj1, obj2);
 
 	expect(merged).toEqual({
 		name: {
@@ -220,4 +223,67 @@ test("merge handles objects with different properties", () => {
 			__eventstamp: "2024-01-01T00:00:00Z",
 		},
 	});
+	expect(changed).toBe(true); // Both age was updated and city was added
+});
+
+test("merge returns changed=false when merging identical objects", () => {
+	const obj1: EncodedObject = {
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+
+	const [merged, changed] = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	});
+	expect(changed).toBe(false); // No change
+});
+
+test("merge returns changed=false when obj2 only has older values", () => {
+	const obj1: EncodedObject = {
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		name: {
+			__value: "Bob",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		age: {
+			__value: 25,
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+	};
+
+	const [merged, changed] = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+	});
+	expect(changed).toBe(false); // All obj1 values kept
 });
