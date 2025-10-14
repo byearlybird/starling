@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createMemoryDriver } from "./driver";
-import { createDebouncedPersist } from "./persisted";
+import { createPersist } from "./persisted";
 import { createStore } from "./store";
 
 test("init loads persisted data from driver", async () => {
@@ -14,7 +14,7 @@ test("init loads persisted data from driver", async () => {
 
 	// Create new store and persist
 	const newStore = createStore<{ name: string; age: number }>("users");
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store: newStore,
 		driver,
 		key: "__users",
@@ -36,7 +36,7 @@ test("init handles missing data gracefully", async () => {
 	const driver = createMemoryDriver();
 	const store = createStore<{ name: string; age: number }>("users");
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver,
 		key: "__users",
@@ -56,7 +56,7 @@ test("trigger debounces and persists store data", async () => {
 	const driver = createMemoryDriver();
 	const store = createStore<{ name: string; age: number }>("users");
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver,
 		key: "__users",
@@ -86,7 +86,7 @@ test("trigger debounces multiple calls", async () => {
 	const store = createStore<{ name: string; age: number }>("users");
 	const mockSet = mock(driver.set);
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",
@@ -117,7 +117,7 @@ test("cancel prevents pending persist", async () => {
 	const store = createStore<{ name: string; age: number }>("users");
 	const mockSet = mock(driver.set);
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",
@@ -147,7 +147,7 @@ test("onError is called when driver.get fails during init", async () => {
 
 	const store = createStore<{ name: string; age: number }>("users");
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver: { ...driver, get: mockGet },
 		key: "__users",
@@ -170,7 +170,7 @@ test("onError is called when driver.set fails during persist", async () => {
 
 	const store = createStore<{ name: string; age: number }>("users");
 
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",

@@ -15,7 +15,7 @@ export function makePersisted<TValue extends object>(
 		onError?: (error: unknown) => void;
 	},
 ) {
-	const persist = createDebouncedPersist({
+	const persist = createPersist({
 		store,
 		driver,
 		key: `__${store.collectionKey}`,
@@ -45,7 +45,7 @@ export function makePersisted<TValue extends object>(
 	};
 }
 
-export function createDebouncedPersist<TValue extends object>({
+export function createPersist<TValue extends object>({
 	store,
 	driver,
 	key,
