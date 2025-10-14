@@ -1,0 +1,223 @@
+import { expect, test } from "bun:test";
+import { decode, encode, merge } from "./operations";
+import type { EncodedObject } from "./types";
+
+test("encode converts a flat object to encoded format", () => {
+	const obj = { name: "Alice", age: 30 };
+	const eventstamp = "2024-01-01T00:00:00Z";
+
+	const encoded = encode(obj, eventstamp);
+
+	expect(encoded).toEqual({
+		name: {
+			__value: "Alice",
+			__eventstamp: eventstamp,
+		},
+		age: {
+			__value: 30,
+			__eventstamp: eventstamp,
+		},
+	});
+});
+
+test("encode converts a nested object to encoded format", () => {
+	const obj = {
+		user: {
+			name: "Bob",
+			profile: {
+				age: 25,
+			},
+		},
+	};
+	const eventstamp = "2024-01-01T00:00:00Z";
+
+	const encoded = encode(obj, eventstamp);
+
+	expect(encoded).toEqual({
+		"user.name": {
+			__value: "Bob",
+			__eventstamp: eventstamp,
+		},
+		"user.profile.age": {
+			__value: 25,
+			__eventstamp: eventstamp,
+		},
+	});
+});
+
+test("decode converts encoded object back to original format", () => {
+	const encoded: EncodedObject = {
+		name: {
+			__value: "Charlie",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		age: {
+			__value: 35,
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+
+	const decoded = decode(encoded);
+
+	expect(decoded).toEqual({
+		name: "Charlie",
+		age: 35,
+	});
+});
+
+test("decode converts encoded nested object back to original format", () => {
+	const encoded: EncodedObject = {
+		"user.name": {
+			__value: "Diana",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		"user.profile.age": {
+			__value: 28,
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+
+	const decoded = decode(encoded);
+
+	expect(decoded).toEqual({
+		user: {
+			name: "Diana",
+			profile: {
+				age: 28,
+			},
+		},
+	});
+});
+
+test("encode then decode round-trip preserves data", () => {
+	const original = {
+		id: 123,
+		title: "Test",
+		metadata: {
+			author: "Eve",
+			tags: ["test", "example"],
+		},
+	};
+	const eventstamp = "2024-01-01T00:00:00Z";
+
+	const encoded = encode(original, eventstamp);
+	const decoded = decode(encoded);
+
+	expect(decoded).toEqual(original);
+});
+
+test("merge combines two objects with only first object properties", () => {
+	const obj1: EncodedObject = {
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+
+	const merged = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	});
+});
+
+test("merge prefers newer eventstamp when properties conflict", () => {
+	const obj1: EncodedObject = {
+		name: {
+			__value: "Alice",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		name: {
+			__value: "Bob",
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+	};
+
+	const merged = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		name: {
+			__value: "Bob",
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+	});
+});
+
+test("merge prefers older value when first eventstamp is newer", () => {
+	const obj1: EncodedObject = {
+		score: {
+			__value: 100,
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		score: {
+			__value: 50,
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+	};
+
+	const merged = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		score: {
+			__value: 100,
+			__eventstamp: "2024-01-03T00:00:00Z",
+		},
+	});
+});
+
+test("merge handles objects with different properties", () => {
+	const obj1: EncodedObject = {
+		name: {
+			__value: "Charlie",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		age: {
+			__value: 25,
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+	const obj2: EncodedObject = {
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+		city: {
+			__value: "NYC",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	};
+
+	const merged = merge(obj1, obj2);
+
+	expect(merged).toEqual({
+		name: {
+			__value: "Charlie",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+		age: {
+			__value: 30,
+			__eventstamp: "2024-01-02T00:00:00Z",
+		},
+		city: {
+			__value: "NYC",
+			__eventstamp: "2024-01-01T00:00:00Z",
+		},
+	});
+});

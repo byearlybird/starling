@@ -1,29 +1,31 @@
-import type { DecodedObject, EncodedObject } from "./types";
+import { flatten, unflatten } from "flat";
+import type { EncodedObject } from "./types";
 
-export function encode<T extends DecodedObject>(
+export function encode<T extends object>(
 	obj: T,
-	eventstampFn: () => string,
+	eventstamp: string,
 ): EncodedObject {
 	const result: EncodedObject = {};
+	const flattened = flatten<object, object>(obj, { safe: true });
 
-	for (const [key, value] of Object.entries(obj)) {
+	for (const [key, value] of Object.entries(flattened)) {
 		result[key] = {
 			__value: value,
-			__eventstamp: eventstampFn(),
+			__eventstamp: eventstamp,
 		};
 	}
 
 	return result;
 }
 
-export function decode<T extends DecodedObject>(obj: EncodedObject): T {
-	const result = {} as T;
+export function decode<T extends object>(obj: EncodedObject): T {
+	const flattened: Record<string, unknown> = {};
 
 	for (const [key, value] of Object.entries(obj)) {
-		(result as Record<string, unknown>)[key] = value.__value;
+		flattened[key] = value.__value;
 	}
 
-	return result;
+	return unflatten(flattened);
 }
 
 export function merge(obj1: EncodedObject, obj2: EncodedObject): EncodedObject {
