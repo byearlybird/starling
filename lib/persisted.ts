@@ -12,23 +12,34 @@ export function makePersisted<TValue extends object>(
 		driver,
 		serialize = JSON.stringify,
 		deserialize = JSON.parse,
+		onError = console.error,
 	}: {
 		key: string;
 		driver: Driver;
 		serialize?: (data: Data) => string;
 		deserialize?: (data: string) => Data;
+		onError?: (error: unknown) => void;
 	},
 ) {
 	const init = (async () => {
-		const persisted = await driver.get(key);
-		const data = deserialize(persisted);
-		store.__unsafe_replace(data);
+		try {
+			const persisted = await driver.get(key);
+			const data = deserialize(persisted);
+			store.__unsafe_replace(data);
+		} catch (error) {
+			onError?.(error);
+		}
 	})();
 
 	const persist = async () => {
-		const values = store.state();
-		const serialized = serialize(values);
-		await driver.set(key, serialized);
+		try {
+			await init;
+			const values = store.state();
+			const serialized = serialize(values);
+			await driver.set(key, serialized);
+		} catch (error) {
+			onError?.(error);
+		}
 	};
 
 	const disposeInsert = store.onInsert(async () => {
