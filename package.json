@@ -1,12 +1,22 @@
 {
-  "name": "@byearlybird/flock",
-  "module": "lib/index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "tinybench": "^5.0.1"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "@byearlybird/flock",
+	"module": "lib/index.ts",
+	"type": "module",
+	"devDependencies": {
+		"@biomejs/biome": "2.2.5",
+		"@types/bun": "latest",
+		"tinybench": "^5.0.1",
+		"zod": "^4.1.12"
+	},
+	"peerDependencies": {
+		"typescript": "^5",
+		"unstorage": "^1.17.1"
+	},
+	"dependencies": {
+		"@maverick-js/signals": "^6.0.0",
+		"@preact/signals": "^2.3.2",
+		"mitt": "^3.0.1",
+		"signia": "^0.1.5",
+		"ulid": "^3.0.1"
+	}
 }
