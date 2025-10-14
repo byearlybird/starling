@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createStore } from "./store";
 
 test("insert adds a new object to the store", () => {
@@ -82,4 +82,124 @@ test("insert then update workflow preserves original data", () => {
 			},
 		},
 	});
+});
+
+test("onInsert callback is called when inserting", () => {
+	const store = createStore<{ name: string; age: number }>();
+	const mockCallback = mock();
+
+	store.onInsert(mockCallback);
+
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+	expect(mockCallback).toHaveBeenCalledWith([{ name: "Alice", age: 30 }]);
+});
+
+test("onUpdate callback is called when updating", () => {
+	const store = createStore<{ name: string; age: number; city?: string }>();
+	const mockCallback = mock();
+
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	store.onUpdate(mockCallback);
+
+	store.update("user1", { age: 31, city: "NYC" });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+	expect(mockCallback).toHaveBeenCalledWith([
+		{ name: "Alice", age: 31, city: "NYC" },
+	]);
+});
+
+test("onInsert callback receives correct data for multiple inserts", () => {
+	const store = createStore<{ name: string }>();
+	const mockCallback = mock();
+
+	store.onInsert(mockCallback);
+
+	store.insert("user1", { name: "Alice" });
+	store.insert("user2", { name: "Bob" });
+
+	expect(mockCallback).toHaveBeenCalledTimes(2);
+	expect(mockCallback).toHaveBeenNthCalledWith(1, [{ name: "Alice" }]);
+	expect(mockCallback).toHaveBeenNthCalledWith(2, [{ name: "Bob" }]);
+});
+
+test("onUpdate callback receives merged data", () => {
+	const store = createStore<{ name: string; age: number; city?: string }>();
+	const mockCallback = mock();
+
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	store.onUpdate(mockCallback);
+
+	store.update("user1", { city: "NYC" });
+	store.update("user1", { age: 31 });
+
+	expect(mockCallback).toHaveBeenCalledTimes(2);
+	expect(mockCallback).toHaveBeenNthCalledWith(1, [
+		{ name: "Alice", age: 30, city: "NYC" },
+	]);
+	expect(mockCallback).toHaveBeenNthCalledWith(2, [
+		{ name: "Alice", age: 31, city: "NYC" },
+	]);
+});
+
+test("unsubscribe from onInsert stops receiving callbacks", () => {
+	const store = createStore<{ name: string }>();
+	const mockCallback = mock();
+
+	const unsubscribe = store.onInsert(mockCallback);
+
+	store.insert("user1", { name: "Alice" });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+
+	unsubscribe();
+
+	store.insert("user2", { name: "Bob" });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+});
+
+test("unsubscribe from onUpdate stops receiving callbacks", () => {
+	const store = createStore<{ name: string; age: number }>();
+	const mockCallback = mock();
+
+	store.insert("user1", { name: "Alice", age: 30 });
+
+	const unsubscribe = store.onUpdate(mockCallback);
+
+	store.update("user1", { age: 31 });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+
+	unsubscribe();
+
+	store.update("user1", { age: 32 });
+
+	expect(mockCallback).toHaveBeenCalledTimes(1);
+});
+
+test("multiple callbacks can be registered and unsubscribed independently", () => {
+	const store = createStore<{ name: string }>();
+	const mockCallback1 = mock();
+	const mockCallback2 = mock();
+
+	const unsubscribe1 = store.onInsert(mockCallback1);
+
+	store.onInsert(mockCallback2);
+
+	store.insert("user1", { name: "Alice" });
+
+	expect(mockCallback1).toHaveBeenCalledTimes(1);
+	expect(mockCallback2).toHaveBeenCalledTimes(1);
+
+	unsubscribe1();
+
+	store.insert("user2", { name: "Bob" });
+
+	expect(mockCallback1).toHaveBeenCalledTimes(1);
+	expect(mockCallback2).toHaveBeenCalledTimes(2);
 });
