@@ -19,8 +19,10 @@ export function makePersisted<TValue extends object>(
 	const init = (async () => {
 		try {
 			const persisted = await driver.get(key);
-			const data = deserialize(persisted);
-			store.__unsafe_replace(data);
+			if (persisted) {
+				const data = deserialize(persisted);
+				store.__unsafe_replace(data);
+			}
 		} catch (error) {
 			onError?.(error);
 		}

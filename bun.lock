@@ -12,9 +12,9 @@
         "@biomejs/biome": "2.2.5",
         "@types/bun": "latest",
         "tinybench": "^5.0.1",
-        "zod": "^4.1.12",
       },
       "peerDependencies": {
+        "idb-keyval": "^6.2.2",
         "typescript": "^5",
       },
     },
@@ -50,6 +50,8 @@
 
     "flat": ["flat@6.0.1", "", { "bin": { "flat": "cli.js" } }, "sha512-/3FfIa8mbrg3xE7+wAhWeV+bd7L2Mof+xtZb5dRDKZ+wDvYJK4WDYeIOuOhre5Yv5aQObZrlbRmk3RTSiuQBtw=="],
 
+    "idb-keyval": ["idb-keyval@6.2.2", "", {}, "sha512-yjD9nARJ/jb1g+CvD0tlhUHOrJ9Sy0P8T9MF3YaLlHnSRpwPfpTX0XIvpmw3gAJUmEu3FiICLBDPXVwyEvrleg=="],
+
     "mitt": ["mitt@3.0.1", "", {}, "sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw=="],
 
     "tinybench": ["tinybench@5.0.1", "", {}, "sha512-aNVgWQZY4veCZLQJRftDA1X9OoLUIjDWNfC90nledkX7Lx205IpSEFYnsu4slyofoPGpJ+NIQj+BNSt4U5edMg=="],
@@ -59,7 +61,5 @@
     "ulid": ["ulid@3.0.1", "", { "bin": { "ulid": "dist/cli.js" } }, "sha512-dPJyqPzx8preQhqq24bBG1YNkvigm87K8kVEHCD+ruZg24t6IFEFv00xMWfxcC4djmFtiTLdFuADn4+DOz6R7Q=="],
 
     "undici-types": ["undici-types@7.14.0", "", {}, "sha512-QQiYxHuyZ9gQUIrmPo3IA+hUl4KYk8uSA7cHrcKd/l3p1OTpZcM0Tbp9x7FAtXdAYhlasd60ncPpgu6ihG6TOA=="],
-
-    "zod": ["zod@4.1.12", "", {}, "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ=="],
   }
 }

@@ -8,6 +8,6 @@ export type EncodedObject = {
 };
 
 export type Driver = {
-	get: (key: string) => Promise<string>;
+	get: (key: string) => Promise<string | null>;
 	set: (key: string, values: string) => Promise<void>;
 };
