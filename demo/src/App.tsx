@@ -51,8 +51,8 @@ export function App() {
 				</button>
 			</div>
 			<section className="divide-y divide-white/10">
-				{Object.values(todos).map((todo, index) => (
-					<div key={index} className="flex items-center gap-2 p-2">
+				{Object.entries(todos).map(([id, todo]) => (
+					<div key={id} className="flex items-center gap-2 p-2">
 						<input type="checkbox" className="w-4 h-4" />
 						<span className="flex-1">{todo.text}</span>
 					</div>
