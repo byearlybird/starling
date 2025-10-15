@@ -1,6 +1,17 @@
 import type { Store } from "./store";
 import type { EncodedRecord } from "./types";
 
+export type MakeSynchronizedOptions = {
+	setup?: Promise<void>;
+	interval?: number;
+	preprocess?: (
+		event: "pull" | "push",
+		data: EncodedRecord,
+	) => Promise<EncodedRecord>;
+	push: (data: EncodedRecord) => Promise<void>;
+	pull: () => Promise<EncodedRecord>;
+};
+
 export function makeSynchronized<TValue extends object>(
 	store: Store<TValue>,
 	{
@@ -8,17 +19,8 @@ export function makeSynchronized<TValue extends object>(
 		pull,
 		preprocess,
 		setup = Promise.resolve(),
-		interval = 1000 * 60, // 1 minute
-	}: {
-		setup?: Promise<void>;
-		interval?: number;
-		preprocess?: (
-			event: "pull" | "push",
-			data: EncodedRecord,
-		) => Promise<EncodedRecord>;
-		push: (data: EncodedRecord) => Promise<void>;
-		pull: () => Promise<EncodedRecord>;
-	},
+		interval = 1000 * 60 * 5, // 5 minutes
+	}: MakeSynchronizedOptions,
 ) {
 	let intervalId: Timer | null = null;
 

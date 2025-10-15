@@ -18,10 +18,13 @@ export type Store<TValue extends object> = ReturnType<
 	typeof createStore<TValue>
 >;
 
-export function createStore<TValue extends object>(collectionKey: string) {
+export function createStore<TValue extends object>(
+	collectionKey: string,
+	eventStampFn = monotonicFactory(),
+) {
 	let state_ = new Map<string, EncodedObject>();
-	const eventstamp_ = monotonicFactory(); // TODO: might be good to dependency inject this, so we can use a signgle monotonicFactory across multiple stores
 	const emitter_ = mitt<Events<TValue>>();
+	const eventstamp_ = eventStampFn;
 
 	return {
 		collectionKey,
