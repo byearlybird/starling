@@ -14,8 +14,9 @@ const { init: initPersist, dispose: disposePersist } = makePersisted(
 		driver: createIdbDriver(idb),
 	},
 );
-const x = makeSynchronized(todoStore, {
+const { init: initSync, dispose: disposeSync } = makeSynchronized(todoStore, {
 	setup: initPersist,
+	interval: 1000 * 5, // 5 seconds for demo purposes
 	push: async (data) => {
 		const response = await fetch("/api/todos", {
 			method: "PUT",
@@ -24,13 +25,11 @@ const x = makeSynchronized(todoStore, {
 			},
 			body: JSON.stringify({ todos: data }),
 		});
-		console.log("Pushed todos", { data, response });
 	},
 	pull: async () => {
 		const response = await fetch("/api/todos");
 		if (response.ok) {
 			const json = await response.json();
-			console.log("Pulled todos", json);
 			return json.todos;
 		}
 		return {};
@@ -38,13 +37,17 @@ const x = makeSynchronized(todoStore, {
 });
 
 await initPersist;
+await initSync;
 
 export function App() {
 	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
 
 	useEffect(() => {
-		return () => disposePersist();
+		return () => {
+			disposePersist();
+			disposeSync();
+		};
 	}, []);
 
 	return (
@@ -77,7 +80,7 @@ export function App() {
 					<label key={id} className="flex items-center gap-2 p-2">
 						<input
 							type="checkbox"
-							defaultChecked={todo.completed}
+							checked={todo.completed}
 							className="w-4 h-4"
 							onChange={(e) =>
 								todoStore.update(id, { completed: e.currentTarget.checked })
