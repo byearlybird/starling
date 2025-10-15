@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { decode, encode, merge } from "./operations";
+import { decode, encode, merge, mergeRecords } from "./operations";
 import type { EncodedObject } from "./types";
 
 test("encode converts a flat object to encoded format", () => {
@@ -286,4 +286,174 @@ test("merge returns changed=false when obj2 only has older values", () => {
 		},
 	});
 	expect(changed).toBe(false); // All obj1 values kept
+});
+
+test("mergeRecords combines two records with different keys", () => {
+	const record1: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+	const record2: Record<string, EncodedObject> = {
+		user2: {
+			name: {
+				__value: "Bob",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+
+	const [merged, changed] = mergeRecords(record1, record2);
+
+	expect(merged).toEqual({
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+		user2: {
+			name: {
+				__value: "Bob",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	});
+	expect(changed).toBe(true); // New record added
+});
+
+test("mergeRecords merges objects with same key based on eventstamp", () => {
+	const record1: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+			age: {
+				__value: 25,
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+	const record2: Record<string, EncodedObject> = {
+		user1: {
+			age: {
+				__value: 30,
+				__eventstamp: "2024-01-02T00:00:00Z",
+			},
+			city: {
+				__value: "NYC",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+
+	const [merged, changed] = mergeRecords(record1, record2);
+
+	expect(merged).toEqual({
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+			age: {
+				__value: 30,
+				__eventstamp: "2024-01-02T00:00:00Z",
+			},
+			city: {
+				__value: "NYC",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	});
+	expect(changed).toBe(true); // age was updated and city was added
+});
+
+test("mergeRecords returns changed=false when records are identical", () => {
+	const record1: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+	const record2: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+
+	const [merged, changed] = mergeRecords(record1, record2);
+
+	expect(merged).toEqual({
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	});
+	expect(changed).toBe(false); // No change
+});
+
+test("mergeRecords handles multiple records with mixed changes", () => {
+	const record1: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-03T00:00:00Z",
+			},
+		},
+		user2: {
+			name: {
+				__value: "Bob",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+	const record2: Record<string, EncodedObject> = {
+		user1: {
+			name: {
+				__value: "Alice Updated",
+				__eventstamp: "2024-01-02T00:00:00Z",
+			},
+		},
+		user3: {
+			name: {
+				__value: "Charlie",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	};
+
+	const [merged, changed] = mergeRecords(record1, record2);
+
+	expect(merged).toEqual({
+		user1: {
+			name: {
+				__value: "Alice",
+				__eventstamp: "2024-01-03T00:00:00Z",
+			},
+		},
+		user2: {
+			name: {
+				__value: "Bob",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+		user3: {
+			name: {
+				__value: "Charlie",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+		},
+	});
+	expect(changed).toBe(true); // user3 was added
 });

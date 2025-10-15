@@ -59,3 +59,34 @@ export function merge(
 
 	return [result, changed];
 }
+
+export function mergeRecords(
+	record1: Record<string, EncodedObject>,
+	record2: Record<string, EncodedObject>,
+): [Record<string, EncodedObject>, boolean] {
+	const result: Record<string, EncodedObject> = {};
+	let changed = false;
+
+	// Collect all keys from both records
+	const allKeys = new Set([...Object.keys(record1), ...Object.keys(record2)]);
+
+	for (const key of allKeys) {
+		const obj1 = record1[key];
+		const obj2 = record2[key];
+
+		if (obj1 && !obj2) {
+			result[key] = obj1;
+		} else if (!obj1 && obj2) {
+			result[key] = obj2;
+			changed = true; // New object added
+		} else if (obj1 && obj2) {
+			const [merged, objChanged] = merge(obj1, obj2);
+			result[key] = merged;
+			if (objChanged) {
+				changed = true; // Object was changed during merge
+			}
+		}
+	}
+
+	return [result, changed];
+}
