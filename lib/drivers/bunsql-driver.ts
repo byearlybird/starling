@@ -15,16 +15,16 @@ export function createBunSQLiteDriver({
 		async get(key: string) {
 			await init;
 			const result =
-				await db`SELECT value FROM ${tablename} WHERE key = ${sql(key)}`;
-			return result || null;
+				await db`SELECT value FROM ${sql(tablename)} WHERE key = ${key}`;
+			return result.at(0)?.value || null;
 		},
 		async set(key: string, value: string) {
 			await init;
-			return db`INSERT INTO ${tablename} (key, value) VALUES (${sql(key)}, ${sql(value)})`;
+			await db`INSERT OR REPLACE INTO ${sql(tablename)} (key, value) VALUES (${key}, ${value})`;
 		},
 	};
 }
 
 async function initDb(db: SQL, tablename: string) {
-	await db`CREATE TABLE IF NOT EXISTS ${tablename} (key TEXT PRIMARY KEY, value TEXT)`;
+	await db`CREATE TABLE IF NOT EXISTS ${sql(tablename)} (key TEXT PRIMARY KEY, value TEXT)`;
 }
