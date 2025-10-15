@@ -1,10 +1,17 @@
 import { SQL, sql } from "bun";
-import type { Driver } from "../types";
+import type { Driver, EncodedRecord } from "../types";
 
 export function createBunSQLiteDriver({
 	filename = ":memory:",
 	tablename = "__collections",
-}): Driver {
+	serialize = JSON.stringify,
+	deserialize = JSON.parse,
+}: {
+	filename?: string;
+	tablename?: string;
+	serialize?: (data: EncodedRecord) => string;
+	deserialize?: (data: string) => EncodedRecord;
+} = {}): Driver {
 	const db = new SQL({
 		adapter: "sqlite",
 		filename,
@@ -16,11 +23,16 @@ export function createBunSQLiteDriver({
 			await init;
 			const result =
 				await db`SELECT value FROM ${sql(tablename)} WHERE key = ${key}`;
-			return result.at(0)?.value || null;
+			const data = result.at(0)?.value;
+			if (data) {
+				return deserialize(data);
+			} else {
+				return null;
+			}
 		},
-		async set(key: string, value: string) {
+		async set(key: string, value: EncodedRecord) {
 			await init;
-			await db`INSERT OR REPLACE INTO ${sql(tablename)} (key, value) VALUES (${key}, ${value})`;
+			await db`INSERT OR REPLACE INTO ${sql(tablename)} (key, value) VALUES (${key}, ${serialize(value)})`;
 		},
 	};
 }

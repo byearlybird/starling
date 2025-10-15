@@ -1,5 +1,5 @@
 import type { get as idbGet, set as idbSet } from "idb-keyval";
-import type { Driver } from "../types";
+import type { Driver, EncodedRecord } from "../types";
 
 export function createIdbDriver(db: {
 	get: typeof idbGet;
@@ -10,7 +10,7 @@ export function createIdbDriver(db: {
 			const result = await db.get(key);
 			return result || null;
 		},
-		set(key: string, value: string) {
+		set(key: string, value: EncodedRecord) {
 			return db.set(key, value);
 		},
 	};

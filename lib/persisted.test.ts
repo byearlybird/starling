@@ -9,8 +9,7 @@ test("init loads persisted data from driver", async () => {
 
 	// Pre-populate driver with data
 	store.insert("user1", { name: "Alice", age: 30 });
-	const serialized = JSON.stringify(store.state());
-	await driver.set("__users", serialized);
+	await driver.set("__users", store.state());
 
 	// Create new store and persist
 	const newStore = createStore<{ name: string; age: number }>("users");
@@ -18,8 +17,6 @@ test("init loads persisted data from driver", async () => {
 		store: newStore,
 		driver,
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: console.error,
 		debounceMs: 100,
 	});
@@ -40,8 +37,6 @@ test("init handles missing data gracefully", async () => {
 		store,
 		driver,
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: console.error,
 		debounceMs: 100,
 	});
@@ -60,8 +55,6 @@ test("trigger debounces and persists store data", async () => {
 		store,
 		driver,
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: console.error,
 		debounceMs: 50,
 	});
@@ -76,9 +69,7 @@ test("trigger debounces and persists store data", async () => {
 
 	const persisted = await driver.get("__users");
 	expect(persisted).not.toBeNull();
-
-	const data = JSON.parse(persisted!);
-	expect(data).toHaveProperty("user1");
+	expect(persisted).toHaveProperty("user1");
 });
 
 test("trigger debounces multiple calls", async () => {
@@ -90,8 +81,6 @@ test("trigger debounces multiple calls", async () => {
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: console.error,
 		debounceMs: 50,
 	});
@@ -121,8 +110,6 @@ test("cancel prevents pending persist", async () => {
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: console.error,
 		debounceMs: 50,
 	});
@@ -151,8 +138,6 @@ test("onError is called when driver.get fails during init", async () => {
 		store,
 		driver: { ...driver, get: mockGet },
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: mockError,
 		debounceMs: 50,
 	});
@@ -174,8 +159,6 @@ test("onError is called when driver.set fails during persist", async () => {
 		store,
 		driver: { ...driver, set: mockSet },
 		key: "__users",
-		serialize: JSON.stringify,
-		deserialize: JSON.parse,
 		onError: mockError,
 		debounceMs: 50,
 	});

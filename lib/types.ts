@@ -10,6 +10,6 @@ export type EncodedObject = {
 export type EncodedRecord = Record<string, EncodedObject>;
 
 export type Driver = {
-	get: (key: string) => Promise<null>;
-	set: (key: string, values: string) => Promise<void>;
+	get: (key: string) => Promise<EncodedRecord | null>;
+	set: (key: string, values: EncodedRecord) => Promise<void>;
 };

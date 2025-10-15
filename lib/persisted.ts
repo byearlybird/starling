@@ -1,17 +1,13 @@
-import type { Data, Store } from "./store";
+import type { Store } from "./store";
 import type { Driver } from "./types";
 
 export function makePersisted<TValue extends object>(
 	store: Store<TValue>,
 	{
 		driver,
-		serialize = JSON.stringify,
-		deserialize = JSON.parse,
 		onError = console.error,
 	}: {
 		driver: Driver;
-		serialize?: (data: Data) => string;
-		deserialize?: (data: string) => Data;
 		onError?: (error: unknown) => void;
 	},
 ) {
@@ -19,8 +15,6 @@ export function makePersisted<TValue extends object>(
 		store,
 		driver,
 		key: `__${store.collectionKey}`,
-		serialize,
-		deserialize,
 		onError,
 		debounceMs: 100,
 	});
@@ -49,16 +43,12 @@ export function createPersist<TValue extends object>({
 	store,
 	driver,
 	key,
-	serialize,
-	deserialize,
 	onError,
 	debounceMs,
 }: {
 	store: Store<TValue>;
 	driver: Driver;
 	key: string;
-	serialize: (data: Data) => string;
-	deserialize: (data: string) => Data;
 	onError: (error: unknown) => void;
 	debounceMs: number;
 }): {
@@ -72,8 +62,7 @@ export function createPersist<TValue extends object>({
 		try {
 			const persisted = await driver.get(key);
 			if (persisted) {
-				const data = deserialize(persisted);
-				store.__unsafe_replace(data);
+				store.__unsafe_replace(persisted);
 			}
 		} catch (error) {
 			onError(error);
@@ -84,8 +73,7 @@ export function createPersist<TValue extends object>({
 		try {
 			await init;
 			const values = store.state();
-			const serialized = serialize(values);
-			await driver.set(key, serialized);
+			await driver.set(key, values);
 		} catch (error) {
 			onError(error);
 		}

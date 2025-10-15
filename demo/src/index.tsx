@@ -8,9 +8,9 @@ const driver = createBunSQLiteDriver({
 	filename: "demo.db",
 });
 
-async function getTodos(): Promise<EncodedRecord> {
-	const todoJSON = await driver.get("todos");
-	return todoJSON ? JSON.parse(todoJSON) : {};
+async function getTodos() {
+	const persisted = await driver.get("todos");
+	return persisted || {};
 }
 
 const server = serve({
@@ -31,7 +31,7 @@ const server = serve({
 				const { todos } = await req.json();
 				const [merged, changed] = mergeRecords(persisted, todos);
 				if (changed) {
-					await driver.set("todos", JSON.stringify(merged));
+					await driver.set("todos", merged);
 				}
 				return Response.json({ success: true });
 			},
