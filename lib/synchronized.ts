@@ -6,11 +6,16 @@ export function makeSynchronized<TValue extends object>(
 	{
 		push,
 		pull,
+		preprocess,
 		setup = Promise.resolve(),
 		interval = 1000 * 60, // 1 minute
 	}: {
 		setup?: Promise<void>;
 		interval?: number;
+		preprocess?: (
+			event: "pull" | "push",
+			data: EncodedRecord,
+		) => Promise<EncodedRecord>;
 		push: (data: EncodedRecord) => Promise<void>;
 		pull: () => Promise<EncodedRecord>;
 	},
@@ -19,10 +24,16 @@ export function makeSynchronized<TValue extends object>(
 
 	const refresh = async () => {
 		const data = await pull();
-		store.mergeState(data);
+		const pulledAndProcessed = preprocess
+			? await preprocess("pull", data)
+			: data;
+		store.mergeState(pulledAndProcessed);
 		const latest = store.state();
 		if (Object.keys(latest).length === 0) return;
-		await push(latest);
+		const latestProcessed = preprocess
+			? await preprocess("push", latest)
+			: latest;
+		await push(latestProcessed);
 	};
 
 	const init = (async () => {

@@ -5,6 +5,7 @@ import { makePersisted } from "../../lib/persisted";
 import { createStore, type Store } from "../../lib/store";
 import { makeSynchronized } from "../../lib/synchronized";
 import "./index.css";
+import type { EncodedObject, EncodedRecord } from "../../lib/types";
 import type { Todo } from "./types";
 
 const todoStore = createStore<Todo>("todos");
@@ -17,6 +18,16 @@ const { init: initPersist, dispose: disposePersist } = makePersisted(
 const { init: initSync, dispose: disposeSync } = makeSynchronized(todoStore, {
 	setup: initPersist,
 	interval: 1000 * 5, // 5 seconds for demo purposes
+	preprocess: async (event, data) => {
+		switch (event) {
+			case "push":
+				return psuedoEncryptRecord(data);
+			case "pull":
+				return pseudoDecryptRecord(data);
+			default:
+				return data;
+		}
+	},
 	push: async (data) => {
 		const response = await fetch("/api/todos", {
 			method: "PUT",
@@ -28,11 +39,10 @@ const { init: initSync, dispose: disposeSync } = makeSynchronized(todoStore, {
 	},
 	pull: async () => {
 		const response = await fetch("/api/todos");
-		if (response.ok) {
-			const json = await response.json();
-			return json.todos;
-		}
-		return {};
+		if (!response.ok) return {};
+
+		const json = await response.json();
+		return json.todos;
 	},
 });
 
@@ -106,6 +116,52 @@ function useData<TValue extends object>(store: Store<TValue>) {
 	});
 
 	return state;
+}
+
+function psuedoEncryptRecord(record: EncodedRecord): EncodedRecord {
+	const encryptedRecord: EncodedRecord = {};
+	for (const [key, obj] of Object.entries(record)) {
+		encryptedRecord[key] = pseudoEncryptObject(obj);
+	}
+	return encryptedRecord;
+}
+
+function pseudoDecryptRecord(record: EncodedRecord): EncodedRecord {
+	const decryptedRecord: EncodedRecord = {};
+	for (const [key, obj] of Object.entries(record)) {
+		decryptedRecord[key] = pseudoDecryptObject(obj);
+	}
+	return decryptedRecord;
+}
+
+function pseudoEncryptObject(obj: EncodedObject): EncodedObject {
+	const encryptedObject: EncodedObject = {};
+	for (const [key, encodedValue] of Object.entries(obj)) {
+		encryptedObject[key] = {
+			...encodedValue,
+			__value: pseudoEncrypt(JSON.stringify(encodedValue.__value)),
+		};
+	}
+	return encryptedObject;
+}
+
+function pseudoDecryptObject(obj: EncodedObject): EncodedObject {
+	const decryptedObject: EncodedObject = {};
+	for (const [key, encodedValue] of Object.entries(obj)) {
+		decryptedObject[key] = {
+			...encodedValue,
+			__value: JSON.parse(pseudoDecrypt(encodedValue.__value as string)),
+		};
+	}
+	return decryptedObject;
+}
+
+function pseudoEncrypt(data: string): string {
+	return btoa(data);
+}
+
+function pseudoDecrypt(data: string): string {
+	return atob(data);
 }
 
 export default App;
