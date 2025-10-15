@@ -1,7 +1,7 @@
 import type { get as idbGet, set as idbSet } from "idb-keyval";
 import type { Driver } from "../types";
 
-export function createIdbKeyvalDriver(db: {
+export function createIdbDriver(db: {
 	get: typeof idbGet;
 	set: typeof idbSet;
 }): Driver {
