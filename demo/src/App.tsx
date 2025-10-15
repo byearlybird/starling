@@ -4,11 +4,7 @@ import { createIdbDriver } from "../../lib/drivers/idb-driver";
 import { makePersisted } from "../../lib/persisted";
 import { createStore, type Store } from "../../lib/store";
 import "./index.css";
-
-type Todo = {
-	text: string;
-	completed: boolean;
-};
+import type { Todo } from "./types";
 
 const todoStore = createStore<Todo>("todos");
 const { init, dispose } = makePersisted(todoStore, {
@@ -52,10 +48,10 @@ export function App() {
 			</div>
 			<section className="divide-y divide-white/10">
 				{Object.entries(todos).map(([id, todo]) => (
-					<div key={id} className="flex items-center gap-2 p-2">
+					<label key={id} className="flex items-center gap-2 p-2">
 						<input type="checkbox" className="w-4 h-4" />
 						<span className="flex-1">{todo.text}</span>
-					</div>
+					</label>
 				))}
 			</section>
 		</div>
