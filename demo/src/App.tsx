@@ -3,22 +3,48 @@ import { useEffect, useState } from "react";
 import { createIdbDriver } from "../../lib/drivers/idb-driver";
 import { makePersisted } from "../../lib/persisted";
 import { createStore, type Store } from "../../lib/store";
+import { makeSynchronized } from "../../lib/synchronized";
 import "./index.css";
 import type { Todo } from "./types";
 
 const todoStore = createStore<Todo>("todos");
-const { init, dispose } = makePersisted(todoStore, {
-	driver: createIdbDriver(idb),
+const { init: initPersist, dispose: disposePersist } = makePersisted(
+	todoStore,
+	{
+		driver: createIdbDriver(idb),
+	},
+);
+const x = makeSynchronized(todoStore, {
+	setup: initPersist,
+	push: async (data) => {
+		const response = await fetch("/api/todos", {
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ todos: data }),
+		});
+		console.log("Pushed todos", { data, response });
+	},
+	pull: async () => {
+		const response = await fetch("/api/todos");
+		if (response.ok) {
+			const json = await response.json();
+			console.log("Pulled todos", json);
+			return json.todos;
+		}
+		return {};
+	},
 });
 
-await init;
+await initPersist;
 
 export function App() {
 	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
 
 	useEffect(() => {
-		return () => dispose();
+		return () => disposePersist();
 	}, []);
 
 	return (
@@ -49,7 +75,14 @@ export function App() {
 			<section className="divide-y divide-white/10">
 				{Object.entries(todos).map(([id, todo]) => (
 					<label key={id} className="flex items-center gap-2 p-2">
-						<input type="checkbox" className="w-4 h-4" />
+						<input
+							type="checkbox"
+							defaultChecked={todo.completed}
+							className="w-4 h-4"
+							onChange={(e) =>
+								todoStore.update(id, { completed: e.currentTarget.checked })
+							}
+						/>
 						<span className="flex-1">{todo.text}</span>
 					</label>
 				))}
