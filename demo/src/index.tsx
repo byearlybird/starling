@@ -1,14 +1,14 @@
 import { serve } from "bun";
 import { createBunSQLiteDriver } from "../../lib/drivers/bunsql-driver";
 import { mergeRecords } from "../../lib/operations";
-import type { EncodedObject } from "../../lib/types";
+import type { EncodedObject, EncodedRecord } from "../../lib/types";
 import index from "./index.html";
 
 const driver = createBunSQLiteDriver({
 	filename: "demo.db",
 });
 
-async function getTodos(): Promise<Record<string, EncodedObject>> {
+async function getTodos(): Promise<EncodedRecord> {
 	const todoJSON = await driver.get("todos");
 	return todoJSON ? JSON.parse(todoJSON) : {};
 }

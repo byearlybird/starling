@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { decode, encode, merge, mergeRecords } from "./operations";
-import type { EncodedObject } from "./types";
+import type { EncodedObject, EncodedRecord } from "./types";
 
 test("encode converts a flat object to encoded format", () => {
 	const obj = { name: "Alice", age: 30 };
@@ -289,7 +289,7 @@ test("merge returns changed=false when obj2 only has older values", () => {
 });
 
 test("mergeRecords combines two records with different keys", () => {
-	const record1: Record<string, EncodedObject> = {
+	const record1: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice",
@@ -297,7 +297,7 @@ test("mergeRecords combines two records with different keys", () => {
 			},
 		},
 	};
-	const record2: Record<string, EncodedObject> = {
+	const record2: EncodedRecord = {
 		user2: {
 			name: {
 				__value: "Bob",
@@ -326,7 +326,7 @@ test("mergeRecords combines two records with different keys", () => {
 });
 
 test("mergeRecords merges objects with same key based on eventstamp", () => {
-	const record1: Record<string, EncodedObject> = {
+	const record1: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice",
@@ -338,7 +338,7 @@ test("mergeRecords merges objects with same key based on eventstamp", () => {
 			},
 		},
 	};
-	const record2: Record<string, EncodedObject> = {
+	const record2: EncodedRecord = {
 		user1: {
 			age: {
 				__value: 30,
@@ -373,7 +373,7 @@ test("mergeRecords merges objects with same key based on eventstamp", () => {
 });
 
 test("mergeRecords returns changed=false when records are identical", () => {
-	const record1: Record<string, EncodedObject> = {
+	const record1: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice",
@@ -381,7 +381,7 @@ test("mergeRecords returns changed=false when records are identical", () => {
 			},
 		},
 	};
-	const record2: Record<string, EncodedObject> = {
+	const record2: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice",
@@ -404,7 +404,7 @@ test("mergeRecords returns changed=false when records are identical", () => {
 });
 
 test("mergeRecords handles multiple records with mixed changes", () => {
-	const record1: Record<string, EncodedObject> = {
+	const record1: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice",
@@ -418,7 +418,7 @@ test("mergeRecords handles multiple records with mixed changes", () => {
 			},
 		},
 	};
-	const record2: Record<string, EncodedObject> = {
+	const record2: EncodedRecord = {
 		user1: {
 			name: {
 				__value: "Alice Updated",

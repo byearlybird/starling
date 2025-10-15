@@ -1,5 +1,5 @@
 import { flatten, unflatten } from "flat";
-import type { EncodedObject } from "./types";
+import type { EncodedObject, EncodedRecord } from "./types";
 
 export function encode<T extends object>(
 	obj: T,
@@ -61,10 +61,10 @@ export function merge(
 }
 
 export function mergeRecords(
-	record1: Record<string, EncodedObject>,
-	record2: Record<string, EncodedObject>,
-): [Record<string, EncodedObject>, boolean] {
-	const result: Record<string, EncodedObject> = {};
+	record1: EncodedRecord,
+	record2: EncodedRecord,
+): [EncodedRecord, boolean] {
+	const result: EncodedRecord = {};
 	let changed = false;
 
 	// Collect all keys from both records

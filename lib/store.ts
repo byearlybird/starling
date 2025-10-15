@@ -1,7 +1,7 @@
 import mitt from "mitt";
 import { monotonicFactory } from "ulid";
 import { decode, encode, merge } from "./operations";
-import type { EncodedObject } from "./types";
+import type { EncodedObject, EncodedRecord } from "./types";
 
 type DeepPartial<T> = T extends object
 	? {
@@ -13,8 +13,6 @@ type Events<TValue> = {
 	insert: { key: string; value: TValue }[];
 	update: { key: string; value: TValue }[];
 };
-
-export type Data = Record<string, EncodedObject>;
 
 export type Store<TValue extends object> = ReturnType<
 	typeof createStore<TValue>
@@ -49,8 +47,8 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			}
 			return record;
 		},
-		state(): Data {
-			const record: Data = {};
+		state(): EncodedRecord {
+			const record: EncodedRecord = {};
 			for (const [key, data] of state_.entries()) {
 				record[key] = data;
 			}
@@ -60,7 +58,7 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			const item = state_.get(key);
 			return item ?? null;
 		},
-		mergeState(data: Data) {
+		mergeState(data: EncodedRecord) {
 			const inserted: { key: string; value: TValue }[] = [];
 			const updated: { key: string; value: TValue }[] = [];
 
@@ -93,7 +91,7 @@ export function createStore<TValue extends object>(collectionKey: string) {
 			emitter_.on("update", callback);
 			return () => emitter_.off("update", callback);
 		},
-		__unsafe_replace(data: Data) {
+		__unsafe_replace(data: EncodedRecord) {
 			const replacement = new Map<string, EncodedObject>(Object.entries(data));
 			state_ = replacement;
 		},
