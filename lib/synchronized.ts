@@ -1,4 +1,5 @@
-import type { Data, Store } from "./store";
+import type { Store } from "./store";
+import type { EncodedRecord } from "./types";
 
 export function makeSynchronized<TValue extends object>(
 	store: Store<TValue>,
@@ -10,8 +11,8 @@ export function makeSynchronized<TValue extends object>(
 	}: {
 		setup?: Promise<void>;
 		interval?: number;
-		push: (data: Data) => Promise<void>;
-		pull: () => Promise<Data>;
+		push: (data: EncodedRecord) => Promise<void>;
+		pull: () => Promise<EncodedRecord>;
 	},
 ) {
 	let intervalId: Timer | null = null;
