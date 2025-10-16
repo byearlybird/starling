@@ -22,8 +22,8 @@ test("init calls pull, mergeState, and push with merged state", async () => {
 	} as unknown as Store<any>;
 
 	const { init, dispose } = makeSynchronized(mockStore, {
-		pull,
-		push,
+		receive: pull,
+		send: push,
 	});
 
 	await init;
@@ -49,8 +49,8 @@ test("push is NOT called when store state is empty", async () => {
 	} as unknown as Store<any>;
 
 	const { init, dispose } = makeSynchronized(mockStore, {
-		pull,
-		push,
+		receive: pull,
+		send: push,
 	});
 
 	await init;
@@ -72,8 +72,8 @@ test("dispose clears the interval", async () => {
 	} as unknown as Store<any>;
 
 	const { init, dispose } = makeSynchronized(mockStore, {
-		pull,
-		push,
+		receive: pull,
+		send: push,
 		interval: 100,
 	});
 
@@ -107,8 +107,8 @@ test("refresh can be called manually", async () => {
 	} as unknown as Store<any>;
 
 	const { refresh, dispose } = makeSynchronized(mockStore, {
-		pull,
-		push,
+		receive: pull,
+		send: push,
 	});
 
 	// Call refresh manually

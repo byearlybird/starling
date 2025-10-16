@@ -8,24 +8,24 @@ export type MakeSynchronizedOptions = {
 		event: "pull" | "push",
 		data: EncodedRecord,
 	) => Promise<EncodedRecord>;
-	push: (data: EncodedRecord) => Promise<void>;
-	pull: () => Promise<EncodedRecord>;
+	send: (data: EncodedRecord) => Promise<void>;
+	receive: () => Promise<EncodedRecord>;
 };
 
 export function makeSynchronized<TValue extends object>(
 	store: Store<TValue>,
 	{
-		push,
-		pull,
+		send,
+		receive,
 		preprocess,
-		setup = Promise.resolve(),
+		setup,
 		interval = 1000 * 60 * 5, // 5 minutes
 	}: MakeSynchronizedOptions,
 ) {
 	let intervalId: Timer | null = null;
 
 	const refresh = async () => {
-		const data = await pull();
+		const data = await receive();
 		const pulledAndProcessed = preprocess
 			? await preprocess("pull", data)
 			: data;
@@ -35,7 +35,7 @@ export function makeSynchronized<TValue extends object>(
 		const latestProcessed = preprocess
 			? await preprocess("push", latest)
 			: latest;
-		await push(latestProcessed);
+		await send(latestProcessed);
 	};
 
 	const init = (async () => {

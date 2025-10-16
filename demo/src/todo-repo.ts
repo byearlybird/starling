@@ -19,7 +19,7 @@ export const createTodoRepo = () =>
 						return data;
 				}
 			},
-			push: async (data) => {
+			send: async (data) => {
 				await fetch("/api/todos", {
 					method: "PUT",
 					headers: {
@@ -28,7 +28,7 @@ export const createTodoRepo = () =>
 					body: JSON.stringify({ todos: data }),
 				});
 			},
-			pull: async () => {
+			receive: async () => {
 				const response = await fetch("/api/todos");
 				if (!response.ok) return {};
 
