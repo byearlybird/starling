@@ -1,13 +1,14 @@
 import { expect, mock, test } from "bun:test";
-import type { Data, Store } from "./store";
+import type { Store } from "./store";
 import { makeSynchronized } from "./synchronized";
+import type { EncodedRecord } from "./types";
 
 test("init calls pull, mergeState, and push with merged state", async () => {
-	const mockData: Data = {
+	const mockData: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 	};
 
-	const mockState: Data = {
+	const mockState: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 		key2: { baz: "qux" } as any,
 	};
@@ -36,8 +37,8 @@ test("init calls pull, mergeState, and push with merged state", async () => {
 });
 
 test("push is NOT called when store state is empty", async () => {
-	const mockData: Data = {};
-	const emptyState: Data = {};
+	const mockData: EncodedRecord = {};
+	const emptyState: EncodedRecord = {};
 
 	const pull = mock(() => Promise.resolve(mockData));
 	const push = mock(() => Promise.resolve());
@@ -89,11 +90,11 @@ test("dispose clears the interval", async () => {
 });
 
 test("refresh can be called manually", async () => {
-	const mockData: Data = {
+	const mockData: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 	};
 
-	const mockState: Data = {
+	const mockState: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 	};
 
