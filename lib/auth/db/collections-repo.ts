@@ -3,6 +3,14 @@ import type { Database, NewCollection } from "./index.ts";
 
 export function createCollectionsRepo(db: Kysely<Database>) {
 	return {
+		get: (mailboxId: string, domain: string, collection: string) =>
+			db
+				.selectFrom("__collections")
+				.where("mailbox_id", "=", mailboxId)
+				.where("domain", "=", domain)
+				.where("collection", "=", collection)
+				.selectAll()
+				.executeTakeFirst(),
 		insert: (collection: NewCollection) =>
 			db
 				.insertInto("__collections")
