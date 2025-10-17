@@ -11,7 +11,7 @@ function getRandomNumber() {
 	return number.toString().padStart(4, "0");
 }
 
-export function generateMailboxId() {
+export function createMailboxId() {
 	const word1 = getRandomWord();
 	const word2 = getRandomWord();
 	const number = getRandomNumber();

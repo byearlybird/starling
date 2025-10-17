@@ -1,21 +1,21 @@
 import { expect, test } from "bun:test";
-import { generateMailboxId, isValidMailboxId } from "./mailbox-id";
+import { createMailboxId, isValidMailboxId } from "./mailbox-id";
 
 test("should generate a valid mailbox ID", async () => {
-	const id = generateMailboxId();
+	const id = createMailboxId();
 	expect(id).toMatch(/^[a-z]+-[a-z]+-\d{4}$/);
 });
 
 test("should generate unique mailbox IDs", async () => {
 	const ids = new Set<string>();
 	for (let i = 0; i < 1000; i++) {
-		ids.add(generateMailboxId());
+		ids.add(createMailboxId());
 	}
 	expect(ids.size).toBe(1000);
 });
 
 test("should validate correct mailbox IDs", async () => {
-	expect(generateMailboxId()).toSatisfy(isValidMailboxId);
+	expect(createMailboxId()).toSatisfy(isValidMailboxId);
 	expect("apple-banana-1234").toSatisfy(isValidMailboxId);
 	expect("zoo-quick-0000").toSatisfy(isValidMailboxId);
 });

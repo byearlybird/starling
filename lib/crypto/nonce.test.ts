@@ -1,24 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { generateNonce, signChallenge, verifySignature } from "./nonce";
+import { createNonce, signChallenge, verifySignature } from "./nonce";
 
 describe("nonce utilities", () => {
-	describe("generateNonce", () => {
+	describe("createNonce", () => {
 		test("should generate a valid nonce", () => {
-			const nonce = generateNonce();
+			const nonce = createNonce();
 
 			expect(nonce).toBeDefined();
 			expect(typeof nonce).toBe("string");
 		});
 
 		test("should generate base64 encoded string", () => {
-			const nonce = generateNonce();
+			const nonce = createNonce();
 
 			// Should be valid base64
 			expect(() => atob(nonce)).not.toThrow();
 		});
 
 		test("should generate 32 bytes of data", () => {
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const decoded = atob(nonce);
 
 			// 32 bytes should be the decoded length
@@ -26,9 +26,9 @@ describe("nonce utilities", () => {
 		});
 
 		test("should generate different nonces on each call", () => {
-			const nonce1 = generateNonce();
-			const nonce2 = generateNonce();
-			const nonce3 = generateNonce();
+			const nonce1 = createNonce();
+			const nonce2 = createNonce();
+			const nonce3 = createNonce();
 
 			expect(nonce1).not.toBe(nonce2);
 			expect(nonce2).not.toBe(nonce3);
@@ -36,7 +36,7 @@ describe("nonce utilities", () => {
 		});
 
 		test("should generate non-empty string", () => {
-			const nonce = generateNonce();
+			const nonce = createNonce();
 
 			expect(nonce.length).toBeGreaterThan(0);
 		});
@@ -51,7 +51,7 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 
 			expect(signature).toBeDefined();
@@ -65,7 +65,7 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 
 			// Should be valid base64
@@ -79,7 +79,7 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 			const signatureBytes = Buffer.from(signature, "base64");
 
@@ -94,8 +94,8 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce1 = generateNonce();
-			const nonce2 = generateNonce();
+			const nonce1 = createNonce();
+			const nonce2 = createNonce();
 			const signature1 = await signChallenge(nonce1, keyPair.privateKey);
 			const signature2 = await signChallenge(nonce2, keyPair.privateKey);
 
@@ -180,7 +180,7 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 
 			const isValid = await verifySignature(nonce, signature, publicKeyBase64);
@@ -201,8 +201,8 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce1 = generateNonce();
-			const nonce2 = generateNonce();
+			const nonce1 = createNonce();
+			const nonce2 = createNonce();
 			const signature = await signChallenge(nonce1, keyPair.privateKey);
 
 			const isValid = await verifySignature(nonce2, signature, publicKeyBase64);
@@ -228,7 +228,7 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair1.privateKey);
 
 			const isValid = await verifySignature(nonce, signature, publicKeyBase64);
@@ -249,7 +249,7 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 
 			// Tamper with the signature
@@ -277,7 +277,7 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const invalidSignature = "not-valid-base64!!!";
 
 			const isValid = await verifySignature(
@@ -296,7 +296,7 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 			const invalidPublicKey = "not-valid-base64!!!";
 
@@ -312,13 +312,12 @@ describe("nonce utilities", () => {
 				["sign", "verify"],
 			);
 
-			const nonce = generateNonce();
+			const nonce = createNonce();
 			const signature = await signChallenge(nonce, keyPair.privateKey);
 
 			// Valid base64 but not a valid SPKI public key
-			const malformedPublicKey = Buffer.from("invalid key data").toString(
-				"base64",
-			);
+			const malformedPublicKey =
+				Buffer.from("invalid key data").toString("base64");
 
 			const isValid = await verifySignature(
 				nonce,
@@ -389,7 +388,7 @@ describe("nonce utilities", () => {
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
 			// Generate nonce
-			const nonce = generateNonce();
+			const nonce = createNonce();
 
 			// Sign
 			const signature = await signChallenge(nonce, keyPair.privateKey);
@@ -414,9 +413,9 @@ describe("nonce utilities", () => {
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
 			// Sign multiple different nonces
-			const nonce1 = generateNonce();
-			const nonce2 = generateNonce();
-			const nonce3 = generateNonce();
+			const nonce1 = createNonce();
+			const nonce2 = createNonce();
+			const nonce3 = createNonce();
 
 			const signature1 = await signChallenge(nonce1, keyPair.privateKey);
 			const signature2 = await signChallenge(nonce2, keyPair.privateKey);
@@ -457,13 +456,17 @@ describe("nonce utilities", () => {
 			);
 			const publicKeyBase64 = Buffer.from(publicKeyBytes).toString("base64");
 
-			const nonce1 = generateNonce();
-			const nonce2 = generateNonce();
+			const nonce1 = createNonce();
+			const nonce2 = createNonce();
 
 			const signature1 = await signChallenge(nonce1, keyPair.privateKey);
 
 			// Try to verify signature1 with nonce2 (should fail)
-			const isValid = await verifySignature(nonce2, signature1, publicKeyBase64);
+			const isValid = await verifySignature(
+				nonce2,
+				signature1,
+				publicKeyBase64,
+			);
 
 			expect(isValid).toBe(false);
 		});

@@ -1,5 +1,5 @@
 import type { Kysely } from "kysely";
-import { generateNonce } from "../../crypto/nonce";
+import { createNonce } from "../../crypto/nonce";
 import type { Database } from "../db";
 import { createChallengeRepo } from "../db/challenges-repo";
 
@@ -11,7 +11,7 @@ export function createChallengeService(db: Kysely<Database>) {
 			repo.insert({
 				id: crypto.randomUUID(),
 				mailbox_id: mailboxId,
-				nonce: generateNonce(),
+				nonce: createNonce(),
 			}),
 	};
 }

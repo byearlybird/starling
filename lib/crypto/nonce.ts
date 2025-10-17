@@ -1,4 +1,4 @@
-export function generateNonce() {
+export function createNonce() {
 	const bytes = 32;
 	const array = new Uint8Array(bytes);
 	crypto.getRandomValues(array);
