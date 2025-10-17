@@ -11,7 +11,7 @@ export function createChallengeService(db: Kysely<Database>) {
 			repo.insert({
 				id: crypto.randomUUID(),
 				mailbox_id: mailboxId,
-				challenge: generateNonce(),
+				nonce: generateNonce(),
 			}),
 	};
 }

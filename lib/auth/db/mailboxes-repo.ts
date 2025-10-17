@@ -1,8 +1,15 @@
+import { get } from "idb-keyval";
 import type { Kysely } from "kysely";
 import type { Database, NewMailbox } from "./index.ts";
 
 export function createMailboxRepo(db: Kysely<Database>) {
 	return {
+		get: async (mailboxId: string) =>
+			db
+				.selectFrom("__mailboxes")
+				.where("id", "=", mailboxId)
+				.selectAll()
+				.executeTakeFirst(),
 		insert: (mailbox: NewMailbox) =>
 			db
 				.insertInto("__mailboxes")

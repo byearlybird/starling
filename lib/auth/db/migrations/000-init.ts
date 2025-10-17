@@ -19,7 +19,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 		.ifNotExists()
 		.addColumn("id", "text", (col) => col.primaryKey())
 		.addColumn("mailbox_id", "text", (col) => col.notNull())
-		.addColumn("challenge", "text", (col) => col.notNull())
+		.addColumn("nonce", "text", (col) => col.notNull())
 		.addColumn("created_at", "integer", (col) =>
 			col.notNull().defaultTo(sql`strftime('%s', 'now')`),
 		)

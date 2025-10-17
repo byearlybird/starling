@@ -65,7 +65,7 @@ export interface MailboxesTable {
 export interface ChallengesTable {
 	id: string;
 	mailbox_id: string;
-	challenge: string;
+	nonce: string;
 	created_at: Generated<number>;
 }
 
