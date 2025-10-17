@@ -12,22 +12,7 @@ import {
 } from "kysely";
 import { BunSqliteDialect } from "kysely-bun-sqlite";
 
-interface PetTable {
-	id: Generated<number>;
-	name: string;
-}
-
-export interface KyselyDatabase {
-	pet: PetTable;
-}
-
-export async function migrateToLatest() {
-	const db = new Kysely<KyselyDatabase>({
-		dialect: new BunSqliteDialect({
-			database: new SQLite("db.sqlite"),
-		}),
-	});
-
+export async function migrateToLatest(db: Kysely<Database>) {
 	const migrator = new Migrator({
 		db,
 		provider: new FileMigrationProvider({
@@ -97,10 +82,10 @@ export type Collection = Selectable<CollectionsTable>;
 export type NewCollection = Insertable<CollectionsTable>;
 export type CollectionUpdate = Updateable<CollectionsTable>;
 
-const db = new Kysely<KyselyDatabase>({
-	dialect: new BunSqliteDialect({
-		database: new SQLite("db.sqlite"),
-	}),
-});
-
-export type DB = typeof db;
+export function createDatabase(databasePath: string = "db.sqlite") {
+	return new Kysely<Database>({
+		dialect: new BunSqliteDialect({
+			database: new SQLite(databasePath),
+		}),
+	});
+}

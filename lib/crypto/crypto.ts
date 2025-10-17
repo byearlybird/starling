@@ -43,3 +43,27 @@ export async function decrypt(
 
 	return new TextDecoder().decode(decryptedData);
 }
+
+export async function isValidPublicKey(
+	publicKeyBase64: string,
+): Promise<boolean> {
+	try {
+		// Decode base64
+		const publicKeyBytes = Buffer.from(publicKeyBase64, "base64");
+
+		// Try to import the key
+		await crypto.subtle.importKey(
+			"spki",
+			publicKeyBytes,
+			{ name: "Ed25519" },
+			false,
+			["verify"],
+		);
+
+		// If we got here, the key is valid
+		return true;
+	} catch (error) {
+		// Import failed, key is invalid
+		return false;
+	}
+}

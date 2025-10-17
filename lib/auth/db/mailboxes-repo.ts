@@ -1,4 +1,3 @@
-import { get } from "idb-keyval";
 import type { Kysely } from "kysely";
 import type { Database, NewMailbox } from "./index.ts";
 
