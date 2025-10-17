@@ -1,20 +1,19 @@
 import { jwtVerify, SignJWT } from "jose";
-import type { Kysely } from "kysely";
+import type { Storage } from "unstorage";
 import { isValidPublicKey } from "../../crypto/crypto";
 import { isValidMailboxId } from "../../crypto/mailbox-id";
 import { createNonce, verifySignature } from "../../crypto/nonce";
-import type { Database } from "../db";
-import { createChallengeRepo } from "../db/challenges-repo";
-import { createMailboxRepo } from "../db/mailboxes-repo";
+import { createChallengeRepo } from "../repos/challenges-repo";
+import { createMailboxRepo } from "../repos/mailboxes-repo";
 
 export interface AuthConfig {
 	jwtSecret: string;
 	tokenExpirationTime?: string;
 }
 
-export function createAuthService(db: Kysely<Database>, config: AuthConfig) {
-	const challengeRepo = createChallengeRepo(db);
-	const mailboxRepo = createMailboxRepo(db);
+export function createAuthService(storage: Storage, config: AuthConfig) {
+	const challengeRepo = createChallengeRepo(storage);
+	const mailboxRepo = createMailboxRepo(storage);
 	const JWT_SECRET = new TextEncoder().encode(config.jwtSecret);
 	const expirationTime = config.tokenExpirationTime ?? "15m";
 
@@ -35,33 +34,38 @@ export function createAuthService(db: Kysely<Database>, config: AuthConfig) {
 		}
 	};
 
-	const createChallenge = (mailboxId: string) =>
-		challengeRepo.insert({
-			id: crypto.randomUUID(),
-			mailbox_id: mailboxId,
+	const createChallenge = (mailboxId: string) => {
+		const id = crypto.randomUUID();
+		challengeRepo.set(id, {
+			mailboxId,
 			nonce: createNonce(),
+			createdAt: Date.now(),
+			completedAt: null,
 		});
+		return id;
+	};
 
 	const validateChallenge = async (
 		challengeId: string,
 		signature: string,
 	): Promise<boolean> => {
-		const challenge = await challengeRepo.getWithPublicKey(challengeId);
-		return challenge
-			? verifySignature(challenge.nonce, signature, challenge.public_key)
-			: false;
+		const challenge = await challengeRepo.get(challengeId);
+		if (!challenge) return false;
+		const mailbox = await mailboxRepo.get(challenge.mailboxId);
+		if (!mailbox) return false;
+		return verifySignature(challenge.nonce, signature, mailbox.publicKey);
 	};
 
 	const createMailbox = async (mailboxId: string, publicKey: string) => {
-		const [isValidKey, existing] = await Promise.all([
+		const [isValidKey, isValueMailbox, existing] = await Promise.all([
 			isValidPublicKey(publicKey),
 			isValidMailboxId(mailboxId),
 			mailboxRepo.get(mailboxId),
 		]);
-		if (existing || !isValidKey || !isValidMailboxId) return null;
-		return mailboxRepo.insert({
-			id: mailboxId,
-			public_key: publicKey,
+		if (existing || !isValidKey || !isValueMailbox) return null;
+
+		return mailboxRepo.set(mailboxId, {
+			publicKey,
 		});
 	};
 

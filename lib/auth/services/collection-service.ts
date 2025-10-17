@@ -1,8 +1,8 @@
 import type { Kysely } from "kysely";
 import { mergeRecords } from "../../operations";
 import type { EncodedRecord } from "../../types";
-import type { Database } from "../db";
-import { createCollectionsRepo } from "../db/collections-repo";
+import type { Database } from "../repos";
+import { createCollectionsRepo } from "../repos/collections-repo";
 
 export function createCollectionService(db: Kysely<Database>) {
 	const repo = createCollectionsRepo(db);

@@ -9,7 +9,7 @@ export type EncodedObject = {
 
 export type EncodedRecord = Record<string, EncodedObject>;
 
-export type Driver = {
-	get: (key: string) => Promise<EncodedRecord | null>;
-	set: (key: string, values: EncodedRecord) => Promise<void>;
+export type Driver<T = unknown> = {
+	get: <TReturn = T>(key: string) => Promise<TReturn | null>;
+	set: <TSet = T>(key: string, values: TSet) => Promise<void>;
 };
