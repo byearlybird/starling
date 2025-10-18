@@ -2,7 +2,6 @@ import type { Store } from "./store";
 import type { EncodedRecord } from "./types";
 
 export type MakeSynchronizedOptions = {
-	setup?: Promise<void>;
 	interval?: number;
 	preprocess?: (
 		event: "pull" | "push",
@@ -18,13 +17,12 @@ export function makeSynchronized<TValue extends object>(
 		send,
 		receive,
 		preprocess,
-		setup,
 		interval = 1000 * 60 * 5, // 5 minutes
 	}: MakeSynchronizedOptions,
 ) {
-	let intervalId: Timer | null = null;
+	let intervalId: Timer | null = setInterval(refresh, interval);
 
-	const refresh = async () => {
+	async function refresh() {
 		const data = await receive();
 		const pulledAndProcessed = preprocess
 			? await preprocess("pull", data)
@@ -36,24 +34,16 @@ export function makeSynchronized<TValue extends object>(
 			? await preprocess("push", latest)
 			: latest;
 		await send(latestProcessed);
-	};
+	}
 
-	const init = (async () => {
-		await setup;
-		await refresh();
-		// Start the interval after initial refresh
-		intervalId = setInterval(refresh, interval);
-	})();
-
-	const dispose = () => {
+	function dispose() {
 		if (intervalId !== null) {
 			clearInterval(intervalId);
 			intervalId = null;
 		}
-	};
+	}
 
 	return {
-		init,
 		refresh,
 		dispose,
 	};

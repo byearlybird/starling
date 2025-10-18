@@ -3,15 +3,14 @@ import { type Store } from "../../lib/store";
 import "./index.css";
 import { createTodoRepo } from "./todo-repo";
 
-const { store: todoStore, initPromise, dispose } = createTodoRepo();
-
-await initPromise;
+const { store: todoStore, dispose, refresh } = createTodoRepo();
 
 export function App() {
 	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
 
 	useEffect(() => {
+		refresh();
 		return () => {
 			dispose();
 		};

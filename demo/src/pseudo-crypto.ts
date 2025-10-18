@@ -30,9 +30,10 @@ function pseudoEncryptObject(obj: EncodedObject): EncodedObject {
 function pseudoDecryptObject(obj: EncodedObject): EncodedObject {
 	const decryptedObject: EncodedObject = {};
 	for (const [key, encodedValue] of Object.entries(obj)) {
+		const decrypted = pseudoDecrypt(encodedValue.__value as string);
 		decryptedObject[key] = {
 			...encodedValue,
-			__value: JSON.parse(pseudoDecrypt(encodedValue.__value as string)),
+			__value: JSON.parse(decrypted),
 		};
 	}
 	return decryptedObject;
@@ -43,5 +44,7 @@ function pseudoEncrypt(data: string): string {
 }
 
 function pseudoDecrypt(data: string): string {
-	return atob(data);
+	console.log("pseudo", data, atob(data));
+	const result = atob(data);
+	return result ?? null;
 }

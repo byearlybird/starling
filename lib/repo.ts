@@ -8,18 +8,7 @@ export function createRepo<T extends object>(
 	sync: Omit<MakeSynchronizedOptions, "setup">,
 ) {
 	const store = createStore<T>(storage, collectionKey);
-	const { init: initSynchronized, dispose: disposeSynchronized } =
-		makeSynchronized(store, {
-			...sync,
-		});
+	const { dispose, refresh } = makeSynchronized(store, sync);
 
-	const initPromise = (async (): Promise<void> => {
-		await Promise.all([initSynchronized]);
-	})();
-
-	const dispose = () => {
-		disposeSynchronized();
-	};
-
-	return { store, initPromise, dispose };
+	return { store, dispose, refresh };
 }
