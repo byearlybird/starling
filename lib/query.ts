@@ -2,11 +2,11 @@ import mitt from "mitt";
 import type { Store } from "./store";
 
 type Events<T> = {
-	init: Map<string, T>;
-	updated: Map<string, T>;
+	init: Record<string, T>;
+	updated: Record<string, T>;
 };
 
-export function query<T extends object>(
+export function createQuery<T extends object>(
 	store: Store<T>,
 	predicate: (data: T) => boolean,
 ) {
@@ -24,7 +24,7 @@ export function query<T extends object>(
 		}
 
 		init = true;
-		emitter_.emit("init", results);
+		emitter_.emit("init", Object.fromEntries(results));
 	};
 
 	const disposeInsert = store.onInsert((items) => {
@@ -38,7 +38,7 @@ export function query<T extends object>(
 			}
 		}
 
-		if (changed) emitter_.emit("updated", results);
+		if (changed) emitter_.emit("updated", Object.fromEntries(results));
 	});
 
 	const disposeUpdate = store.onUpdate((items) => {
@@ -46,18 +46,16 @@ export function query<T extends object>(
 
 		let changed = false;
 		for (const item of items) {
-			if (!results.has(item.key)) continue;
-
 			if (predicate(item.value)) {
 				results.set(item.key, item.value);
-			} else {
+				changed = true;
+			} else if (results.has(item.key)) {
 				results.delete(item.key);
+				changed = true;
 			}
-
-			changed = true;
 		}
 
-		if (changed) emitter_.emit("updated", results);
+		if (changed) emitter_.emit("updated", Object.fromEntries(results));
 	});
 
 	const dispose = () => {
@@ -68,11 +66,11 @@ export function query<T extends object>(
 	return {
 		initialize,
 		dispose,
-		onInit(callback: (results: Map<string, T>) => void) {
+		onInit(callback: (results: Record<string, T>) => void) {
 			emitter_.on("init", callback);
 			return () => emitter_.off("init", callback);
 		},
-		onUpdate(callback: (results: Map<string, T>) => void) {
+		onUpdate(callback: (results: Record<string, T>) => void) {
 			emitter_.on("updated", callback);
 			return () => emitter_.off("updated", callback);
 		},

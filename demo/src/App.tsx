@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createQuery } from "../../lib/query";
 import { type Store } from "../../lib/store";
 import "./index.css";
 import { todoStore, todoSync } from "./todo-repo";
 
 export function App() {
-	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
+	const todos = useData(todoStore);
+	const { data: incomplete } = useQuery(todoStore, (todo) => !todo.completed);
 
 	useEffect(() => {
 		todoSync.refresh();
@@ -40,6 +42,23 @@ export function App() {
 				</button>
 			</div>
 			<section className="divide-y divide-white/10">
+				<h3>Incomplete</h3>
+				{Object.entries(incomplete).map(([id, todo]) => (
+					<label key={id} className="flex items-center gap-2 p-2">
+						<input
+							type="checkbox"
+							checked={todo.completed}
+							className="w-4 h-4"
+							onChange={(e) =>
+								todoStore.update(id, { completed: e.currentTarget.checked })
+							}
+						/>
+						<span className="flex-1">{todo.text}</span>
+					</label>
+				))}
+			</section>
+			<section className="divide-y divide-white/10">
+				<h3>All</h3>
 				{Object.entries(todos).map(([id, todo]) => (
 					<label key={id} className="flex items-center gap-2 p-2">
 						<input
@@ -67,18 +86,56 @@ function useData<TValue extends object>(store: Store<TValue>) {
 			setState(values);
 		};
 
+		const disposeInsert = store.onInsert(async () => {
+			setState(await store.values());
+		});
+
+		const disposeUpdate = store.onUpdate(async () => {
+			setState(await store.values());
+		});
+
 		load();
+
+		return () => {
+			disposeInsert();
+			disposeUpdate();
+		};
 	}, []);
 
-	store.onInsert(async () => {
-		setState(await store.values());
-	});
-
-	store.onUpdate(async () => {
-		setState(await store.values());
-	});
-
 	return state;
+}
+
+function useQuery<TValue extends object>(
+	store: Store<TValue>,
+	predicate: (data: TValue) => boolean,
+) {
+	const [isLoading, setIsLoading] = useState(true);
+	const [data, setData] = useState<Record<string, TValue>>({});
+
+	const queryRef = useRef(createQuery(store, predicate));
+
+	useEffect(() => {
+		const query = queryRef.current;
+
+		const disposeInit = query.onInit((results) => {
+			setData(results);
+			setIsLoading(false);
+		});
+
+		const disposeUpdate = query.onUpdate((results) => {
+			setData(results);
+		});
+
+		query.initialize();
+
+		return () => {
+			disposeInit();
+			disposeUpdate();
+			query.dispose();
+		};
+	}, []);
+
+	return { data, isLoading };
 }
 
 export default App;
