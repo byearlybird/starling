@@ -1,35 +1,23 @@
 import type { Storage } from "unstorage";
-import { makePersisted } from "./persisted";
 import { createStore } from "./store";
 import { type MakeSynchronizedOptions, makeSynchronized } from "./synchronized";
 
 export function createRepo<T extends object>(
+	storage: Storage,
 	collectionKey: string,
-	{
-		storage,
-		sync,
-	}: {
-		storage: Storage;
-		sync: Omit<MakeSynchronizedOptions, "setup">;
-	},
+	sync: Omit<MakeSynchronizedOptions, "setup">,
 ) {
-	const store = createStore<T>(collectionKey);
-	const { init: initPersisted, dispose: disposePersisted } = makePersisted(
-		store,
-		{ storage },
-	);
+	const store = createStore<T>(storage, collectionKey);
 	const { init: initSynchronized, dispose: disposeSynchronized } =
 		makeSynchronized(store, {
 			...sync,
-			setup: initPersisted,
 		});
 
 	const initPromise = (async (): Promise<void> => {
-		await Promise.all([initPersisted, initSynchronized]);
+		await Promise.all([initSynchronized]);
 	})();
 
 	const dispose = () => {
-		disposePersisted();
 		disposeSynchronized();
 	};
 

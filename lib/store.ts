@@ -1,5 +1,6 @@
 import mitt from "mitt";
 import { monotonicFactory } from "ulid";
+import type { Storage } from "unstorage";
 import { decode, encode, merge } from "./operations";
 import type { EncodedObject, EncodedRecord } from "./types";
 
@@ -19,65 +20,81 @@ export type Store<TValue extends object> = ReturnType<
 >;
 
 export function createStore<TValue extends object>(
+	storage: Storage,
 	collectionKey: string,
 	eventStampFn = monotonicFactory(),
 ) {
-	let state_ = new Map<string, EncodedObject>();
 	const emitter_ = mitt<Events<TValue>>();
 	const eventstamp_ = eventStampFn;
 
 	return {
 		collectionKey,
-		insert(key: string, value: TValue) {
-			if (state_.has(key)) throw new Error(`Duplicate key: ${key}`);
+		async insert(key: string, value: TValue) {
+			if (await storage.has(key)) throw new Error(`Duplicate key: ${key}`);
 			const encoded = encode(value, eventstamp_());
-			state_.set(key, encoded);
+			await storage.set(key, encoded);
 			emitter_.emit("insert", [{ key, value }]);
 		},
-		update(key: string, value: DeepPartial<TValue>) {
-			const current = state_.get(key);
+		async update(key: string, value: DeepPartial<TValue>) {
+			const current = await storage.get<EncodedObject>(key);
 			if (!current) throw new Error(`Key not found: ${key}`);
 			const encoded = encode(value, eventstamp_());
 			const [merged] = merge(current, encoded);
+
 			const decoded = decode<TValue>(merged);
-			state_.set(key, merged);
+			await storage.set(key, merged);
 			emitter_.emit("update", [{ key, value: decoded }]);
 		},
-		values(): Record<string, TValue> {
+		async values(): Promise<Record<string, TValue>> {
+			const keys = await storage.getKeys();
+			const items = await storage.getItems<EncodedObject>(keys);
 			const record: Record<string, TValue> = {};
-			for (const [key, data] of state_.entries()) {
-				record[key] = decode(data);
+			for (const item of items) {
+				record[item.key] = decode(item.value);
 			}
 			return record;
 		},
-		state(): EncodedRecord {
+		async state(): Promise<EncodedRecord> {
+			const keys = await storage.getKeys();
+			const items = await storage.getItems<EncodedObject>(keys);
 			const record: EncodedRecord = {};
-			for (const [key, data] of state_.entries()) {
-				record[key] = data;
+			for (const item of items) {
+				record[item.key] = item.value;
 			}
 			return record;
 		},
-		getState(key: string): EncodedObject | null {
-			const item = state_.get(key);
+		async getState(key: string): Promise<EncodedObject | null> {
+			const item = await storage.get<EncodedObject>(key);
 			return item ?? null;
 		},
-		mergeState(data: EncodedRecord) {
+		async mergeState(data: EncodedRecord) {
 			const inserted: { key: string; value: TValue }[] = [];
 			const updated: { key: string; value: TValue }[] = [];
+			const writes: Promise<void>[] = [];
+
+			// Batch fetch all local values at once
+			const keys = Object.keys(data);
+			const localItems = await storage.getItems<EncodedObject>(keys);
+			const localMap = new Map(
+				localItems.map((item) => [item.key, item.value]),
+			);
 
 			for (const [key, remoteValue] of Object.entries(data)) {
-				const localValue = state_.get(key);
+				const localValue = localMap.get(key);
 				if (localValue) {
 					const [merged, changed] = merge(localValue, remoteValue);
 					if (changed) {
-						state_.set(key, merged);
+						writes.push(storage.set(key, merged));
 						updated.push({ key, value: decode<TValue>(merged) });
 					}
 				} else {
-					state_.set(key, remoteValue);
+					writes.push(storage.set(key, remoteValue));
 					inserted.push({ key, value: decode<TValue>(remoteValue) });
 				}
 			}
+
+			// Wait for all writes to complete
+			await Promise.all(writes);
 
 			if (inserted.length > 0) {
 				emitter_.emit("insert", inserted);
@@ -93,10 +110,6 @@ export function createStore<TValue extends object>(
 		onUpdate(callback: (data: { key: string; value: TValue }[]) => void) {
 			emitter_.on("update", callback);
 			return () => emitter_.off("update", callback);
-		},
-		__unsafe_replace(data: EncodedRecord) {
-			const replacement = new Map<string, EncodedObject>(Object.entries(data));
-			state_ = replacement;
 		},
 	};
 }

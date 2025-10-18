@@ -10,7 +10,7 @@ await initPromise;
 export function App() {
 	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
-	console.log("Render", todos);
+
 	useEffect(() => {
 		return () => {
 			dispose();
@@ -62,14 +62,23 @@ export function App() {
 }
 
 function useData<TValue extends object>(store: Store<TValue>) {
-	const [state, setState] = useState<Record<string, TValue>>(store.values());
+	const [state, setState] = useState<Record<string, TValue>>({});
 
-	store.onInsert(() => {
-		setState(store.values());
+	useEffect(() => {
+		const load = async () => {
+			const values = await store.values();
+			setState(values);
+		};
+
+		load();
+	}, []);
+
+	store.onInsert(async () => {
+		setState(await store.values());
 	});
 
-	store.onUpdate(() => {
-		setState(store.values());
+	store.onUpdate(async () => {
+		setState(await store.values());
 	});
 
 	return state;

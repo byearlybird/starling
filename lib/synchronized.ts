@@ -29,8 +29,8 @@ export function makeSynchronized<TValue extends object>(
 		const pulledAndProcessed = preprocess
 			? await preprocess("pull", data)
 			: data;
-		store.mergeState(pulledAndProcessed);
-		const latest = store.state();
+		await store.mergeState(pulledAndProcessed);
+		const latest = await store.state();
 		if (Object.keys(latest).length === 0) return;
 		const latestProcessed = preprocess
 			? await preprocess("push", latest)
