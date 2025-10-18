@@ -4,7 +4,7 @@ import type { Store } from "./store";
 
 type Events<T> = {
 	init: Record<string, T>;
-	updated: Record<string, T>;
+	update: Record<string, T>;
 };
 
 type Emitter<T> = BaseEmitter<Events<T>>;
@@ -95,7 +95,7 @@ function createHandleInsert<T extends object>(
 			}
 		}
 
-		if (changed) emitter.emit("updated", Object.fromEntries(results));
+		if (changed) emitter.emit("update", Object.fromEntries(results));
 	};
 }
 
@@ -119,6 +119,6 @@ function createHandleUpdate<T extends object>(
 			}
 		}
 
-		if (changed) emitter.emit("updated", Object.fromEntries(results));
+		if (changed) emitter.emit("update", Object.fromEntries(results));
 	};
 }
