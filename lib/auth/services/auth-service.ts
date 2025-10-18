@@ -62,6 +62,7 @@ export function createAuthService(storage: Storage, config: AuthConfig) {
 			isValidMailboxId(mailboxId),
 			mailboxRepo.get(mailboxId),
 		]);
+
 		if (existing || !isValidKey || !isValueMailbox) return null;
 
 		return mailboxRepo.set(mailboxId, {

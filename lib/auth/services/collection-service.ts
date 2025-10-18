@@ -1,11 +1,10 @@
-import type { Kysely } from "kysely";
+import type { Storage } from "unstorage";
 import { mergeRecords } from "../../operations";
 import type { EncodedRecord } from "../../types";
-import type { Database } from "../repos";
 import { createCollectionsRepo } from "../repos/collections-repo";
 
-export function createCollectionService(db: Kysely<Database>) {
-	const repo = createCollectionsRepo(db);
+export function createCollectionService(storage: Storage) {
+	const repo = createCollectionsRepo(storage);
 
 	const setCollection = async (
 		mailboxId: string,
@@ -15,21 +14,19 @@ export function createCollectionService(db: Kysely<Database>) {
 	) => {
 		const existing = await repo.get(mailboxId, domain, collection);
 		if (existing) {
-			const existingRecord = JSON.parse(existing.content);
-			const mergedContent = mergeRecords(existingRecord, content);
-			await repo.update(
+			const [mergedContent, changed] = mergeRecords(existing.content, content);
+			if (changed) {
+				await repo.set(mailboxId, domain, collection, {
+					...existing,
+					content: mergedContent,
+				});
+			}
+		} else {
+			await repo.set(mailboxId, domain, collection, {
 				mailboxId,
 				domain,
 				collection,
-				JSON.stringify(mergedContent),
-			);
-		} else {
-			await repo.insert({
-				id: crypto.randomUUID(),
-				mailbox_id: mailboxId,
-				domain,
-				collection,
-				content: JSON.stringify(content),
+				content: content,
 			});
 		}
 	};
@@ -40,12 +37,7 @@ export function createCollectionService(db: Kysely<Database>) {
 		collection: string,
 	): Promise<EncodedRecord> => {
 		const existing = await repo.get(mailboxId, domain, collection);
-		if (existing) {
-			const data = JSON.parse(existing.content);
-			return data;
-		} else {
-			return {};
-		}
+		return existing ? existing.content : {};
 	};
 
 	return {

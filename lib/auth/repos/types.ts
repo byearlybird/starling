@@ -1,3 +1,5 @@
+import type { EncodedRecord } from "../../types";
+
 export type Mailbox = {
 	publicKey: string;
 };
@@ -13,7 +15,7 @@ export type ServerCollection = {
 	mailboxId: string;
 	domain: string;
 	collection: string;
-	content: string;
+	content: EncodedRecord;
 };
 
 export type MailboxKey = `mailbox:${string}`;
