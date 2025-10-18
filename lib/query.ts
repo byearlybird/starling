@@ -29,17 +29,24 @@ export function createQuery<T extends object>(
 	let initialized = false;
 	const results = new Map<string, T>();
 	const emitter = mitt<Events<T>>();
+	const eventBuffer: Array<{
+		type: "insert" | "update";
+		items: { key: string; value: T }[];
+	}> = [];
+
 	const handleInsert = createHandleInsert(
 		results,
 		emitter,
 		predicate,
 		() => initialized,
+		eventBuffer,
 	);
 	const handleUpdate = createHandleUpdate(
 		results,
 		emitter,
 		predicate,
 		() => initialized,
+		eventBuffer,
 	);
 	const unwatchUpdate = store.on("update", handleUpdate);
 	const unwatchInsert = store.on("insert", handleInsert);
@@ -55,6 +62,17 @@ export function createQuery<T extends object>(
 		}
 
 		initialized = true;
+
+		// Replay buffered events that occurred during initialization
+		for (const event of eventBuffer) {
+			if (event.type === "insert") {
+				handleInsert(event.items);
+			} else if (event.type === "update") {
+				handleUpdate(event.items);
+			}
+		}
+		eventBuffer.length = 0;
+
 		emitter.emit("init", Object.fromEntries(results));
 	}
 
@@ -85,9 +103,16 @@ function createHandleInsert<T extends object>(
 	emitter: Emitter<T>,
 	predicate: (data: T) => boolean,
 	getInitialized: () => boolean,
+	eventBuffer: Array<{
+		type: "insert" | "update";
+		items: { key: string; value: T }[];
+	}>,
 ): HandleInsertFn<T> {
 	return (items: { key: string; value: T }[]) => {
-		if (!getInitialized()) return;
+		if (!getInitialized()) {
+			eventBuffer.push({ type: "insert", items });
+			return;
+		}
 
 		let changed = false;
 		for (const item of items) {
@@ -106,9 +131,16 @@ function createHandleUpdate<T extends object>(
 	emitter: Emitter<T>,
 	predicate: (data: T) => boolean,
 	getInitialized: () => boolean,
+	eventBuffer: Array<{
+		type: "insert" | "update";
+		items: { key: string; value: T }[];
+	}>,
 ): HandleUpdateFn<T> {
 	return (items: { key: string; value: T }[]) => {
-		if (!getInitialized()) return;
+		if (!getInitialized()) {
+			eventBuffer.push({ type: "update", items });
+			return;
+		}
 
 		let changed = false;
 		for (const item of items) {
