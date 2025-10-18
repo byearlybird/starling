@@ -38,7 +38,6 @@ export type Store<TValue extends object> = {
 	mergeState: MergeStateFn;
 	values(): Promise<Record<string, TValue>>;
 	state(): Promise<EncodedRecord>;
-	getState(key: string): Promise<EncodedObject | null>;
 	on<K extends keyof Events<TValue>>(
 		event: K,
 		callback: (data: Events<TValue>[K]) => void,
@@ -79,11 +78,6 @@ export function createStore<TValue extends object>(
 		return record;
 	}
 
-	async function getState(key: string): Promise<EncodedObject | null> {
-		const item = await storage.get<EncodedObject>(key);
-		return item ?? null;
-	}
-
 	function on<K extends keyof Events<TValue>>(
 		event: K,
 		callback: (data: Events<TValue>[K]) => void,
@@ -104,7 +98,6 @@ export function createStore<TValue extends object>(
 		update,
 		values,
 		state,
-		getState,
 		mergeState,
 		on,
 		dispose,

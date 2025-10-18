@@ -340,28 +340,3 @@ test("mergeState keeps local changes with newer eventstamps", async () => {
 	// Local newer value should win
 	expect(values.user1?.age).toBe(31);
 });
-
-test("getState returns encoded object for existing key", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
-
-	await store.insert("user1", { name: "Alice", age: 30 });
-
-	const state = await store.getState("user1");
-
-	expect(state).not.toBeNull();
-	expect(typeof state).toBe("object");
-});
-
-test("getState returns null for non-existent key", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
-
-	const state = await store.getState("user1");
-
-	expect(state).toBeNull();
-});
