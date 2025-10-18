@@ -44,7 +44,5 @@ function pseudoEncrypt(data: string): string {
 }
 
 function pseudoDecrypt(data: string): string {
-	console.log("pseudo", data, atob(data));
-	const result = atob(data);
-	return result ?? null;
+	return atob(data);
 }

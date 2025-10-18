@@ -22,23 +22,27 @@ export type Store<TValue extends object> = ReturnType<
 export function createStore<TValue extends object>(
 	storage: Storage,
 	collectionKey: string,
-	eventStampFn = monotonicFactory(),
+	eventstampFn = monotonicFactory(),
 ) {
 	const emitter_ = mitt<Events<TValue>>();
-	const eventstamp_ = eventStampFn;
+
+	async function getAllItems() {
+		const keys = await storage.getKeys();
+		return storage.getItems<EncodedObject>(keys);
+	}
 
 	return {
 		collectionKey,
 		async insert(key: string, value: TValue) {
 			if (await storage.has(key)) throw new Error(`Duplicate key: ${key}`);
-			const encoded = encode(value, eventstamp_());
+			const encoded = encode(value, eventstampFn());
 			await storage.set(key, encoded);
 			emitter_.emit("insert", [{ key, value }]);
 		},
 		async update(key: string, value: DeepPartial<TValue>) {
 			const current = await storage.get<EncodedObject>(key);
 			if (!current) throw new Error(`Key not found: ${key}`);
-			const encoded = encode(value, eventstamp_());
+			const encoded = encode(value, eventstampFn());
 			const [merged] = merge(current, encoded);
 
 			const decoded = decode<TValue>(merged);
@@ -46,8 +50,7 @@ export function createStore<TValue extends object>(
 			emitter_.emit("update", [{ key, value: decoded }]);
 		},
 		async values(): Promise<Record<string, TValue>> {
-			const keys = await storage.getKeys();
-			const items = await storage.getItems<EncodedObject>(keys);
+			const items = await getAllItems();
 			const record: Record<string, TValue> = {};
 			for (const item of items) {
 				record[item.key] = decode(item.value);
@@ -55,8 +58,7 @@ export function createStore<TValue extends object>(
 			return record;
 		},
 		async state(): Promise<EncodedRecord> {
-			const keys = await storage.getKeys();
-			const items = await storage.getItems<EncodedObject>(keys);
+			const items = await getAllItems();
 			const record: EncodedRecord = {};
 			for (const item of items) {
 				record[item.key] = item.value;
