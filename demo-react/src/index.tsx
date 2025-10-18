@@ -7,7 +7,7 @@ import index from "./index.html";
 
 const storage = createStorage({
 	driver: fsDriver({
-		base: "demo",
+		base: "todos",
 	}),
 });
 
@@ -24,7 +24,6 @@ const server = serve({
 		"/api/todos": {
 			async GET() {
 				const todos = await getTodos();
-				console.log("Serving todos:", todos);
 				return Response.json({
 					todos,
 				});
