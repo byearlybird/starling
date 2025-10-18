@@ -21,7 +21,7 @@ export function useData<TValue extends object>(store: Store<TValue>) {
 		return () => {
 			dispose();
 		};
-	}, []);
+	}, [store]);
 
 	return { data, isLoading };
 }

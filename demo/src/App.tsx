@@ -28,6 +28,7 @@ export function App() {
 					onChange={(e) => setNewTodo(e.target.value)}
 				/>
 				<button
+					type="button"
 					className="bg-indigo-900 rounded px-2 py-1 hover:bg-indigo-800 active:scale-105 disabled:opacity-50"
 					disabled={!newTodo.trim()}
 					onClick={() => {

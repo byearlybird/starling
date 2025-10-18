@@ -1,4 +1,3 @@
-import * as idb from "idb-keyval";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import { createStore } from "../../lib/store";

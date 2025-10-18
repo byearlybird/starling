@@ -14,7 +14,7 @@ type DeepPartial<T> = T extends object
 type Events<TValue> = {
 	insert: { key: string; value: TValue }[];
 	update: { key: string; value: TValue }[];
-	mutate: void;
+	mutate: undefined;
 };
 
 type Emitter<TValue> = BaseEmitter<Events<TValue>>;
