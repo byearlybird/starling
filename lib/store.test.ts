@@ -3,10 +3,9 @@ import { createStorage } from "unstorage";
 import { createStore } from "./store";
 
 test("insert adds a new object to the store", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -17,19 +16,23 @@ test("insert adds a new object to the store", async () => {
 });
 
 test("insert with duplicate key throws error", async () => {
-	const store = createStore<{ name: string }>(createStorage(), "users");
+	const store = createStore<{ name: string }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice" });
 
-	await expect(store.insert("user1", { name: "Bob" })).rejects.toThrow(
+	expect(store.insert("user1", { name: "Bob" })).rejects.toThrow(
 		"Duplicate key: user1",
 	);
 });
 
 test("update modifies an existing object", async () => {
 	const store = createStore<{ name: string; age: number; city?: string }>(
-		createStorage(),
 		"users",
+		{
+			storage: createStorage(),
+		},
 	);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
@@ -42,18 +45,19 @@ test("update modifies an existing object", async () => {
 });
 
 test("update with non-existent key throws error", async () => {
-	const store = createStore<{ name: string }>(createStorage(), "users");
+	const store = createStore<{ name: string }>("users", {
+		storage: createStorage(),
+	});
 
-	await expect(store.update("user1", { name: "Alice" })).rejects.toThrow(
+	expect(store.update("user1", { name: "Alice" })).rejects.toThrow(
 		"Key not found: user1",
 	);
 });
 
 test("values returns all objects in the store", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -71,7 +75,7 @@ test("insert then update workflow preserves original data", async () => {
 	const store = createStore<{
 		name: string;
 		profile: { age: number; email?: string };
-	}>(createStorage(), "users");
+	}>("users", { storage: createStorage() });
 
 	await store.insert("user1", {
 		name: "Alice",
@@ -95,10 +99,9 @@ test("insert then update workflow preserves original data", async () => {
 });
 
 test("on insert callback is called when inserting", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	const mockCallback = mock();
 
 	store.on("insert", mockCallback);
@@ -113,8 +116,10 @@ test("on insert callback is called when inserting", async () => {
 
 test("on update callback is called when updating", async () => {
 	const store = createStore<{ name: string; age: number; city?: string }>(
-		createStorage(),
 		"users",
+		{
+			storage: createStorage(),
+		},
 	);
 	const mockCallback = mock();
 
@@ -131,7 +136,9 @@ test("on update callback is called when updating", async () => {
 });
 
 test("on insert callback receives correct data for multiple inserts", async () => {
-	const store = createStore<{ name: string }>(createStorage(), "users");
+	const store = createStore<{ name: string }>("users", {
+		storage: createStorage(),
+	});
 	const mockCallback = mock();
 
 	store.on("insert", mockCallback);
@@ -150,8 +157,10 @@ test("on insert callback receives correct data for multiple inserts", async () =
 
 test("on update callback receives merged data", async () => {
 	const store = createStore<{ name: string; age: number; city?: string }>(
-		createStorage(),
 		"users",
+		{
+			storage: createStorage(),
+		},
 	);
 	const mockCallback = mock();
 
@@ -172,7 +181,9 @@ test("on update callback receives merged data", async () => {
 });
 
 test("unsubscribe from on insert stops receiving callbacks", async () => {
-	const store = createStore<{ name: string }>(createStorage(), "users");
+	const store = createStore<{ name: string }>("users", {
+		storage: createStorage(),
+	});
 	const mockCallback = mock();
 
 	const unsubscribe = store.on("insert", mockCallback);
@@ -189,10 +200,9 @@ test("unsubscribe from on insert stops receiving callbacks", async () => {
 });
 
 test("unsubscribe from on update stops receiving callbacks", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	const mockCallback = mock();
 
 	await store.insert("user1", { name: "Alice", age: 30 });
@@ -211,7 +221,9 @@ test("unsubscribe from on update stops receiving callbacks", async () => {
 });
 
 test("multiple callbacks can be registered and unsubscribed independently", async () => {
-	const store = createStore<{ name: string }>(createStorage(), "users");
+	const store = createStore<{ name: string }>("users", {
+		storage: createStorage(),
+	});
 	const mockCallback1 = mock();
 	const mockCallback2 = mock();
 
@@ -233,10 +245,9 @@ test("multiple callbacks can be registered and unsubscribed independently", asyn
 });
 
 test("mergeState adds new keys and emits events", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	// First add one user locally
 	await store.insert("user1", { name: "Alice", age: 30 });
@@ -250,10 +261,9 @@ test("mergeState adds new keys and emits events", async () => {
 	await Bun.sleep(5);
 
 	// Merge remote state with one existing (user1) and one new (user2)
-	const tempStore = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const tempStore = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	await tempStore.insert("user1", { name: "Alice", age: 31 });
 	await tempStore.insert("user2", { name: "Bob", age: 25 });
 
@@ -279,10 +289,9 @@ test("mergeState adds new keys and emits events", async () => {
 });
 
 test("mergeState merges existing keys with newer eventstamps", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	await store.insert("user1", { name: "Alice", age: 30 });
 
 	const mockUpdate = mock();
@@ -290,10 +299,9 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 
 	// Simulate remote update with newer eventstamp
 	await Bun.sleep(5);
-	const tempStore = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const tempStore = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	await tempStore.insert("user1", { name: "Alice", age: 31 });
 
 	await store.mergeState(await tempStore.state());
@@ -308,16 +316,14 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 });
 
 test("mergeState keeps local changes with newer eventstamps", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	// Create initial state in temp store (older)
-	const tempStore1 = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const tempStore1 = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 	await tempStore1.insert("user1", { name: "Alice", age: 30 });
 	const olderState = await tempStore1.state();
 

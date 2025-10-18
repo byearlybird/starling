@@ -27,12 +27,12 @@ export function createQuery<T extends object>(
 	predicate: (data: T) => boolean,
 ) {
 	let initialized = false;
-	const results = new Map<string, T>();
-	const emitter = mitt<Events<T>>();
-	const eventBuffer: Array<{
+	let eventBuffer: Array<{
 		type: "insert" | "update";
 		items: { key: string; value: T }[];
 	}> = [];
+	const results = new Map<string, T>();
+	const emitter = mitt<Events<T>>();
 
 	const handleInsert = createHandleInsert(
 		results,
@@ -71,7 +71,7 @@ export function createQuery<T extends object>(
 				handleUpdate(event.items);
 			}
 		}
-		eventBuffer.length = 0;
+		eventBuffer = [];
 
 		emitter.emit("init", Object.fromEntries(results));
 	}

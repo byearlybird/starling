@@ -6,10 +6,9 @@ import { createStore } from "./store";
 // Initialization tests
 
 test("initialize filters existing store items and emits init event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -33,10 +32,9 @@ test("initialize filters existing store items and emits init event", async () =>
 });
 
 test("initialize returns empty results when no items match predicate", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 20 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -56,10 +54,9 @@ test("initialize returns empty results when no items match predicate", async () 
 });
 
 test("multiple onInit listeners receive the same event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -87,10 +84,9 @@ test("multiple onInit listeners receive the same event", async () => {
 // Insert operation tests
 
 test("insert matching item after initialize emits change event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -112,10 +108,9 @@ test("insert matching item after initialize emits change event", async () => {
 });
 
 test("insert non-matching item after initialize does not emit event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -131,10 +126,9 @@ test("insert non-matching item after initialize does not emit event", async () =
 });
 
 test("insert before initialize is called does not emit event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	const mockUpdate = mock();
@@ -146,10 +140,9 @@ test("insert before initialize is called does not emit event", async () => {
 });
 
 test("multiple inserts with mixed matching emits correct events", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	await q.initialize();
@@ -168,10 +161,9 @@ test("multiple inserts with mixed matching emits correct events", async () => {
 // Update operation tests
 
 test("change item in results that still matches emits change event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -192,10 +184,9 @@ test("change item in results that still matches emits change event", async () =>
 });
 
 test("change item in results to no longer match removes it", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 35 });
@@ -219,10 +210,9 @@ test("change item in results to no longer match removes it", async () => {
 });
 
 test("change item not in results does not emit event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -240,10 +230,9 @@ test("change item not in results does not emit event", async () => {
 });
 
 test("change item not in results to now match predicate adds it to results", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -268,10 +257,9 @@ test("change item not in results to now match predicate adds it to results", asy
 });
 
 test("change before initialize is called does not emit event", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -287,10 +275,9 @@ test("change before initialize is called does not emit event", async () => {
 // Event subscription tests
 
 test("unsubscribe from onInit stops receiving callbacks", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -306,10 +293,9 @@ test("unsubscribe from onInit stops receiving callbacks", async () => {
 });
 
 test("unsubscribe from onUpdate stops receiving callbacks", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	await q.initialize();
@@ -329,10 +315,9 @@ test("unsubscribe from onUpdate stops receiving callbacks", async () => {
 });
 
 test("multiple listeners can subscribe independently", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	await q.initialize();
@@ -349,10 +334,9 @@ test("multiple listeners can subscribe independently", async () => {
 });
 
 test("unsubscribing one listener does not affect others", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	await q.initialize();
@@ -378,10 +362,9 @@ test("unsubscribing one listener does not affect others", async () => {
 // Cleanup tests
 
 test("dispose stops receiving insert events from store", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	await q.initialize();
@@ -401,10 +384,9 @@ test("dispose stops receiving insert events from store", async () => {
 });
 
 test("dispose stops receiving change events from store", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -428,10 +410,9 @@ test("dispose stops receiving change events from store", async () => {
 // Edge cases
 
 test("no change event when changes don't affect filtered results", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -454,10 +435,9 @@ test("no change event when changes don't affect filtered results", async () => {
 });
 
 test("results Map contains current filtered state", async () => {
-	const store = createStore<{ name: string; age: number }>(
-		createStorage(),
-		"users",
-	);
+	const store = createStore<{ name: string; age: number }>("users", {
+		storage: createStorage(),
+	});
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 35 });

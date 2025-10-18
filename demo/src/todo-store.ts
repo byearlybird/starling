@@ -9,7 +9,9 @@ const storage = createStorage({
 	driver: localStorageDriver({ base: "todos" }),
 });
 
-export const todoStore = createStore<Todo>(storage, "todos");
+export const todoStore = createStore<Todo>("todos", {
+	storage,
+});
 export const todoSync = createSynchronizer(todoStore, {
 	interval: 1000 * 1, // 1 second for demo purposes
 	preprocess: async (event, data) => {

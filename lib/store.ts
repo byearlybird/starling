@@ -1,7 +1,7 @@
 import type { Emitter as BaseEmitter } from "mitt";
 import mitt from "mitt";
 import { monotonicFactory } from "ulid";
-import type { Storage } from "unstorage";
+import { prefixStorage, type Storage } from "unstorage";
 import { decode, encode, merge } from "./operations";
 import type { EncodedObject, EncodedRecord } from "./types";
 
@@ -46,10 +46,13 @@ export type Store<TValue extends object> = {
 };
 
 export function createStore<TValue extends object>(
-	storage: Storage,
 	collectionKey: string,
-	eventstampFn = monotonicFactory(),
+	{
+		storage: baseStorage,
+		eventstampFn = monotonicFactory(),
+	}: { storage: Storage; eventstampFn?: () => string },
 ): Store<TValue> {
+	const storage = prefixStorage(baseStorage, collectionKey);
 	const emitter = mitt<Events<TValue>>();
 	const insert = createInsert(storage, eventstampFn, emitter);
 	const update = createUpdate(storage, eventstampFn, emitter);
