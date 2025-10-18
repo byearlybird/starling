@@ -14,6 +14,7 @@ type DeepPartial<T> = T extends object
 type Events<TValue> = {
 	insert: { key: string; value: TValue }[];
 	update: { key: string; value: TValue }[];
+	mutate: void;
 };
 
 type Emitter<TValue> = BaseEmitter<Events<TValue>>;
@@ -94,6 +95,7 @@ export function createStore<TValue extends object>(
 	function dispose() {
 		emitter.off("insert");
 		emitter.off("update");
+		emitter.off("mutate");
 	}
 
 	return {
@@ -119,6 +121,7 @@ function createInsert<TValue extends object>(
 		const encoded = encode(value, eventstampFn());
 		await storage.set(key, encoded);
 		emitter.emit("insert", [{ key, value }]);
+		emitter.emit("mutate");
 	};
 }
 
@@ -136,6 +139,7 @@ function createUpdate<TValue extends object>(
 		const decoded = decode<TValue>(merged);
 		await storage.set(key, merged);
 		emitter.emit("update", [{ key, value: decoded }]);
+		emitter.emit("mutate");
 	};
 }
 
@@ -170,6 +174,9 @@ function createMergeState<TValue extends object>(
 		// Wait for all writes to complete
 		await Promise.all(writes);
 
+		if (inserted.length > 0 || updated.length > 0) {
+			emitter.emit("mutate");
+		}
 		if (inserted.length > 0) {
 			emitter.emit("insert", inserted);
 		}

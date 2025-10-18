@@ -4,7 +4,7 @@ import type { Store } from "./store";
 
 type Events<T> = {
 	init: Record<string, T>;
-	update: Record<string, T>;
+	change: Record<string, T>;
 };
 
 type Emitter<T> = BaseEmitter<Events<T>>;
@@ -41,8 +41,8 @@ export function createQuery<T extends object>(
 		predicate,
 		() => initialized,
 	);
-	const disposeUpdate = store.on("update", handleUpdate);
-	const disposeInsert = store.on("insert", handleInsert);
+	const unwatchUpdate = store.on("update", handleUpdate);
+	const unwatchInsert = store.on("insert", handleInsert);
 
 	async function initialize() {
 		if (initialized) return;
@@ -67,8 +67,10 @@ export function createQuery<T extends object>(
 	}
 
 	function dispose() {
-		disposeInsert();
-		disposeUpdate();
+		unwatchInsert();
+		unwatchUpdate();
+		emitter.off("init");
+		emitter.off("change");
 	}
 
 	return {
@@ -95,7 +97,7 @@ function createHandleInsert<T extends object>(
 			}
 		}
 
-		if (changed) emitter.emit("update", Object.fromEntries(results));
+		if (changed) emitter.emit("change", Object.fromEntries(results));
 	};
 }
 
@@ -119,6 +121,6 @@ function createHandleUpdate<T extends object>(
 			}
 		}
 
-		if (changed) emitter.emit("update", Object.fromEntries(results));
+		if (changed) emitter.emit("change", Object.fromEntries(results));
 	};
 }

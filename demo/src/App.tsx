@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { createQuery } from "../../lib/query";
-import { type Store } from "../../lib/store";
 import "./index.css";
-import { todoStore, todoSync } from "./todo-repo";
+import { useEffect, useState } from "react";
+import { useData, useQuery } from "../../lib/react";
+import { todoStore, todoSync } from "./todo-store";
 
 export function App() {
 	const [newTodo, setNewTodo] = useState("");
-	const todos = useData(todoStore);
+	const { data: todos } = useData(todoStore);
 	const { data: incomplete } = useQuery(todoStore, (todo) => !todo.completed);
 
 	useEffect(() => {
@@ -76,67 +75,6 @@ export function App() {
 			</section>
 		</div>
 	);
-}
-
-function useData<TValue extends object>(store: Store<TValue>) {
-	const [state, setState] = useState<Record<string, TValue>>({});
-
-	useEffect(() => {
-		const load = async () => {
-			const values = await store.values();
-			setState(values);
-		};
-
-		const disposeInsert = store.on("insert", async () => {
-			setState(await store.values());
-		});
-
-		const disposeUpdate = store.on("update", async () => {
-			setState(await store.values());
-		});
-
-		load();
-
-		return () => {
-			disposeInsert();
-			disposeUpdate();
-		};
-	}, []);
-
-	return state;
-}
-
-function useQuery<TValue extends object>(
-	store: Store<TValue>,
-	predicate: (data: TValue) => boolean,
-) {
-	const [isLoading, setIsLoading] = useState(true);
-	const [data, setData] = useState<Record<string, TValue>>({});
-
-	const queryRef = useRef(createQuery(store, predicate));
-
-	useEffect(() => {
-		const query = queryRef.current;
-
-		const disposeInit = query.on("init", (results) => {
-			setData(results);
-			setIsLoading(false);
-		});
-
-		const disposeUpdate = query.on("update", (results) => {
-			setData(results);
-		});
-
-		query.initialize();
-
-		return () => {
-			disposeInit();
-			disposeUpdate();
-			query.dispose();
-		};
-	}, []);
-
-	return { data, isLoading };
 }
 
 export default App;

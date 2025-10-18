@@ -86,7 +86,7 @@ test("multiple onInit listeners receive the same event", async () => {
 
 // Insert operation tests
 
-test("insert matching item after initialize emits update event", async () => {
+test("insert matching item after initialize emits change event", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -98,7 +98,7 @@ test("insert matching item after initialize emits update event", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user2", { name: "Bob", age: 35 });
 
@@ -123,7 +123,7 @@ test("insert non-matching item after initialize does not emit event", async () =
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user2", { name: "Bob", age: 25 });
 
@@ -138,7 +138,7 @@ test("insert before initialize is called does not emit event", async () => {
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -155,7 +155,7 @@ test("multiple inserts with mixed matching emits correct events", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 	await store.insert("user2", { name: "Bob", age: 25 });
@@ -167,7 +167,7 @@ test("multiple inserts with mixed matching emits correct events", async () => {
 
 // Update operation tests
 
-test("update item in results that still matches emits update event", async () => {
+test("change item in results that still matches emits change event", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -179,7 +179,7 @@ test("update item in results that still matches emits update event", async () =>
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.update("user1", { age: 31 });
 
@@ -191,7 +191,7 @@ test("update item in results that still matches emits update event", async () =>
 	expect(results["user1"]).toEqual({ name: "Alice", age: 31 });
 });
 
-test("update item in results to no longer match removes it", async () => {
+test("change item in results to no longer match removes it", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -204,7 +204,7 @@ test("update item in results to no longer match removes it", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.update("user1", { age: 25 });
 
@@ -218,7 +218,7 @@ test("update item in results to no longer match removes it", async () => {
 	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
 });
 
-test("update item not in results does not emit event", async () => {
+test("change item not in results does not emit event", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -231,15 +231,15 @@ test("update item not in results does not emit event", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
-	// user2 is not in results (age < 30), and update still doesn't match
+	// user2 is not in results (age < 30), and change still doesn't match
 	await store.update("user2", { age: 26 });
 
 	expect(mockUpdate).toHaveBeenCalledTimes(0);
 });
 
-test("update item not in results to now match predicate adds it to results", async () => {
+test("change item not in results to now match predicate adds it to results", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -252,9 +252,9 @@ test("update item not in results to now match predicate adds it to results", asy
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
-	// user2 is not in results (age < 30), update to now match
+	// user2 is not in results (age < 30), change to now match
 	await store.update("user2", { age: 30 });
 
 	expect(mockUpdate).toHaveBeenCalledTimes(1);
@@ -267,7 +267,7 @@ test("update item not in results to now match predicate adds it to results", asy
 	expect(results["user2"]).toEqual({ name: "Bob", age: 30 });
 });
 
-test("update before initialize is called does not emit event", async () => {
+test("change before initialize is called does not emit event", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -277,7 +277,7 @@ test("update before initialize is called does not emit event", async () => {
 
 	const q = createQuery(store, (user) => user.age >= 30);
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.update("user1", { age: 31 });
 
@@ -315,7 +315,7 @@ test("unsubscribe from onUpdate stops receiving callbacks", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	const unsubscribe = q.on("update", mockUpdate);
+	const unsubscribe = q.on("change", mockUpdate);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -339,8 +339,8 @@ test("multiple listeners can subscribe independently", async () => {
 
 	const mockUpdate1 = mock();
 	const mockUpdate2 = mock();
-	q.on("update", mockUpdate1);
-	q.on("update", mockUpdate2);
+	q.on("change", mockUpdate1);
+	q.on("change", mockUpdate2);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -359,8 +359,8 @@ test("unsubscribing one listener does not affect others", async () => {
 
 	const mockUpdate1 = mock();
 	const mockUpdate2 = mock();
-	const unsubscribe1 = q.on("update", mockUpdate1);
-	q.on("update", mockUpdate2);
+	const unsubscribe1 = q.on("change", mockUpdate1);
+	q.on("change", mockUpdate2);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -387,7 +387,7 @@ test("dispose stops receiving insert events from store", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -400,7 +400,7 @@ test("dispose stops receiving insert events from store", async () => {
 	expect(mockUpdate).toHaveBeenCalledTimes(1);
 });
 
-test("dispose stops receiving update events from store", async () => {
+test("dispose stops receiving change events from store", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -412,7 +412,7 @@ test("dispose stops receiving update events from store", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.update("user1", { age: 31 });
 
@@ -427,7 +427,7 @@ test("dispose stops receiving update events from store", async () => {
 
 // Edge cases
 
-test("no update event when changes don't affect filtered results", async () => {
+test("no change event when changes don't affect filtered results", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -440,7 +440,7 @@ test("no update event when changes don't affect filtered results", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	// Update user2 which is not in results
 	await store.update("user2", { age: 26 });
@@ -466,7 +466,7 @@ test("results Map contains current filtered state", async () => {
 	await q.initialize();
 
 	const mockUpdate = mock();
-	q.on("update", mockUpdate);
+	q.on("change", mockUpdate);
 
 	await store.insert("user3", { name: "Charlie", age: 40 });
 
