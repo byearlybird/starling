@@ -57,13 +57,13 @@ export function createAuthService(storage: Storage, config: AuthConfig) {
 	};
 
 	const createMailbox = async (mailboxId: string, publicKey: string) => {
-		const [isValidKey, isValueMailbox, existing] = await Promise.all([
+		const [isValidKey, isValidMailbox, existing] = await Promise.all([
 			isValidPublicKey(publicKey),
 			isValidMailboxId(mailboxId),
 			mailboxRepo.get(mailboxId),
 		]);
 
-		if (existing || !isValidKey || !isValueMailbox) return null;
+		if (!isValidKey || !isValidMailbox || !!existing) return null;
 
 		return mailboxRepo.set(mailboxId, {
 			publicKey,

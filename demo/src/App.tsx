@@ -87,11 +87,11 @@ function useData<TValue extends object>(store: Store<TValue>) {
 			setState(values);
 		};
 
-		const disposeInsert = store.onInsert(async () => {
+		const disposeInsert = store.on("insert", async () => {
 			setState(await store.values());
 		});
 
-		const disposeUpdate = store.onUpdate(async () => {
+		const disposeUpdate = store.on("update", async () => {
 			setState(await store.values());
 		});
 
@@ -118,12 +118,12 @@ function useQuery<TValue extends object>(
 	useEffect(() => {
 		const query = queryRef.current;
 
-		const disposeInit = query.onInit((results) => {
+		const disposeInit = query.on("init", (results) => {
 			setData(results);
 			setIsLoading(false);
 		});
 
-		const disposeUpdate = query.onUpdate((results) => {
+		const disposeUpdate = query.on("update", (results) => {
 			setData(results);
 		});
 

@@ -1,3 +1,4 @@
+import type { Emitter as BaseEmitter } from "mitt";
 import mitt from "mitt";
 import type { Store } from "./store";
 
@@ -6,15 +7,45 @@ type Events<T> = {
 	updated: Record<string, T>;
 };
 
+type Emitter<T> = BaseEmitter<Events<T>>;
+
+type HandleInsertFn<T> = (items: { key: string; value: T }[]) => void;
+
+type HandleUpdateFn<T> = (items: { key: string; value: T }[]) => void;
+
+export type Query<T extends object> = {
+	initialize(): Promise<void>;
+	on<K extends keyof Events<T>>(
+		event: K,
+		callback: (results: Events<T>[K]) => void,
+	): () => void;
+	dispose(): void;
+};
+
 export function createQuery<T extends object>(
 	store: Store<T>,
 	predicate: (data: T) => boolean,
 ) {
-	let init = false;
+	let initialized = false;
 	const results = new Map<string, T>();
-	const emitter_ = mitt<Events<T>>();
+	const emitter = mitt<Events<T>>();
+	const handleInsert = createHandleInsert(
+		results,
+		emitter,
+		predicate,
+		() => initialized,
+	);
+	const handleUpdate = createHandleUpdate(
+		results,
+		emitter,
+		predicate,
+		() => initialized,
+	);
+	const disposeUpdate = store.on("update", handleUpdate);
+	const disposeInsert = store.on("insert", handleInsert);
 
-	const initialize = async () => {
+	async function initialize() {
+		if (initialized) return;
 		const data = await store.values();
 		results.clear();
 		for (const [key, value] of Object.entries(data)) {
@@ -23,12 +54,38 @@ export function createQuery<T extends object>(
 			}
 		}
 
-		init = true;
-		emitter_.emit("init", Object.fromEntries(results));
-	};
+		initialized = true;
+		emitter.emit("init", Object.fromEntries(results));
+	}
 
-	const disposeInsert = store.onInsert((items) => {
-		if (!init) return;
+	function on<K extends keyof Events<T>>(
+		event: K,
+		callback: (results: Events<T>[K]) => void,
+	) {
+		emitter.on(event, callback);
+		return () => emitter.off(event, callback);
+	}
+
+	function dispose() {
+		disposeInsert();
+		disposeUpdate();
+	}
+
+	return {
+		initialize,
+		on,
+		dispose,
+	};
+}
+
+function createHandleInsert<T extends object>(
+	results: Map<string, T>,
+	emitter: Emitter<T>,
+	predicate: (data: T) => boolean,
+	getInitialized: () => boolean,
+): HandleInsertFn<T> {
+	return (items: { key: string; value: T }[]) => {
+		if (!getInitialized()) return;
 
 		let changed = false;
 		for (const item of items) {
@@ -38,11 +95,18 @@ export function createQuery<T extends object>(
 			}
 		}
 
-		if (changed) emitter_.emit("updated", Object.fromEntries(results));
-	});
+		if (changed) emitter.emit("updated", Object.fromEntries(results));
+	};
+}
 
-	const disposeUpdate = store.onUpdate((items) => {
-		if (!init) return;
+function createHandleUpdate<T extends object>(
+	results: Map<string, T>,
+	emitter: Emitter<T>,
+	predicate: (data: T) => boolean,
+	getInitialized: () => boolean,
+): HandleUpdateFn<T> {
+	return (items: { key: string; value: T }[]) => {
+		if (!getInitialized()) return;
 
 		let changed = false;
 		for (const item of items) {
@@ -55,24 +119,6 @@ export function createQuery<T extends object>(
 			}
 		}
 
-		if (changed) emitter_.emit("updated", Object.fromEntries(results));
-	});
-
-	const dispose = () => {
-		disposeInsert();
-		disposeUpdate();
-	};
-
-	return {
-		initialize,
-		dispose,
-		onInit(callback: (results: Record<string, T>) => void) {
-			emitter_.on("init", callback);
-			return () => emitter_.off("init", callback);
-		},
-		onUpdate(callback: (results: Record<string, T>) => void) {
-			emitter_.on("updated", callback);
-			return () => emitter_.off("updated", callback);
-		},
+		if (changed) emitter.emit("updated", Object.fromEntries(results));
 	};
 }

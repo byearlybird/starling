@@ -94,14 +94,14 @@ test("insert then update workflow preserves original data", async () => {
 	});
 });
 
-test("onInsert callback is called when inserting", async () => {
+test("on insert callback is called when inserting", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
 	);
 	const mockCallback = mock();
 
-	store.onInsert(mockCallback);
+	store.on("insert", mockCallback);
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
@@ -111,7 +111,7 @@ test("onInsert callback is called when inserting", async () => {
 	]);
 });
 
-test("onUpdate callback is called when updating", async () => {
+test("on update callback is called when updating", async () => {
 	const store = createStore<{ name: string; age: number; city?: string }>(
 		createStorage(),
 		"users",
@@ -120,7 +120,7 @@ test("onUpdate callback is called when updating", async () => {
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
-	store.onUpdate(mockCallback);
+	store.on("update", mockCallback);
 
 	await store.update("user1", { age: 31, city: "NYC" });
 
@@ -130,11 +130,11 @@ test("onUpdate callback is called when updating", async () => {
 	]);
 });
 
-test("onInsert callback receives correct data for multiple inserts", async () => {
+test("on insert callback receives correct data for multiple inserts", async () => {
 	const store = createStore<{ name: string }>(createStorage(), "users");
 	const mockCallback = mock();
 
-	store.onInsert(mockCallback);
+	store.on("insert", mockCallback);
 
 	await store.insert("user1", { name: "Alice" });
 	await store.insert("user2", { name: "Bob" });
@@ -148,7 +148,7 @@ test("onInsert callback receives correct data for multiple inserts", async () =>
 	]);
 });
 
-test("onUpdate callback receives merged data", async () => {
+test("on update callback receives merged data", async () => {
 	const store = createStore<{ name: string; age: number; city?: string }>(
 		createStorage(),
 		"users",
@@ -157,7 +157,7 @@ test("onUpdate callback receives merged data", async () => {
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
-	store.onUpdate(mockCallback);
+	store.on("update", mockCallback);
 
 	await store.update("user1", { city: "NYC" });
 	await store.update("user1", { age: 31 });
@@ -171,11 +171,11 @@ test("onUpdate callback receives merged data", async () => {
 	]);
 });
 
-test("unsubscribe from onInsert stops receiving callbacks", async () => {
+test("unsubscribe from on insert stops receiving callbacks", async () => {
 	const store = createStore<{ name: string }>(createStorage(), "users");
 	const mockCallback = mock();
 
-	const unsubscribe = store.onInsert(mockCallback);
+	const unsubscribe = store.on("insert", mockCallback);
 
 	await store.insert("user1", { name: "Alice" });
 
@@ -188,7 +188,7 @@ test("unsubscribe from onInsert stops receiving callbacks", async () => {
 	expect(mockCallback).toHaveBeenCalledTimes(1);
 });
 
-test("unsubscribe from onUpdate stops receiving callbacks", async () => {
+test("unsubscribe from on update stops receiving callbacks", async () => {
 	const store = createStore<{ name: string; age: number }>(
 		createStorage(),
 		"users",
@@ -197,7 +197,7 @@ test("unsubscribe from onUpdate stops receiving callbacks", async () => {
 
 	await store.insert("user1", { name: "Alice", age: 30 });
 
-	const unsubscribe = store.onUpdate(mockCallback);
+	const unsubscribe = store.on("update", mockCallback);
 
 	await store.update("user1", { age: 31 });
 
@@ -215,9 +215,9 @@ test("multiple callbacks can be registered and unsubscribed independently", asyn
 	const mockCallback1 = mock();
 	const mockCallback2 = mock();
 
-	const unsubscribe1 = store.onInsert(mockCallback1);
+	const unsubscribe1 = store.on("insert", mockCallback1);
 
-	store.onInsert(mockCallback2);
+	store.on("insert", mockCallback2);
 
 	await store.insert("user1", { name: "Alice" });
 
@@ -243,8 +243,8 @@ test("mergeState adds new keys and emits events", async () => {
 
 	const mockInsert = mock();
 	const mockUpdate = mock();
-	store.onInsert(mockInsert);
-	store.onUpdate(mockUpdate);
+	store.on("insert", mockInsert);
+	store.on("update", mockUpdate);
 
 	// Wait to ensure newer eventstamps
 	await Bun.sleep(5);
@@ -286,7 +286,7 @@ test("mergeState merges existing keys with newer eventstamps", async () => {
 	await store.insert("user1", { name: "Alice", age: 30 });
 
 	const mockUpdate = mock();
-	store.onUpdate(mockUpdate);
+	store.on("update", mockUpdate);
 
 	// Simulate remote update with newer eventstamp
 	await Bun.sleep(5);
@@ -328,7 +328,7 @@ test("mergeState keeps local changes with newer eventstamps", async () => {
 	await store.insert("user1", { name: "Alice", age: 31 });
 
 	const mockUpdate = mock();
-	store.onUpdate(mockUpdate);
+	store.on("update", mockUpdate);
 
 	// Try to merge older state - should keep local newer value
 	await store.mergeState(olderState);
