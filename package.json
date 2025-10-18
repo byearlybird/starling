@@ -1,10 +1,7 @@
 {
-	"name": "@byearlybird/flock",
+	"name": "@byearlybird/starling",
 	"module": "lib/index.ts",
 	"type": "module",
-	"workspaces": [
-		"demo"
-	],
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",

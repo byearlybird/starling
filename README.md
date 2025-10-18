@@ -1,4 +1,4 @@
-# @byearlybird/flock
+# @byearlybird/starling
 
 To install dependencies:
 
