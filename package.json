@@ -2,6 +2,9 @@
 	"name": "@byearlybird/flock",
 	"module": "lib/index.ts",
 	"type": "module",
+	"workspaces": [
+		"demo"
+	],
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",
@@ -9,7 +12,8 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5",
-		"react": "^19.2.0"
+		"react": "^19",
+		"react-dom": "^19"
 	},
 	"dependencies": {
 		"bip39": "^3.1.0",

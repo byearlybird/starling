@@ -1,7 +1,7 @@
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
-import { createStore } from "../../lib/store";
-import { createSynchronizer } from "../../lib/synchronized";
+import { createStore } from "../../lib/core/store";
+import { createHttpSynchronizer } from "../../lib/sync/http-sync";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
 import type { Todo } from "./types";
 
@@ -12,8 +12,8 @@ const storage = createStorage({
 export const todoStore = createStore<Todo>("todos", {
 	storage,
 });
-export const todoSync = createSynchronizer(todoStore, {
-	interval: 1000 * 1, // 1 second for demo purposes
+export const todoSync = createHttpSynchronizer(todoStore, {
+	pullInterval: 1000 * 5, // 5 second for demo purposes
 	preprocess: async (event, data) => {
 		switch (event) {
 			case "push":
@@ -24,7 +24,8 @@ export const todoSync = createSynchronizer(todoStore, {
 				return data;
 		}
 	},
-	send: async (data) => {
+	push: async (data) => {
+		console.log("pushing");
 		await fetch("/api/todos", {
 			method: "PUT",
 			headers: {
@@ -33,7 +34,8 @@ export const todoSync = createSynchronizer(todoStore, {
 			body: JSON.stringify({ todos: data }),
 		});
 	},
-	receive: async () => {
+	pull: async () => {
+		console.log("pulling");
 		const response = await fetch("/api/todos");
 		if (!response.ok) return {};
 

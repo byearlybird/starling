@@ -1,6 +1,6 @@
 import type { Storage } from "unstorage";
-import { mergeRecords } from "../../operations";
-import type { EncodedRecord } from "../../types";
+import { mergeRecords } from "../../core/operations";
+import type { EncodedRecord } from "../../core/types";
 import { createCollectionsRepo } from "../repos/collections-repo";
 
 export function createCollectionService(storage: Storage) {

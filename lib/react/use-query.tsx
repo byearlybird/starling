@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createQuery } from "../query";
-import type { Store } from "../store";
+import type { Store } from "../core";
+import { createQuery } from "../core";
 
 export function useQuery<TValue extends object>(
 	store: Store<TValue>,

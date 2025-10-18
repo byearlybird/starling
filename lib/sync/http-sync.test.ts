@@ -1,17 +1,15 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <testing purposes> */
 import { expect, mock, test } from "bun:test";
-import type { Store } from "./store";
-import { createSynchronizer } from "./synchronized";
-import type { EncodedRecord } from "./types";
+import type { Store } from "../core/store";
+import type { EncodedRecord } from "../core/types";
+import { createHttpSynchronizer } from "./http-sync";
 
-test("init calls pull, mergeState, and push with merged state", async () => {
+test("start calls pull, mergeState, and sets up interval", async () => {
 	const mockData: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 	};
 
-	const mockState: EncodedRecord = {
-		key1: { foo: "bar" } as any,
-		key2: { baz: "qux" } as any,
-	};
+	const mockState: EncodedRecord = {};
 
 	const pull = mock(() => Promise.resolve(mockData));
 	const push = mock(() => Promise.resolve());
@@ -19,24 +17,24 @@ test("init calls pull, mergeState, and push with merged state", async () => {
 	const mockStore = {
 		mergeState: mock(() => {}),
 		state: mock(() => mockState),
+		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
-	const { refresh, dispose } = createSynchronizer(mockStore, {
-		receive: pull,
-		send: push,
+	const { start, dispose } = createHttpSynchronizer(mockStore, {
+		pull: pull,
+		push: push,
 	});
 
-	await refresh();
+	await start();
 
 	expect(pull).toHaveBeenCalledTimes(1);
 	expect(mockStore.mergeState).toHaveBeenCalledWith(mockData);
-	expect(mockStore.state).toHaveBeenCalled();
-	expect(push).toHaveBeenCalledWith(mockState);
+	expect(mockStore.on).toHaveBeenCalledWith("mutate", expect.any(Function));
 
 	dispose();
 });
 
-test("push is NOT called when store state is empty", async () => {
+test("refresh does NOT push when store state is empty", async () => {
 	const mockData: EncodedRecord = {};
 	const emptyState: EncodedRecord = {};
 
@@ -46,11 +44,12 @@ test("push is NOT called when store state is empty", async () => {
 	const mockStore = {
 		mergeState: mock(() => {}),
 		state: mock(() => emptyState),
+		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
-	const { refresh, dispose } = createSynchronizer(mockStore, {
-		receive: pull,
-		send: push,
+	const { refresh, dispose } = createHttpSynchronizer(mockStore, {
+		pull: pull,
+		push: push,
 	});
 
 	await refresh();
@@ -69,15 +68,16 @@ test("dispose clears the interval", async () => {
 	const mockStore = {
 		mergeState: mock(() => {}),
 		state: mock(() => ({})),
+		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
-	const { refresh, dispose } = createSynchronizer(mockStore, {
-		receive: pull,
-		send: push,
-		interval: 100,
+	const { start, dispose } = createHttpSynchronizer(mockStore, {
+		pull: pull,
+		push: push,
+		pullInterval: 100,
 	});
 
-	await refresh();
+	await start();
 
 	// Dispose should clear the interval
 	dispose();
@@ -85,11 +85,11 @@ test("dispose clears the interval", async () => {
 	// Wait a bit to ensure interval doesn't fire
 	await Bun.sleep(200);
 
-	// pull should only have been called once during init, not again from interval
+	// pull should only have been called once during start, not again from interval
 	expect(pull).toHaveBeenCalledTimes(1);
 });
 
-test("refresh can be called manually", async () => {
+test("refresh can be called manually and pushes non-empty state", async () => {
 	const mockData: EncodedRecord = {
 		key1: { foo: "bar" } as any,
 	};
@@ -104,11 +104,12 @@ test("refresh can be called manually", async () => {
 	const mockStore = {
 		mergeState: mock(() => {}),
 		state: mock(() => mockState),
+		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
-	const { refresh, dispose } = createSynchronizer(mockStore, {
-		receive: pull,
-		send: push,
+	const { refresh, dispose } = createHttpSynchronizer(mockStore, {
+		pull: pull,
+		push: push,
 	});
 
 	// Call refresh manually

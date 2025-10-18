@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Store } from "../store";
+import type { Store } from "../core";
 
 export function useData<TValue extends object>(store: Store<TValue>) {
 	const [isLoading, setIsLoading] = useState(true);

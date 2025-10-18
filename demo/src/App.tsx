@@ -9,7 +9,7 @@ export function App() {
 	const { data: incomplete } = useQuery(todoStore, (todo) => !todo.completed);
 
 	useEffect(() => {
-		todoSync.refresh();
+		todoSync.start();
 		return () => {
 			todoStore.dispose();
 			todoSync.dispose();

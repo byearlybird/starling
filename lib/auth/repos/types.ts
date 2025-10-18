@@ -1,4 +1,4 @@
-import type { EncodedRecord } from "../../types";
+import type { EncodedRecord } from "../../core/types";
 
 export type Mailbox = {
 	publicKey: string;

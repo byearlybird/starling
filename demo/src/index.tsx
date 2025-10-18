@@ -1,8 +1,8 @@
 import { serve } from "bun";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
-import { mergeRecords } from "../../lib/operations";
-import type { EncodedRecord } from "../../lib/types";
+import { mergeRecords } from "../../lib/core/operations";
+import type { EncodedRecord } from "../../lib/core/types";
 import index from "./index.html";
 
 const storage = createStorage({
