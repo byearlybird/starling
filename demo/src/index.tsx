@@ -1,15 +1,13 @@
 import { serve } from "bun";
-import { createBunSQLiteDriver } from "../../lib/drivers/bunsql-driver";
+import { createStorage } from "unstorage";
 import { mergeRecords } from "../../lib/operations";
 import type { EncodedObject, EncodedRecord } from "../../lib/types";
 import index from "./index.html";
 
-const driver = createBunSQLiteDriver({
-	filename: "demo.db",
-});
+const storage = createStorage();
 
 async function getTodos() {
-	const persisted = await driver.get("todos");
+	const persisted = await storage.get<EncodedRecord>("todos");
 	return persisted || {};
 }
 
@@ -31,7 +29,7 @@ const server = serve({
 				const { todos } = await req.json();
 				const [merged, changed] = mergeRecords(persisted, todos);
 				if (changed) {
-					await driver.set("todos", merged);
+					await storage.set("todos", merged);
 				}
 				return Response.json({ success: true });
 			},

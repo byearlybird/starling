@@ -1,21 +1,21 @@
 import { expect, mock, test } from "bun:test";
-import { createMemoryDriver } from "./drivers/memory-driver";
+import { createStorage } from "unstorage";
 import { createPersist } from "./persisted";
 import { createStore } from "./store";
 
-test("init loads persisted data from driver", async () => {
-	const driver = createMemoryDriver();
+test("init loads persisted data from storage", async () => {
+	const storage = createStorage();
 	const store = createStore<{ name: string; age: number }>("users");
 
-	// Pre-populate driver with data
+	// Pre-populate storage with data
 	store.insert("user1", { name: "Alice", age: 30 });
-	await driver.set("__users", store.state());
+	await storage.set("__users", store.state());
 
 	// Create new store and persist
 	const newStore = createStore<{ name: string; age: number }>("users");
 	const persist = createPersist({
 		store: newStore,
-		driver,
+		storage,
 		key: "__users",
 		onError: console.error,
 		debounceMs: 100,
@@ -30,12 +30,12 @@ test("init loads persisted data from driver", async () => {
 });
 
 test("init handles missing data gracefully", async () => {
-	const driver = createMemoryDriver();
+	const storage = createStorage();
 	const store = createStore<{ name: string; age: number }>("users");
 
 	const persist = createPersist({
 		store,
-		driver,
+		storage,
 		key: "__users",
 		onError: console.error,
 		debounceMs: 100,
@@ -48,12 +48,12 @@ test("init handles missing data gracefully", async () => {
 });
 
 test("trigger debounces and persists store data", async () => {
-	const driver = createMemoryDriver();
+	const storage = createStorage();
 	const store = createStore<{ name: string; age: number }>("users");
 
 	const persist = createPersist({
 		store,
-		driver,
+		storage,
 		key: "__users",
 		onError: console.error,
 		debounceMs: 50,
@@ -67,19 +67,19 @@ test("trigger debounces and persists store data", async () => {
 	// Wait for debounce
 	await Bun.sleep(100);
 
-	const persisted = await driver.get("__users");
+	const persisted = await storage.get("__users");
 	expect(persisted).not.toBeNull();
 	expect(persisted).toHaveProperty("user1");
 });
 
 test("trigger debounces multiple calls", async () => {
-	const driver = createMemoryDriver();
+	const storage = createStorage();
 	const store = createStore<{ name: string; age: number }>("users");
-	const mockSet = mock(driver.set);
+	const mockSet = mock(storage.set);
 
 	const persist = createPersist({
 		store,
-		driver: { ...driver, set: mockSet },
+		storage: { ...storage, set: mockSet },
 		key: "__users",
 		onError: console.error,
 		debounceMs: 50,
@@ -102,13 +102,13 @@ test("trigger debounces multiple calls", async () => {
 });
 
 test("cancel prevents pending persist", async () => {
-	const driver = createMemoryDriver();
+	const storage = createStorage();
 	const store = createStore<{ name: string; age: number }>("users");
-	const mockSet = mock(driver.set);
+	const mockSet = mock(storage.set);
 
 	const persist = createPersist({
 		store,
-		driver: { ...driver, set: mockSet },
+		storage: { ...storage, set: mockSet },
 		key: "__users",
 		onError: console.error,
 		debounceMs: 50,
@@ -127,8 +127,8 @@ test("cancel prevents pending persist", async () => {
 	expect(mockSet).toHaveBeenCalledTimes(0);
 });
 
-test("onError is called when driver.get fails during init", async () => {
-	const driver = createMemoryDriver();
+test("onError is called when storage.get fails during init", async () => {
+	const storage = createStorage();
 	const mockGet = mock(() => Promise.reject(new Error("Driver error")));
 	const mockError = mock();
 
@@ -136,7 +136,7 @@ test("onError is called when driver.get fails during init", async () => {
 
 	const persist = createPersist({
 		store,
-		driver: { ...driver, get: mockGet },
+		storage: { ...storage, get: mockGet },
 		key: "__users",
 		onError: mockError,
 		debounceMs: 50,
@@ -148,8 +148,8 @@ test("onError is called when driver.get fails during init", async () => {
 	expect(mockError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
 });
 
-test("onError is called when driver.set fails during persist", async () => {
-	const driver = createMemoryDriver();
+test("onError is called when storage.set fails during persist", async () => {
+	const storage = createStorage();
 	const mockSet = mock(() => Promise.reject(new Error("Driver error")));
 	const mockError = mock();
 
@@ -157,7 +157,7 @@ test("onError is called when driver.set fails during persist", async () => {
 
 	const persist = createPersist({
 		store,
-		driver: { ...driver, set: mockSet },
+		storage: { ...storage, set: mockSet },
 		key: "__users",
 		onError: mockError,
 		debounceMs: 50,

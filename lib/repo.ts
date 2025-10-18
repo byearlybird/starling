@@ -1,22 +1,22 @@
+import type { Storage } from "unstorage";
 import { makePersisted } from "./persisted";
 import { createStore } from "./store";
 import { type MakeSynchronizedOptions, makeSynchronized } from "./synchronized";
-import type { Driver } from "./types";
 
 export function createRepo<T extends object>(
 	collectionKey: string,
 	{
-		driver,
+		storage,
 		sync,
 	}: {
-		driver: Driver;
+		storage: Storage;
 		sync: Omit<MakeSynchronizedOptions, "setup">;
 	},
 ) {
 	const store = createStore<T>(collectionKey);
 	const { init: initPersisted, dispose: disposePersisted } = makePersisted(
 		store,
-		{ driver },
+		{ storage },
 	);
 	const { init: initSynchronized, dispose: disposeSynchronized } =
 		makeSynchronized(store, {

@@ -1,20 +1,21 @@
+import type { Storage } from "unstorage";
 import type { Store } from "./store";
-import type { Driver } from "./types";
+import type { EncodedRecord } from "./types";
 
 export function makePersisted<TValue extends object>(
 	store: Store<TValue>,
 	{
-		driver,
+		storage,
 		onError = console.error,
 	}: {
-		driver: Driver;
+		storage: Storage;
 		onError?: (error: unknown) => void;
 	},
 ) {
 	const persist = createPersist({
 		store,
-		driver,
-		key: `__${store.collectionKey}`,
+		storage,
+		key: `persistence:${store.collectionKey}`,
 		onError,
 		debounceMs: 100,
 	});
@@ -41,13 +42,13 @@ export function makePersisted<TValue extends object>(
 
 export function createPersist<TValue extends object>({
 	store,
-	driver,
+	storage,
 	key,
 	onError,
 	debounceMs,
 }: {
 	store: Store<TValue>;
-	driver: Driver;
+	storage: Storage;
 	key: string;
 	onError: (error: unknown) => void;
 	debounceMs: number;
@@ -60,7 +61,7 @@ export function createPersist<TValue extends object>({
 
 	const init = (async () => {
 		try {
-			const persisted = await driver.get(key);
+			const persisted = await storage.get<EncodedRecord>(key);
 			if (persisted) {
 				store.__unsafe_replace(persisted);
 			}
@@ -73,7 +74,7 @@ export function createPersist<TValue extends object>({
 		try {
 			await init;
 			const values = store.state();
-			await driver.set(key, values);
+			await storage.set(key, values);
 		} catch (error) {
 			onError(error);
 		}

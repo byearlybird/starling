@@ -1,12 +1,12 @@
 import * as idb from "idb-keyval";
-import { createIdbDriver } from "../../lib/drivers/idb-driver";
+import { createIdbDriver } from "../../lib/drivers/idb-storage";
 import { createRepo } from "../../lib/repo";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
 import type { Todo } from "./types";
 
 export const createTodoRepo = () =>
 	createRepo<Todo>("todos", {
-		driver: createIdbDriver(idb),
+		storage: createIdbDriver(idb),
 		sync: {
 			interval: 1000 * 5, // 5 seconds for demo purposes
 			preprocess: async (event, data) => {
