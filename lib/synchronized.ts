@@ -1,7 +1,7 @@
 import type { Store } from "./store";
 import type { EncodedRecord } from "./types";
 
-export type MakeSynchronizedOptions = {
+export type SynchronizerOptions = {
 	interval?: number;
 	preprocess?: (
 		event: "pull" | "push",
@@ -11,14 +11,14 @@ export type MakeSynchronizedOptions = {
 	receive: () => Promise<EncodedRecord>;
 };
 
-export function makeSynchronized<TValue extends object>(
+export function createSynchronizer<TValue extends object>(
 	store: Store<TValue>,
 	{
 		send,
 		receive,
 		preprocess,
 		interval = 1000 * 60 * 5, // 5 minutes
-	}: MakeSynchronizedOptions,
+	}: SynchronizerOptions,
 ) {
 	let intervalId: Timer | null = setInterval(refresh, interval);
 

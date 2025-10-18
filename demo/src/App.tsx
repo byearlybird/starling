@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
 import { type Store } from "../../lib/store";
 import "./index.css";
-import { createTodoRepo } from "./todo-repo";
-
-const { store: todoStore, dispose, refresh } = createTodoRepo();
+import { todoStore, todoSync } from "./todo-repo";
 
 export function App() {
 	const todos = useData(todoStore);
 	const [newTodo, setNewTodo] = useState("");
 
 	useEffect(() => {
-		refresh();
+		todoSync.refresh();
 		return () => {
-			dispose();
+			todoSync.dispose();
 		};
 	}, []);
 
