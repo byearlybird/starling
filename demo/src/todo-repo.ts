@@ -12,7 +12,7 @@ const storage = createStorage({
 
 export const todoStore = createStore<Todo>(storage, "todos");
 export const todoSync = createSynchronizer(todoStore, {
-	interval: 1000 * 5, // 5 seconds for demo purposes
+	interval: 1000 * 1, // 1 second for demo purposes
 	preprocess: async (event, data) => {
 		switch (event) {
 			case "push":

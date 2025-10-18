@@ -12,6 +12,7 @@ export function App() {
 	useEffect(() => {
 		todoSync.refresh();
 		return () => {
+			todoStore.dispose();
 			todoSync.dispose();
 		};
 	}, []);

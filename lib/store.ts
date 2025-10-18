@@ -113,5 +113,9 @@ export function createStore<TValue extends object>(
 			emitter_.on("update", callback);
 			return () => emitter_.off("update", callback);
 		},
+		dispose() {
+			emitter_.off("insert");
+			emitter_.off("update");
+		},
 	};
 }
