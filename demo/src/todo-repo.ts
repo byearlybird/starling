@@ -1,12 +1,17 @@
 import * as idb from "idb-keyval";
-import { createIdbDriver } from "../../lib/drivers/idb-storage";
+import { createStorage } from "unstorage";
+import localStorageDriver from "unstorage/drivers/localstorage";
 import { createRepo } from "../../lib/repo";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
 import type { Todo } from "./types";
 
+const storage = createStorage({
+	driver: localStorageDriver({ base: "todos" }),
+});
+
 export const createTodoRepo = () =>
 	createRepo<Todo>("todos", {
-		storage: createIdbDriver(idb),
+		storage,
 		sync: {
 			interval: 1000 * 5, // 5 seconds for demo purposes
 			preprocess: async (event, data) => {

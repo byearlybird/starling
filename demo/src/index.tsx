@@ -1,10 +1,15 @@
 import { serve } from "bun";
 import { createStorage } from "unstorage";
+import fsDriver from "unstorage/drivers/fs";
 import { mergeRecords } from "../../lib/operations";
-import type { EncodedObject, EncodedRecord } from "../../lib/types";
+import type { EncodedRecord } from "../../lib/types";
 import index from "./index.html";
 
-const storage = createStorage();
+const storage = createStorage({
+	driver: fsDriver({
+		base: "demo",
+	}),
+});
 
 async function getTodos() {
 	const persisted = await storage.get<EncodedRecord>("todos");

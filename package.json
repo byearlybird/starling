@@ -8,7 +8,6 @@
 		"tinybench": "^5.0.1"
 	},
 	"peerDependencies": {
-		"idb-keyval": "^6.2.2",
 		"typescript": "^5"
 	},
 	"dependencies": {
