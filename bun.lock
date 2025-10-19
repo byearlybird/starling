@@ -7,7 +7,6 @@
         "flat": "^6.0.1",
         "mitt": "^3.0.1",
         "ulid": "^3.0.1",
-        "unstorage": "^1.17.1",
       },
       "devDependencies": {
         "@biomejs/biome": "2.2.5",
@@ -20,6 +19,7 @@
         "react-dom": "^19",
         "solid-js": "^1.9.9",
         "typescript": "^5",
+        "unstorage": "^1.17.1",
       },
       "optionalPeers": [
         "react",

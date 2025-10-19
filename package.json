@@ -13,7 +13,8 @@
 		"typescript": "^5",
 		"react": "^19",
 		"react-dom": "^19",
-		"solid-js": "^1.9.9"
+		"solid-js": "^1.9.9",
+		"unstorage": "^1.17.1"
 	},
 	"peerDependenciesMeta": {
 		"typescript": {
@@ -32,8 +33,7 @@
 	"dependencies": {
 		"flat": "^6.0.1",
 		"mitt": "^3.0.1",
-		"ulid": "^3.0.1",
-		"unstorage": "^1.17.1"
+		"ulid": "^3.0.1"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
