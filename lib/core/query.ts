@@ -14,7 +14,7 @@ type HandleInsertFn<T> = (items: { key: string; value: T }[]) => void;
 type HandleUpdateFn<T> = (items: { key: string; value: T }[]) => void;
 
 export type Query<T extends object> = {
-	initialize(): Promise<void>;
+	load(): Promise<Record<string, T>>;
 	on<K extends keyof Events<T>>(
 		event: K,
 		callback: (results: Events<T>[K]) => void,
@@ -25,7 +25,7 @@ export type Query<T extends object> = {
 export function createQuery<T extends object>(
 	store: Store<T>,
 	predicate: (data: T) => boolean,
-) {
+): Query<T> {
 	const results = new Map<string, T>();
 	const emitter = mitt<Events<T>>();
 	let loaded = false;

@@ -6,7 +6,11 @@ import { todoStore, todoSync } from "./todo-store";
 function App() {
 	const [newTodo, setNewTodo] = useState("");
 	const { data: todos } = useData(todoStore);
-	const { data: incomplete } = useQuery(todoStore, (todo) => !todo.completed);
+	const { data: incomplete } = useQuery(
+		todoStore,
+		(todo) => !todo.completed,
+		[],
+	);
 
 	useEffect(() => {
 		todoSync.start();
