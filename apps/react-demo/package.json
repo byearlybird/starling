@@ -1,5 +1,5 @@
 {
-	"name": "bun-react-template",
+	"name": "@byearlybird/react-demo",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -9,10 +9,12 @@
 		"build": "bun run build.ts"
 	},
 	"dependencies": {
+		"@byearlybird/starling": "workspace:*",
 		"bun-plugin-tailwind": "^0.1.2",
 		"react": "^19",
 		"react-dom": "^19",
-		"tailwindcss": "^4.1.11"
+		"tailwindcss": "^4.1.11",
+		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
 		"@types/react": "^19",

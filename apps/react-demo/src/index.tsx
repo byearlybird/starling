@@ -1,8 +1,8 @@
+import type { EncodedRecord } from "@byearlybird/starling";
+import { mergeRecords } from "@byearlybird/starling";
 import { serve } from "bun";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
-import { mergeRecords } from "../../lib/core/operations";
-import type { EncodedRecord } from "../../lib/core/types";
 import index from "./index.html";
 
 const storage = createStorage({

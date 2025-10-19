@@ -1,7 +1,7 @@
+import { createStore } from "@byearlybird/starling";
+import { createHttpSynchronizer } from "@byearlybird/starling/sync";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
-import { createStore } from "../../lib/core/store";
-import { createHttpSynchronizer } from "../../lib/sync/http-sync";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
 import type { Todo } from "./types";
 
