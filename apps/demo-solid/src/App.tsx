@@ -109,6 +109,10 @@ function useQuery<T extends object>(
 		refetch();
 	});
 
+	onCleanup(() => {
+		query.dispose();
+	});
+
 	return data;
 }
 
