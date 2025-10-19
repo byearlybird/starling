@@ -6,12 +6,13 @@ import {
 	onMount,
 } from "solid-js";
 import "./App.css";
-import type { Store } from "@byearlybird/starling";
+import { createQuery, type Store } from "@byearlybird/starling";
 import { todoStore, todoSync } from "./todo-store";
 
 function App() {
 	const [newTodo, setNewTodo] = createSignal("");
 	const todos = useData(todoStore);
+	const incomplete = useQuery(todoStore, (todo) => !todo.completed);
 
 	onMount(() => {
 		todoSync.start();
@@ -45,6 +46,24 @@ function App() {
 				</button>
 			</div>
 			<section>
+				<h3>Incomplete</h3>
+				<For each={Object.entries(incomplete())}>
+					{([id, todo]) => (
+						<label>
+							<input
+								type="checkbox"
+								checked={todo.completed}
+								onChange={(e) =>
+									todoStore.update(id, { completed: e.currentTarget.checked })
+								}
+							/>
+							<span>{todo.text}</span>
+						</label>
+					)}
+				</For>
+			</section>
+			<section>
+				<h3>All</h3>
 				<For each={Object.entries(todos())}>
 					{([id, todo]) => (
 						<label>
@@ -70,6 +89,23 @@ function useData<T extends object>(store: Store<T>) {
 	});
 
 	store.on("mutate", () => {
+		refetch();
+	});
+
+	return data;
+}
+
+function useQuery<T extends object>(
+	store: Store<T>,
+	predicate: (data: T) => boolean,
+) {
+	const query = createQuery(store, predicate);
+	const [data, { refetch, mutate }] = createResource(query.load, {
+		initialValue: {},
+	});
+
+	query.on("change", (data) => {
+		mutate(data);
 		refetch();
 	});
 
