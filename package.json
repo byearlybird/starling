@@ -2,12 +2,34 @@
 	"name": "@byearlybird/flock",
 	"version": "0.1.0",
 	"type": "module",
-	"module": "lib/index.ts",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"exports": {
-		".": "./lib/index.ts",
-		"./react": "./lib/react/index.ts",
-		"./solid": "./lib/solid/index.ts",
-		"./sync": "./lib/sync/index.ts"
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./react": {
+			"types": "./dist/react/index.d.ts",
+			"import": "./dist/react/index.js"
+		},
+		"./solid": {
+			"types": "./dist/solid/index.d.ts",
+			"import": "./dist/solid/index.js"
+		},
+		"./sync": {
+			"types": "./dist/sync/index.d.ts",
+			"import": "./dist/sync/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build:js && bun run build:types",
+		"build:js": "bun build lib/index.ts lib/react/index.ts lib/solid/index.ts lib/sync/index.ts --outdir=dist --target=node --format=esm",
+		"build:types": "tsc --project tsconfig.build.json",
+		"prepublishOnly": "bun run build"
 	},
 	"peerDependencies": {
 		"typescript": "^5",

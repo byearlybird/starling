@@ -1,4 +1,5 @@
-import { createQuery, type Store } from "@byearlybird/flock";
+import type { Store } from "../core";
+import { createQuery } from "../core";
 import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 
 export function useQuery<T extends object>(
