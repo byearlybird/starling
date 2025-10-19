@@ -35,8 +35,8 @@
         "vite-plugin-solid": "^2.11.8",
       },
     },
-    "apps/react-demo": {
-      "name": "@byearlybird/react-demo",
+    "apps/demo-react": {
+      "name": "@byearlybird/demo-react",
       "version": "0.1.0",
       "dependencies": {
         "@byearlybird/starling": "workspace:*",
@@ -126,7 +126,7 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.2.5", "", { "os": "win32", "cpu": "x64" }, "sha512-F/jhuXCssPFAuciMhHKk00xnCAxJRS/pUzVfXYmOMUp//XW7mO6QeCjsjvnm8L4AO/dG2VOB0O+fJPiJ2uXtIw=="],
 
-    "@byearlybird/react-demo": ["@byearlybird/react-demo@workspace:apps/react-demo"],
+    "@byearlybird/demo-react": ["@byearlybird/demo-react@workspace:apps/demo-react"],
 
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/starling"],
 
