@@ -13,11 +13,9 @@ function App() {
 	);
 
 	useEffect(() => {
-		todoSync.start();
-		return () => {
-			todoStore.dispose();
-			todoSync.dispose();
-		};
+		todoSync.start().then(() => {
+			todoSync.refresh();
+		});
 	}, []);
 
 	return (
