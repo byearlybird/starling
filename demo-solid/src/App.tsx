@@ -9,7 +9,7 @@ function App() {
 	const incomplete = useQuery(todoStore, (todo) => !todo.completed);
 
 	onMount(() => {
-		todoSync.start();
+		todoSync.start().then(() => todoSync.refresh());
 	});
 
 	onCleanup(() => {
