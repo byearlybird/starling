@@ -1,9 +1,8 @@
-import type { EncodedRecord } from "../../lib";
-import { mergeRecords } from "../../lib";
 import { serve } from "bun";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
-import index from "./index.html";
+import type { EncodedRecord } from "../lib";
+import { mergeRecords } from "../lib";
 
 const storage = createStorage({
 	driver: fsDriver({
@@ -18,24 +17,37 @@ async function getTodos() {
 
 const server = serve({
 	routes: {
-		// Serve index.html for all unmatched routes.
-		"/*": index,
-
 		"/api/todos": {
 			async GET() {
 				const todos = await getTodos();
-				return Response.json({
+				const response = Response.json({
 					todos,
 				});
+				// Add CORS headers
+				response.headers.set("Access-Control-Allow-Origin", "*");
+				response.headers.set(
+					"Access-Control-Allow-Methods",
+					"GET, PUT, POST, DELETE, OPTIONS",
+				);
+				response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+				return response;
 			},
 			async PUT(req) {
 				const persisted = await getTodos();
-				const { todos } = await req.json();
+				const { todos } = (await req.json()) as { todos: EncodedRecord };
 				const [merged, changed] = mergeRecords(persisted, todos);
 				if (changed) {
 					await storage.set("todos", merged);
 				}
-				return Response.json({ success: true });
+				const response = Response.json({ success: true });
+				// Add CORS headers
+				response.headers.set("Access-Control-Allow-Origin", "*");
+				response.headers.set(
+					"Access-Control-Allow-Methods",
+					"GET, PUT, POST, DELETE, OPTIONS",
+				);
+				response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+				return response;
 			},
 		},
 	},
@@ -43,9 +55,6 @@ const server = serve({
 	development: process.env.NODE_ENV !== "production" && {
 		// Enable browser hot reloading in development
 		hmr: true,
-
-		// Echo console logs from the browser to the server
-		console: true,
 	},
 });
 

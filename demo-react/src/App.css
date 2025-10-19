@@ -1,0 +1,122 @@
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+/* Input container */
+div:has(> input:not([type="checkbox"])) {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+/* Text input field */
+input:not([type="checkbox"]) {
+  flex: 1;
+  padding: 0.875rem 1.25rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.6);
+  background-color: #2a3142;
+  border: 1px solid #3a4256;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+input:not([type="checkbox"])::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+input:not([type="checkbox"]):focus {
+  border-color: #5b6b8f;
+  background-color: #2f3648;
+}
+
+/* Add button */
+button {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: white;
+  background-color: #5b5fc7;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+button:hover {
+  background-color: #6b6fd7;
+}
+
+button:active {
+  background-color: #4b4fb7;
+}
+
+/* Sections */
+section {
+  margin-bottom: 2rem;
+}
+
+/* Todo item labels */
+label {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #2a3142;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+label:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #4a5266;
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #5b6b8f;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #4a7bdb;
+  border-color: #4a7bdb;
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Todo text */
+label span {
+  flex: 1;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.87);
+}

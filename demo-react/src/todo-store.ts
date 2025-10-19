@@ -28,7 +28,7 @@ export const todoSync = createHttpSynchronizer(todoStore, {
 	},
 	push: async (data) => {
 		console.log("pushing");
-		await fetch("/api/todos", {
+		await fetch("http://localhost:3000/api/todos", {
 			method: "PUT",
 			headers: {
 				"Content-Type": "application/json",
@@ -38,7 +38,7 @@ export const todoSync = createHttpSynchronizer(todoStore, {
 	},
 	pull: async () => {
 		console.log("pulling");
-		const response = await fetch("/api/todos");
+		const response = await fetch("http://localhost:3000/api/todos");
 		if (!response.ok) return {};
 
 		const json = await response.json();
