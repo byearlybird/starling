@@ -1,12 +1,6 @@
-import {
-	createResource,
-	createSignal,
-	For,
-	onCleanup,
-	onMount,
-} from "solid-js";
+import { createSignal, For, onCleanup, onMount } from "solid-js";
 import "./App.css";
-import { createQuery, type Store } from "@byearlybird/starling";
+import { useData, useQuery } from "@byearlybird/starling/solid";
 import { todoStore, todoSync } from "./todo-store";
 
 function App() {
@@ -81,39 +75,6 @@ function App() {
 			</section>
 		</>
 	);
-}
-
-function useData<T extends object>(store: Store<T>) {
-	const [data, { refetch }] = createResource(store.values, {
-		initialValue: {},
-	});
-
-	store.on("mutate", () => {
-		refetch();
-	});
-
-	return data;
-}
-
-function useQuery<T extends object>(
-	store: Store<T>,
-	predicate: (data: T) => boolean,
-) {
-	const query = createQuery(store, predicate);
-	const [data, { refetch, mutate }] = createResource(query.load, {
-		initialValue: {},
-	});
-
-	query.on("change", (data) => {
-		mutate(data);
-		refetch();
-	});
-
-	onCleanup(() => {
-		query.dispose();
-	});
-
-	return data;
 }
 
 export default App;
