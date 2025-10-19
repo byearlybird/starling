@@ -1,5 +1,5 @@
-import { createStore } from "@byearlybird/starling";
-import { createHttpSynchronizer } from "@byearlybird/starling/sync";
+import { createStore } from "../../lib";
+import { createHttpSynchronizer } from "../../lib/sync";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";

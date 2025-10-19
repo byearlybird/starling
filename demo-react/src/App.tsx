@@ -1,5 +1,5 @@
 import "./index.css";
-import { useData, useQuery } from "@byearlybird/starling/react";
+import { useData, useQuery } from "../../lib/react";
 import { useEffect, useState } from "react";
 import { todoStore, todoSync } from "./todo-store";
 

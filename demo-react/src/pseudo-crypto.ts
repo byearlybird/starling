@@ -1,4 +1,4 @@
-import type { EncodedObject, EncodedRecord } from "@byearlybird/starling";
+import type { EncodedObject, EncodedRecord } from "../../lib";
 
 export function psuedoEncryptRecord(record: EncodedRecord): EncodedRecord {
 	const encryptedRecord: EncodedRecord = {};

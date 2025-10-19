@@ -9,8 +9,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"solid-js": "^1.9.9",
-		"@byearlybird/starling": "workspace:*"
+		"solid-js": "^1.9.9"
 	},
 	"devDependencies": {
 		"@types/node": "^24.6.0",

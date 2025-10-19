@@ -1,5 +1,5 @@
-import type { EncodedRecord } from "@byearlybird/starling";
-import { mergeRecords } from "@byearlybird/starling";
+import type { EncodedRecord } from "../../lib";
+import { mergeRecords } from "../../lib";
 import { serve } from "bun";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";

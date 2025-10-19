@@ -1,11 +1,13 @@
 {
 	"name": "@byearlybird/starling",
-	"module": "lib/index.ts",
+	"version": "0.1.0",
 	"type": "module",
-	"devDependencies": {
-		"@biomejs/biome": "2.2.5",
-		"@types/bun": "latest",
-		"tinybench": "^5.0.1"
+	"module": "lib/index.ts",
+	"exports": {
+		".": "./lib/index.ts",
+		"./react": "./lib/react/index.ts",
+		"./solid": "./lib/solid/index.ts",
+		"./sync": "./lib/sync/index.ts"
 	},
 	"peerDependencies": {
 		"typescript": "^5",
@@ -13,16 +15,30 @@
 		"react-dom": "^19",
 		"solid-js": "^1.9.9"
 	},
-	"workspaces": [
-		"apps/*",
-		"packages/*"
-	],
+	"peerDependenciesMeta": {
+		"typescript": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		},
+		"solid-js": {
+			"optional": true
+		}
+	},
 	"dependencies": {
-		"bip39": "^3.1.0",
 		"flat": "^6.0.1",
-		"jose": "^6.1.0",
 		"mitt": "^3.0.1",
 		"ulid": "^3.0.1",
 		"unstorage": "^1.17.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.5",
+		"@types/bun": "latest",
+		"tinybench": "^5.0.1",
+		"typescript": "^5"
 	}
 }

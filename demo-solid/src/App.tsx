@@ -1,6 +1,6 @@
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import "./App.css";
-import { useData, useQuery } from "@byearlybird/starling/solid";
+import { useData, useQuery } from "../../lib/solid";
 import { todoStore, todoSync } from "./todo-store";
 
 function App() {
