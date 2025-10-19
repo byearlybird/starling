@@ -1,35 +1,79 @@
-import { createSignal } from 'solid-js'
-import solidLogo from './assets/solid.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import {
+	createResource,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+} from "solid-js";
+import "./App.css";
+import type { Store } from "@byearlybird/starling";
+import { todoStore, todoSync } from "./todo-store";
 
 function App() {
-  const [count, setCount] = createSignal(0)
+	const [newTodo, setNewTodo] = createSignal("");
+	const todos = useData(todoStore);
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} class="logo" alt="Vite logo" />
-        </a>
-        <a href="https://solidjs.com" target="_blank">
-          <img src={solidLogo} class="logo solid" alt="Solid logo" />
-        </a>
-      </div>
-      <h1>Vite + Solid</h1>
-      <div class="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count()}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p class="read-the-docs">
-        Click on the Vite and Solid logos to learn more
-      </p>
-    </>
-  )
+	onMount(() => {
+		todoSync.start();
+	});
+
+	onCleanup(() => {
+		todoStore.dispose();
+		todoSync.dispose();
+	});
+
+	return (
+		<>
+			<h1>Todos</h1>
+			<div>
+				<input
+					value={newTodo()}
+					onchange={(e) => setNewTodo(e.currentTarget.value)}
+					placeholder="What needs doing?"
+				/>
+				<button
+					type="button"
+					onclick={() => {
+						todoStore.insert(crypto.randomUUID(), {
+							text: newTodo(),
+							completed: false,
+						});
+						setNewTodo("");
+					}}
+				>
+					Add
+				</button>
+			</div>
+			<section>
+				<For each={Object.entries(todos())}>
+					{([id, todo]) => (
+						<label>
+							<input
+								type="checkbox"
+								checked={todo.completed}
+								onChange={(e) =>
+									todoStore.update(id, { completed: e.currentTarget.checked })
+								}
+							/>
+							<span>{todo.text}</span>
+						</label>
+					)}
+				</For>
+			</section>
+		</>
+	);
 }
 
-export default App
+function useData<T extends object>(store: Store<T>) {
+	const [data, { refetch }] = createResource(store.values, {
+		initialValue: {},
+	});
+
+	store.on("mutate", () => {
+		refetch();
+	});
+
+	return data;
+}
+
+export default App;
