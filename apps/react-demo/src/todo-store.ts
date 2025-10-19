@@ -5,13 +5,12 @@ import localStorageDriver from "unstorage/drivers/localstorage";
 import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
 import type { Todo } from "./types";
 
-const storage = createStorage({
-	driver: localStorageDriver({ base: "todos" }),
+export const todoStore = createStore<Todo>("todos", {
+	storage: createStorage({
+		driver: localStorageDriver({ base: "todos" }),
+	}),
 });
 
-export const todoStore = createStore<Todo>("todos", {
-	storage,
-});
 export const todoSync = createHttpSynchronizer(todoStore, {
 	pullInterval: 1000 * 5, // 5 second for demo purposes
 	preprocess: async (event, data) => {
