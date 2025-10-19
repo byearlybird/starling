@@ -1,8 +1,11 @@
-import { createStore } from "../../lib";
-import { createHttpSynchronizer } from "../../lib/sync";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
-import { pseudoDecryptRecord, psuedoEncryptRecord } from "./pseudo-crypto";
+import {
+	pseudoDecryptRecord,
+	psuedoEncryptRecord,
+} from "../../demo-utils/pseudo-crypto";
+import { createStore } from "../../lib";
+import { createHttpSynchronizer } from "../../lib/sync";
 import type { Todo } from "./types";
 
 export const todoStore = createStore<Todo>("todos", {

@@ -1,6 +1,6 @@
 import "./index.css";
-import { useData, useQuery } from "../../lib/react";
 import { useEffect, useState } from "react";
+import { useData, useQuery } from "../../lib/react";
 import { todoStore, todoSync } from "./todo-store";
 
 export function App() {
