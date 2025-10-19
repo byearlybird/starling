@@ -1,106 +1,169 @@
+# CLAUDE.md
 
-Default to using Bun instead of Node.js.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+## Project Overview
 
-## APIs
+Flock is a reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. It provides:
+- A reactive store with event-driven updates
+- Query system with predicate-based filtering
+- HTTP synchronization layer with conflict-free merging
+- Framework bindings for React and Solid
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Project Structure
 
-## Testing
+```
+lib/
+├── core/           # Core library (framework-agnostic)
+│   ├── store.ts    # Main store implementation with eventstamps
+│   ├── query.ts    # Reactive query system
+│   ├── operations.ts # Encode/decode/merge operations
+│   └── types.ts    # Shared types (EncodedValue, EncodedObject, etc.)
+├── react/          # React hooks (useData, useQuery)
+├── solid/          # Solid hooks (useData, useQuery)
+└── sync/           # HTTP synchronizer for client-server sync
 
-Use `bun test` to run tests.
+demo-react/         # React demo app (Vite + React)
+demo-solid/         # Solid demo app (Vite + Solid)
+demo-server/        # Demo backend (Hono + Bun)
+```
 
-```ts#index.test.ts
-import { test, expect } from "bun:test";
+## Key Architecture Concepts
 
-test("hello world", () => {
-  expect(1).toBe(1);
+### Stores
+- Stores manage collections of objects with CRDT-like merge semantics
+- Each value is encoded with an `__eventstamp` (ULID-based monotonic timestamp)
+- Uses `unstorage` for storage abstraction (supports localStorage, filesystem, etc.)
+- Operations: `insert()`, `update()`, `mergeState()`, `values()`, `state()`
+- Event emitters: `insert`, `update`, `mutate`
+
+### Queries
+- Queries provide reactive, filtered views of store data
+- Accept a predicate function to filter items
+- Emit `init` (on load) and `change` (on updates) events
+- Automatically handle concurrent loads and pending operations
+
+### Synchronization
+- `createHttpSynchronizer` enables client-server sync over HTTP
+- Supports bidirectional sync: push on mutations, pull on interval
+- Optional `preprocess` hook for encryption/transformation
+- Merge conflicts resolved via eventstamp comparison (Last-Write-Wins)
+
+### Framework Bindings
+- React: `useData(store)`, `useQuery(store, predicate, deps)`
+- Solid: `useData(store)`, `useQuery(store, predicate)`
+- Both provide reactive updates when store data changes
+
+## Development Commands
+
+### Testing
+```bash
+# Run all tests
+bun test
+
+# Run specific test file
+bun test lib/core/store.test.ts
+
+# Watch mode
+bun test --watch
+```
+
+### Linting and Formatting
+```bash
+# Check code with Biome
+bun biome check .
+
+# Format code with Biome
+bun biome format --write .
+
+# Lint code with Biome
+bun biome lint .
+```
+
+### Running Demos
+```bash
+# Run demo server (port 3000)
+cd demo-server && bun run index.ts
+
+# Run React demo (separate terminal)
+cd demo-react && bun run dev
+
+# Run Solid demo (separate terminal)
+cd demo-solid && bun run dev
+```
+
+## Code Style
+
+- **Formatting**: Tabs for indentation, double quotes (see [biome.json](biome.json))
+- **TypeScript**: Strict mode enabled with maximum type safety (see [tsconfig.json](tsconfig.json))
+- **Imports**: Use `.ts` extensions in import paths
+- **Testing**: Use `bun:test` framework (not Jest or Vitest)
+
+## Common Patterns
+
+### Creating a Store
+```typescript
+import { createStore } from "@byearlybird/flock";
+import { createStorage } from "unstorage";
+
+const store = createStore<{ name: string }>("users", {
+  storage: createStorage(),
 });
+
+// Insert and update
+await store.insert("user1", { name: "Alice" });
+await store.update("user1", { name: "Bob" });
 ```
 
-## Frontend
+### Using Queries in React
+```typescript
+import { useQuery } from "@byearlybird/flock/react";
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-
-// import .css files directly and it works
-import './index.css';
-
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
+function Component() {
+  const { data, isLoading } = useQuery(
+    todoStore,
+    (todo) => !todo.completed,
+    [] // dependency list
+  );
+  // ...
 }
-
-root.render(<Frontend />);
 ```
 
-Then, run index.ts
+### Setting Up Sync
+```typescript
+import { createHttpSynchronizer } from "@byearlybird/flock/sync";
 
-```sh
-bun --hot ./index.ts
+const sync = createHttpSynchronizer(store, {
+  pullInterval: 5000,
+  push: async (data) => {
+    await fetch("/api/todos", {
+      method: "PUT",
+      body: JSON.stringify({ todos: data }),
+    });
+  },
+  pull: async () => {
+    const res = await fetch("/api/todos");
+    const { todos } = await res.json();
+    return todos;
+  },
+});
+
+await sync.start();
 ```
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+## Package Exports
+
+The package provides multiple entry points:
+- `@byearlybird/flock` - Core library
+- `@byearlybird/flock/react` - React hooks
+- `@byearlybird/flock/solid` - Solid hooks
+- `@byearlybird/flock/sync` - HTTP synchronizer
+
+## Dependencies
+
+- `unstorage` - Storage abstraction layer (peer dependency)
+- `mitt` - Tiny event emitter
+- `ulid` - Monotonic timestamp generation
+- `flat` - Object flattening for nested updates
+- React 19+ (peer, optional)
+- Solid 1.9+ (peer, optional)
