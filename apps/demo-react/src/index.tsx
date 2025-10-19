@@ -7,7 +7,7 @@ import index from "./index.html";
 
 const storage = createStorage({
 	driver: fsDriver({
-		base: "todos",
+		base: ".todos",
 	}),
 });
 

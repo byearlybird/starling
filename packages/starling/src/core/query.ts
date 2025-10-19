@@ -26,33 +26,39 @@ export function createQuery<T extends object>(
 	store: Store<T>,
 	predicate: (data: T) => boolean,
 ) {
-	let initialized = false;
-	let eventBuffer: Array<{
-		type: "insert" | "update";
-		items: { key: string; value: T }[];
-	}> = [];
 	const results = new Map<string, T>();
 	const emitter = mitt<Events<T>>();
+	let loaded = false;
+	let loading = false;
+	const pendingOps = new Map<string, T>();
 
 	const handleInsert = createHandleInsert(
 		results,
 		emitter,
 		predicate,
-		() => initialized,
-		eventBuffer,
+		() => loaded,
+		() => loading,
+		pendingOps,
 	);
 	const handleUpdate = createHandleUpdate(
 		results,
 		emitter,
 		predicate,
-		() => initialized,
-		eventBuffer,
+		() => loaded,
+		() => loading,
+		pendingOps,
 	);
+
 	const unwatchUpdate = store.on("update", handleUpdate);
 	const unwatchInsert = store.on("insert", handleInsert);
 
-	async function initialize() {
-		if (initialized) return;
+	async function load() {
+		// Prevent concurrent load calls
+		if (loading) return Object.fromEntries(results);
+
+		loading = true;
+
+		// Load snapshot from store
 		const data = await store.values();
 		results.clear();
 		for (const [key, value] of Object.entries(data)) {
@@ -61,19 +67,22 @@ export function createQuery<T extends object>(
 			}
 		}
 
-		initialized = true;
-
-		// Replay buffered events that occurred during initialization
-		for (const event of eventBuffer) {
-			if (event.type === "insert") {
-				handleInsert(event.items);
-			} else if (event.type === "update") {
-				handleUpdate(event.items);
+		// Process any operations that arrived during load
+		for (const [key, value] of pendingOps.entries()) {
+			if (predicate(value)) {
+				results.set(key, value);
+			} else if (results.has(key)) {
+				results.delete(key);
 			}
 		}
-		eventBuffer = [];
+		pendingOps.clear();
 
-		emitter.emit("init", Object.fromEntries(results));
+		// Mark as loaded and emit init event
+		loading = false;
+		loaded = true;
+		const resultsObj = Object.fromEntries(results);
+		emitter.emit("init", resultsObj);
+		return resultsObj;
 	}
 
 	function on<K extends keyof Events<T>>(
@@ -92,7 +101,7 @@ export function createQuery<T extends object>(
 	}
 
 	return {
-		initialize,
+		load,
 		on,
 		dispose,
 	};
@@ -102,17 +111,20 @@ function createHandleInsert<T extends object>(
 	results: Map<string, T>,
 	emitter: Emitter<T>,
 	predicate: (data: T) => boolean,
-	getInitialized: () => boolean,
-	eventBuffer: Array<{
-		type: "insert" | "update";
-		items: { key: string; value: T }[];
-	}>,
+	isLoaded: () => boolean,
+	isLoading: () => boolean,
+	pendingOps: Map<string, T>,
 ): HandleInsertFn<T> {
 	return (items: { key: string; value: T }[]) => {
-		if (!getInitialized()) {
-			eventBuffer.push({ type: "insert", items });
+		// Queue operations that arrive during load
+		if (isLoading() && !isLoaded()) {
+			for (const item of items) {
+				pendingOps.set(item.key, item.value);
+			}
 			return;
 		}
+
+		if (!isLoaded()) return;
 
 		let changed = false;
 		for (const item of items) {
@@ -130,17 +142,20 @@ function createHandleUpdate<T extends object>(
 	results: Map<string, T>,
 	emitter: Emitter<T>,
 	predicate: (data: T) => boolean,
-	getInitialized: () => boolean,
-	eventBuffer: Array<{
-		type: "insert" | "update";
-		items: { key: string; value: T }[];
-	}>,
+	isLoaded: () => boolean,
+	isLoading: () => boolean,
+	pendingOps: Map<string, T>,
 ): HandleUpdateFn<T> {
 	return (items: { key: string; value: T }[]) => {
-		if (!getInitialized()) {
-			eventBuffer.push({ type: "update", items });
+		// Queue operations that arrive during load
+		if (isLoading() && !isLoaded()) {
+			for (const item of items) {
+				pendingOps.set(item.key, item.value);
+			}
 			return;
 		}
+
+		if (!isLoaded()) return;
 
 		let changed = false;
 		for (const item of items) {

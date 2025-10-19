@@ -14,16 +14,14 @@ export function useQuery<TValue extends object>(
 	useEffect(() => {
 		const query = queryRef.current;
 
-		query.on("init", (results) => {
-			setData(results);
+		query.load().then((data) => {
+			setData(data);
 			setIsLoading(false);
 		});
 
 		query.on("change", (results) => {
 			setData(results);
 		});
-
-		query.initialize();
 
 		return () => {
 			query.dispose();
