@@ -1,4 +1,5 @@
-import { serve } from "bun";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 import type { EncodedRecord } from "../lib";
@@ -15,45 +16,31 @@ async function getTodos() {
 	return persisted || {};
 }
 
-const server = serve({
-	routes: {
-		"/api/todos": {
-			async GET() {
-				const todos = await getTodos();
-				const response = Response.json({
-					todos,
-				});
-				// Add CORS headers
-				response.headers.set("Access-Control-Allow-Origin", "*");
-				response.headers.set(
-					"Access-Control-Allow-Methods",
-					"GET, PUT, POST, DELETE, OPTIONS",
-				);
-				response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-				return response;
-			},
-			async PUT(req) {
-				const persisted = await getTodos();
-				const { todos } = (await req.json()) as { todos: EncodedRecord };
-				const [merged, changed] = mergeRecords(persisted, todos);
-				if (changed) {
-					await storage.set("todos", merged);
-				}
-				const response = Response.json({ success: true });
-				// Add CORS headers
-				response.headers.set("Access-Control-Allow-Origin", "*");
-				response.headers.set(
-					"Access-Control-Allow-Methods",
-					"GET, PUT, POST, DELETE, OPTIONS",
-				);
-				response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-				return response;
-			},
-		},
-	},
+const app = new Hono();
 
+// Apply CORS middleware to all API routes
+app.use("/api/*", cors());
+
+// GET /api/todos
+app.get("/api/todos", async (c) => {
+	const todos = await getTodos();
+	return c.json({ todos });
+});
+
+// PUT /api/todos
+app.put("/api/todos", async (c) => {
+	const persisted = await getTodos();
+	const { todos } = (await c.req.json()) as { todos: EncodedRecord };
+	const [merged, changed] = mergeRecords(persisted, todos);
+	if (changed) {
+		await storage.set("todos", merged);
+	}
+	return c.json({ success: true });
+});
+
+const server = Bun.serve({
+	fetch: app.fetch,
 	development: process.env.NODE_ENV !== "production" && {
-		// Enable browser hot reloading in development
 		hmr: true,
 	},
 });
