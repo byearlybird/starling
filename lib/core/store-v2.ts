@@ -101,4 +101,19 @@ export class Store<TValue extends object> {
     snapshot(): EncodedRecord {
         return Object.fromEntries(this.#cache);
     }
+
+    on<K extends keyof Events<TValue>>(event: K, callback: (data: Events<TValue>[K]) => void) {
+        this.#emitter.on(event, callback);
+
+        return () => {
+            this.#emitter.off(event, callback);
+        }
+    }
+
+    dispose() {
+        this.#emitter.off("insert");
+        this.#emitter.off("update");
+        this.#emitter.off("delete");
+        this.#emitter.off("mutate");
+    }
 }
