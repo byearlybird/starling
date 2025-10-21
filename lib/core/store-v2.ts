@@ -43,14 +43,14 @@ export class Store<TValue extends object> {
         this.#emitter.emit("mutate", [{ key }]);
     }
 
-    async #mutateAll(data: { key: string; value: EncodedObject }[]): Promise<{ success: boolean, mutatedKeys: string[] }> {
-        const mutatedKeys: string[] = [];
+    async #mutateAll(data: { key: string; value: EncodedObject }[]): Promise<{ success: boolean, mutatedKeys: Set<string> }> {
+        const mutatedKeys = new Set<string>();
 
         try {
             const peristPromises = data.map(async (item) => {
                 await this.#storage.set(item.key, item.value);
                 this.#cache.set(item.key, item.value);
-                mutatedKeys.push(item.key);
+                mutatedKeys.add(item.key);
             })
 
             await Promise.all(peristPromises);
@@ -62,8 +62,8 @@ export class Store<TValue extends object> {
             return { success: false, mutatedKeys }
         }
         finally {
-            if (mutatedKeys.length > 0) {
-                this.#emitter.emit('mutate', mutatedKeys.map((key) => ({ key })));
+            if (mutatedKeys.size > 0) {
+                this.#emitter.emit('mutate', Array.from(mutatedKeys).map((key) => ({ key })));
             }
         }
     }
@@ -91,13 +91,11 @@ export class Store<TValue extends object> {
     }
 
     async insertAll(data: { key: string; value: TValue }[]) {
-        const existingKeys = new Set(this.#cache.keys());
-        const newKeys = new Set(data.map((d) => d.key));
-        const conflictingKeys = existingKeys.intersection(newKeys);
+        const duplicateKeys = data.filter(({ key }) => this.#cache.has(key))
 
-        if (conflictingKeys) {
-            const conflictingKeysString = Array.from(conflictingKeys)
-                .map((k) => k.toString())
+        if (duplicateKeys) {
+            const conflictingKeysString = duplicateKeys
+                .map((k) => k.key)
                 .join(", ");
             throw new Error(
                 `[${this.#collectionKey}]: Duplicate key(s): ${conflictingKeysString}`,
@@ -105,8 +103,10 @@ export class Store<TValue extends object> {
         }
 
         const encoded = data.map((d) => ({ key: d.key, value: this.#encode(d.value) }));
-        await this.#mutateAll(encoded);
-        this.#emitter.emit('insert', data);
+        const { mutatedKeys } = await this.#mutateAll(encoded);
+        const mutatedData = data.filter((d) => mutatedKeys.has(d.key));
+
+        this.#emitter.emit('insert', mutatedData);
     }
 
     async update(key: string, value: DeepPartial<TValue>) {
@@ -122,6 +122,41 @@ export class Store<TValue extends object> {
         await this.#mutate(key, merged).then(() => {
             this.#emitter.emit("update", [{ key, value: decode(merged) }]);
         });
+    }
+
+    async updateAll(data: { key: string; value: DeepPartial<TValue> }[]) {
+        const missingKeys = data.filter((d) => !this.#cache.has(d.key));
+
+        if (missingKeys.length > 0) {
+            const missingKeysString = missingKeys
+                .map((d) => d.key)
+                .join(", ");
+
+            throw new Error(
+                `[${this.#collectionKey}]: Key(s) not found: ${missingKeysString}`,
+            );
+        }
+
+        const toMerge: { key: string, value: EncodedObject }[] = [];
+        data
+            .forEach((d) => {
+                const current = this.#cache.get(d.key);
+                const encoded = this.#encode(d.value);
+                // biome-ignore lint/style/noNonNullAssertion: <gaurded against above>
+                const [mergedValue, changed] = merge(current!, encoded);
+                if (changed) toMerge.push({ key: d.key, value: mergedValue });
+            })
+
+        if (toMerge.length === 0) return;
+
+        const { mutatedKeys } = await this.#mutateAll(toMerge);
+
+        const updatedData = toMerge.filter((item) => mutatedKeys.has(item.key)).map((item) => ({
+            key: item.key,
+            value: decode(item.value) as TValue
+        }));
+
+        this.#emitter.emit("update", updatedData);
     }
 
     async delete(key: string) {
