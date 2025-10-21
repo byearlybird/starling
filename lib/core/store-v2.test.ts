@@ -429,7 +429,7 @@ test("bulk operations emit mutate event with all mutated keys", async () => {
 	]);
 
 	expect(mockCallback).toHaveBeenCalledTimes(1);
-	const mutatedKeys = mockCallback.mock.calls[0][0].map(
+	const mutatedKeys = mockCallback.mock.calls[0]?.[0].map(
 		(item: { key: string }) => item.key,
 	);
 	expect(mutatedKeys).toContain("user1");
@@ -566,9 +566,9 @@ test("snapshot returns encoded record with metadata", async () => {
 	const snapshot = store.snapshot();
 
 	expect(snapshot.user1).toBeDefined();
-	expect(snapshot.user1.name).toBeDefined();
-	expect(snapshot.user1.name.__value).toBe("Alice");
-	expect(snapshot.user1.name.__eventstamp).toBeDefined();
+	expect(snapshot?.user1?.name).toBeDefined();
+	expect(snapshot?.user1?.name?.__value).toBe("Alice");
+	expect(snapshot?.user1?.name?.__eventstamp).toBeDefined();
 });
 
 test("snapshot includes deleted items with __deleted flag", async () => {
@@ -581,9 +581,9 @@ test("snapshot includes deleted items with __deleted flag", async () => {
 	const snapshot = store.snapshot();
 
 	expect(snapshot.user1).toBeDefined();
-	expect(snapshot.user1.__deleted).toBeDefined();
-	expect(snapshot.user1.__deleted.__value).toBe(true);
-	expect(snapshot.user1.__deleted.__eventstamp).toBeDefined();
+	expect(snapshot?.user1?.__deleted).toBeDefined();
+	expect(snapshot?.user1?.__deleted?.__value).toBe(true);
+	expect(snapshot?.user1?.__deleted?.__eventstamp).toBeDefined();
 });
 
 test("values excludes deleted items", async () => {
