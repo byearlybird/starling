@@ -1,6 +1,6 @@
 import mitt from "mitt";
 import { prefixStorage, type Storage } from "unstorage";
-import { KeyNotFoundError } from "./errors";
+import { DuplicateKeyError, KeyNotFoundError } from "./errors";
 import { decode, encode, merge } from "./operations";
 import type { EncodedObject, EncodedRecord } from "./types";
 
@@ -85,7 +85,7 @@ export class Store<TValue extends object> {
 
     async insert(key: string, value: TValue) {
         if (this.#cache.has(key)) {
-            throw new Error(`[${this.#collectionKey}]: Duplicate key: ${key}`);
+            throw new DuplicateKeyError(key);
         }
 
         const encoded = this.#encode(value);
@@ -95,13 +95,13 @@ export class Store<TValue extends object> {
     }
 
     async insertAll(data: { key: string; value: TValue }[]) {
-        const duplicateKeys = data.filter(({ key }) => this.#cache.has(key));
+        const [valid, duplicates] = validateNoDuplicateKeys(
+            this.#cache,
+            data.map((d) => d.key),
+        );
 
-        if (duplicateKeys) {
-            const conflictingKeysString = duplicateKeys.map((k) => k.key).join(", ");
-            throw new Error(
-                `[${this.#collectionKey}]: Duplicate key(s): ${conflictingKeysString}`,
-            );
+        if (!valid) {
+            throw new DuplicateKeyError(duplicates);
         }
 
         const encoded = data.map((d) => ({
@@ -160,6 +160,7 @@ export class Store<TValue extends object> {
 
     async delete(key: string) {
         const current = this.#cache.get(key);
+
         if (!current) throw new KeyNotFoundError(key);
 
         const [merged, changed] = merge(
@@ -237,4 +238,12 @@ function validateAllKeysExist(
 ): [boolean, string[]] {
     const missingKeys = keys.filter((key) => !map.has(key));
     return [missingKeys.length === 0, missingKeys];
+}
+
+function validateNoDuplicateKeys(
+    map: Map<string, unknown>,
+    keys: string[],
+): [boolean, string[]] {
+    const duplicateKeys = keys.filter((key) => map.has(key));
+    return [duplicateKeys.length === 0, duplicateKeys];
 }
