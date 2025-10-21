@@ -176,6 +176,38 @@ export class Store<TValue extends object> {
         });
     }
 
+    async deleteAll(keys: string[]) {
+        const missingKeys = keys.filter((key) => !this.#cache.has(key));
+
+        if (missingKeys.length > 0) {
+            const missingKeysString = missingKeys.join(", ");
+            throw new Error(
+                `[${this.#collectionKey}]: Key(s) not found: ${missingKeysString}`,
+            );
+        }
+
+        const toMerge: { key: string; value: EncodedObject }[] = [];
+        keys.forEach((key) => {
+            const current = this.#cache.get(key);
+            const [mergedValue, changed] = merge(
+                // biome-ignore lint/style/noNonNullAssertion: <guarded against above>
+                current!,
+                this.#encode({ __deleted: true } as TValue),
+            );
+            if (changed) toMerge.push({ key, value: mergedValue });
+        });
+
+        if (toMerge.length === 0) return;
+
+        const { mutatedKeys } = await this.#mutateAll(toMerge);
+
+        const deletedKeys = toMerge
+            .filter((item) => mutatedKeys.has(item.key))
+            .map((item) => ({ key: item.key }));
+
+        this.#emitter.emit("delete", deletedKeys);
+    }
+
     values(): Record<string, TValue> {
         return Object.fromEntries(
             Object.entries(this.#cache).map(([key, value]) => [key, decode(value)]),
