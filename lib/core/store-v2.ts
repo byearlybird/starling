@@ -1,5 +1,6 @@
 import mitt from "mitt";
 import { prefixStorage, type Storage } from "unstorage";
+import { KeyNotFoundError } from "./errors";
 import { decode, encode, merge } from "./operations";
 import type { EncodedObject, EncodedRecord } from "./types";
 
@@ -43,7 +44,9 @@ export class Store<TValue extends object> {
         this.#emitter.emit("mutate", [{ key }]);
     }
 
-    async #mutateAll(data: { key: string; value: EncodedObject }[]): Promise<{ success: boolean, mutatedKeys: Set<string> }> {
+    async #mutateAll(
+        data: { key: string; value: EncodedObject }[],
+    ): Promise<{ success: boolean; mutatedKeys: Set<string> }> {
         const mutatedKeys = new Set<string>();
 
         try {
@@ -51,19 +54,20 @@ export class Store<TValue extends object> {
                 await this.#storage.set(item.key, item.value);
                 this.#cache.set(item.key, item.value);
                 mutatedKeys.add(item.key);
-            })
+            });
 
             await Promise.all(peristPromises);
             return { success: true, mutatedKeys };
-
         } catch (err: unknown) {
             // todo enhance error handling / result types
             console.error(err);
-            return { success: false, mutatedKeys }
-        }
-        finally {
+            return { success: false, mutatedKeys };
+        } finally {
             if (mutatedKeys.size > 0) {
-                this.#emitter.emit('mutate', Array.from(mutatedKeys).map((key) => ({ key })));
+                this.#emitter.emit(
+                    "mutate",
+                    Array.from(mutatedKeys).map((key) => ({ key })),
+                );
             }
         }
     }
@@ -91,28 +95,28 @@ export class Store<TValue extends object> {
     }
 
     async insertAll(data: { key: string; value: TValue }[]) {
-        const duplicateKeys = data.filter(({ key }) => this.#cache.has(key))
+        const duplicateKeys = data.filter(({ key }) => this.#cache.has(key));
 
         if (duplicateKeys) {
-            const conflictingKeysString = duplicateKeys
-                .map((k) => k.key)
-                .join(", ");
+            const conflictingKeysString = duplicateKeys.map((k) => k.key).join(", ");
             throw new Error(
                 `[${this.#collectionKey}]: Duplicate key(s): ${conflictingKeysString}`,
             );
         }
 
-        const encoded = data.map((d) => ({ key: d.key, value: this.#encode(d.value) }));
+        const encoded = data.map((d) => ({
+            key: d.key,
+            value: this.#encode(d.value),
+        }));
         const { mutatedKeys } = await this.#mutateAll(encoded);
         const mutatedData = data.filter((d) => mutatedKeys.has(d.key));
 
-        this.#emitter.emit('insert', mutatedData);
+        this.#emitter.emit("insert", mutatedData);
     }
 
     async update(key: string, value: DeepPartial<TValue>) {
         const current = this.#cache.get(key);
-        if (!current)
-            throw new Error(`[${this.#collectionKey}]: Key not found: ${key}`);
+        if (!current) throw new KeyNotFoundError(key);
 
         const encoded = this.#encode(value);
         const [merged, changed] = merge(current, encoded);
@@ -125,44 +129,38 @@ export class Store<TValue extends object> {
     }
 
     async updateAll(data: { key: string; value: DeepPartial<TValue> }[]) {
-        const missingKeys = data.filter((d) => !this.#cache.has(d.key));
-
-        if (missingKeys.length > 0) {
-            const missingKeysString = missingKeys
-                .map((d) => d.key)
-                .join(", ");
-
-            throw new Error(
-                `[${this.#collectionKey}]: Key(s) not found: ${missingKeysString}`,
-            );
+        const [success, missing] = validateAllKeysExist(this.#cache, data.map((d) => d.key));
+        if (!success) {
+            throw new KeyNotFoundError(missing);
         }
 
-        const toMerge: { key: string, value: EncodedObject }[] = [];
-        data
-            .forEach((d) => {
-                const current = this.#cache.get(d.key);
-                const encoded = this.#encode(d.value);
-                // biome-ignore lint/style/noNonNullAssertion: <gaurded against above>
-                const [mergedValue, changed] = merge(current!, encoded);
-                if (changed) toMerge.push({ key: d.key, value: mergedValue });
-            })
+
+        const toMerge: { key: string; value: EncodedObject }[] = [];
+        data.forEach((d) => {
+            const current = this.#cache.get(d.key);
+            const encoded = this.#encode(d.value);
+            // biome-ignore lint/style/noNonNullAssertion: <gaurded against above>
+            const [mergedValue, changed] = merge(current!, encoded);
+            if (changed) toMerge.push({ key: d.key, value: mergedValue });
+        });
 
         if (toMerge.length === 0) return;
 
         const { mutatedKeys } = await this.#mutateAll(toMerge);
 
-        const updatedData = toMerge.filter((item) => mutatedKeys.has(item.key)).map((item) => ({
-            key: item.key,
-            value: decode(item.value) as TValue
-        }));
+        const updatedData = toMerge
+            .filter((item) => mutatedKeys.has(item.key))
+            .map((item) => ({
+                key: item.key,
+                value: decode(item.value) as TValue,
+            }));
 
         this.#emitter.emit("update", updatedData);
     }
 
     async delete(key: string) {
         const current = this.#cache.get(key);
-        if (!current)
-            throw new Error(`[${this.#collectionKey}]: Key not found: ${key}`);
+        if (!current) throw new KeyNotFoundError(key);
 
         const [merged, changed] = merge(
             current,
@@ -177,13 +175,9 @@ export class Store<TValue extends object> {
     }
 
     async deleteAll(keys: string[]) {
-        const missingKeys = keys.filter((key) => !this.#cache.has(key));
-
-        if (missingKeys.length > 0) {
-            const missingKeysString = missingKeys.join(", ");
-            throw new Error(
-                `[${this.#collectionKey}]: Key(s) not found: ${missingKeysString}`,
-            );
+        const [success, missing] = validateAllKeysExist(this.#cache, keys);
+        if (!success) {
+            throw new KeyNotFoundError(missing);
         }
 
         const toMerge: { key: string; value: EncodedObject }[] = [];
@@ -235,4 +229,12 @@ export class Store<TValue extends object> {
         this.#emitter.off("delete");
         this.#emitter.off("mutate");
     }
+}
+
+function validateAllKeysExist(
+    map: Map<string, unknown>,
+    keys: string[],
+): [boolean, string[]] {
+    const missingKeys = keys.filter((key) => !map.has(key));
+    return [missingKeys.length === 0, missingKeys];
 }
