@@ -216,7 +216,9 @@ export class Store<TValue extends object> {
 
     values(): Record<string, TValue> {
         return Object.fromEntries(
-            Object.entries(this.#cache).map(([key, value]) => [key, decode(value)]),
+            Array.from(this.#cache.entries())
+                .filter(([_, value]) => !value.__deleted)
+                .map(([key, value]) => [key, decode(value)]),
         );
     }
 
