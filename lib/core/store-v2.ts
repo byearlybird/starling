@@ -50,13 +50,13 @@ export class Store<TValue extends object> {
         const mutatedKeys = new Set<string>();
 
         try {
-            const peristPromises = data.map(async (item) => {
+            const persistPromises = data.map(async (item) => {
                 await this.#storage.set(item.key, item.value);
                 this.#cache.set(item.key, item.value);
                 mutatedKeys.add(item.key);
             });
 
-            await Promise.all(peristPromises);
+            await Promise.all(persistPromises);
             return { success: true, mutatedKeys };
         } catch (err: unknown) {
             // todo enhance error handling / result types
@@ -70,6 +70,38 @@ export class Store<TValue extends object> {
                 );
             }
         }
+    }
+
+    #assertKeysExist(keys: string[]): void {
+        const missing = keys.filter((key) => !this.#cache.has(key));
+        if (missing.length > 0) {
+            throw new KeyNotFoundError(missing);
+        }
+    }
+
+    #assertKeysNotExist(keys: string[]): void {
+        const duplicates = keys.filter((key) => this.#cache.has(key));
+        if (duplicates.length > 0) {
+            throw new DuplicateKeyError(duplicates);
+        }
+    }
+
+    #collectMergedItems(
+        keys: string[],
+        getEncodedValue: (key: string) => EncodedObject,
+    ): { key: string; value: EncodedObject }[] {
+        const toMerge: { key: string; value: EncodedObject }[] = [];
+
+        for (const key of keys) {
+            const current = this.#cache.get(key);
+            // biome-ignore lint/style/noNonNullAssertion: <guarded against by caller>
+            const [mergedValue, changed] = merge(current!, getEncodedValue(key));
+            if (changed) {
+                toMerge.push({ key, value: mergedValue });
+            }
+        }
+
+        return toMerge;
     }
 
     async init() {
@@ -95,14 +127,7 @@ export class Store<TValue extends object> {
     }
 
     async insertAll(data: { key: string; value: TValue }[]) {
-        const [valid, duplicates] = validateNoDuplicateKeys(
-            this.#cache,
-            data.map((d) => d.key),
-        );
-
-        if (!valid) {
-            throw new DuplicateKeyError(duplicates);
-        }
+        this.#assertKeysNotExist(data.map((d) => d.key));
 
         const encoded = data.map((d) => ({
             key: d.key,
@@ -129,20 +154,17 @@ export class Store<TValue extends object> {
     }
 
     async updateAll(data: { key: string; value: DeepPartial<TValue> }[]) {
-        const [success, missing] = validateAllKeysExist(this.#cache, data.map((d) => d.key));
-        if (!success) {
-            throw new KeyNotFoundError(missing);
-        }
+        this.#assertKeysExist(data.map((d) => d.key));
 
-
-        const toMerge: { key: string; value: EncodedObject }[] = [];
-        data.forEach((d) => {
-            const current = this.#cache.get(d.key);
-            const encoded = this.#encode(d.value);
-            // biome-ignore lint/style/noNonNullAssertion: <gaurded against above>
-            const [mergedValue, changed] = merge(current!, encoded);
-            if (changed) toMerge.push({ key: d.key, value: mergedValue });
-        });
+        const dataByKey = new Map(data.map((d) => [d.key, d.value]));
+        const toMerge = this.#collectMergedItems(
+            data.map((d) => d.key),
+            (key) => {
+                const value = dataByKey.get(key);
+                // biome-ignore lint/style/noNonNullAssertion: <key guaranteed to exist in map>
+                return this.#encode(value!);
+            },
+        );
 
         if (toMerge.length === 0) return;
 
@@ -176,21 +198,10 @@ export class Store<TValue extends object> {
     }
 
     async deleteAll(keys: string[]) {
-        const [success, missing] = validateAllKeysExist(this.#cache, keys);
-        if (!success) {
-            throw new KeyNotFoundError(missing);
-        }
+        this.#assertKeysExist(keys);
 
-        const toMerge: { key: string; value: EncodedObject }[] = [];
-        keys.forEach((key) => {
-            const current = this.#cache.get(key);
-            const [mergedValue, changed] = merge(
-                // biome-ignore lint/style/noNonNullAssertion: <guarded against above>
-                current!,
-                this.#encode({ __deleted: true } as TValue),
-            );
-            if (changed) toMerge.push({ key, value: mergedValue });
-        });
+        const deletionMarker = this.#encode({ __deleted: true } as TValue);
+        const toMerge = this.#collectMergedItems(keys, () => deletionMarker);
 
         if (toMerge.length === 0) return;
 
@@ -230,20 +241,4 @@ export class Store<TValue extends object> {
         this.#emitter.off("delete");
         this.#emitter.off("mutate");
     }
-}
-
-function validateAllKeysExist(
-    map: Map<string, unknown>,
-    keys: string[],
-): [boolean, string[]] {
-    const missingKeys = keys.filter((key) => !map.has(key));
-    return [missingKeys.length === 0, missingKeys];
-}
-
-function validateNoDuplicateKeys(
-    map: Map<string, unknown>,
-    keys: string[],
-): [boolean, string[]] {
-    const duplicateKeys = keys.filter((key) => map.has(key));
-    return [duplicateKeys.length === 0, duplicateKeys];
 }
