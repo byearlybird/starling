@@ -25,8 +25,12 @@ export function createHttpSynchronizer<TValue extends object>(
 	const unwatch = store.on("mutate", async () => {
 		if (started) {
 			const latest = await store.state();
-			if (Object.keys(latest).length > 0) {
-				await pushData(latest);
+			const data = Object.entries(latest).map(([key, value]) => ({
+				key,
+				value: value as EncodedObject,
+			}));
+			if (data.length > 0) {
+				await pushData(data);
 			}
 		}
 	});
@@ -37,7 +41,7 @@ export function createHttpSynchronizer<TValue extends object>(
 		await store.mergeState(processed);
 	}
 
-	async function pushData(data: EncodedRecord) {
+	async function pushData(data: { key: string; value: EncodedObject }[]) {
 		const processed = preprocess ? await preprocess("push", data) : data;
 		await push(processed);
 	}
@@ -45,9 +49,13 @@ export function createHttpSynchronizer<TValue extends object>(
 	async function refresh() {
 		await pullData();
 		const latest = await store.state();
+		const data = Object.entries(latest).map(([key, value]) => ({
+			key,
+			value: value as EncodedObject,
+		}));
 
-		if (Object.keys(latest).length > 0) {
-			await pushData(latest);
+		if (data.length > 0) {
+			await pushData(data);
 		}
 	}
 
