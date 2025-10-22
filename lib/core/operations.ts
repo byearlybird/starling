@@ -73,32 +73,34 @@ export function mergeArray(
 	current: ArrayKV<EncodedObject>,
 	updates: ArrayKV<EncodedObject>,
 ): [ArrayKV<EncodedObject>, boolean] {
-	const currentMap = new Map(current.map((item) => [item.key, item.value]));
 	const updatesMap = new Map(updates.map((item) => [item.key, item.value]));
 	const result: ArrayKV<EncodedObject> = [];
 	let changed = false;
+	const seenKeys = new Set<string>();
 
-	// Collect all keys from both arrays
-	const allKeys = new Set(currentMap.keys());
-	for (const key of updatesMap.keys()) {
-		allKeys.add(key);
-	}
-
-	for (const key of allKeys) {
-		const obj1 = currentMap.get(key);
+	// Process all current items
+	for (const { key, value: obj1 } of current) {
+		seenKeys.add(key);
 		const obj2 = updatesMap.get(key);
 
-		if (obj1 && !obj2) {
-			result.push({ key, value: obj1 });
-		} else if (!obj1 && obj2) {
-			result.push({ key, value: obj2 });
-			changed = true; // New object added
-		} else if (obj1 && obj2) {
+		if (obj2) {
+			// Both objects exist - merge them
 			const [merged, objChanged] = merge(obj1, obj2);
 			result.push({ key, value: merged });
 			if (objChanged) {
-				changed = true; // Object was changed during merge
+				changed = true;
 			}
+		} else {
+			// Only in current
+			result.push({ key, value: obj1 });
+		}
+	}
+
+	// Process new items from updates (only those not in current)
+	for (const { key, value: obj2 } of updates) {
+		if (!seenKeys.has(key)) {
+			result.push({ key, value: obj2 });
+			changed = true; // New object added
 		}
 	}
 
