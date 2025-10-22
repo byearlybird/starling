@@ -2,8 +2,9 @@ import mitt from "mitt";
 import { decode, encode, encodeMany, mergeArray } from "./operations";
 import { mergeItems } from "./store-utils";
 import type { DeepPartial, EncodedObject, EventstampFn } from "./types";
+import { mapToArray } from "./utils";
 
-type Events<TValue> = {
+type StoreEvents<TValue> = {
 	put: { key: string; value: TValue }[];
 	update: { key: string; value: TValue }[];
 	delete: { key: string }[];
@@ -13,18 +14,21 @@ const createStore = <TValue extends object>(config: {
 	eventstampFn: EventstampFn;
 }) => {
 	const map = new Map<string, EncodedObject>();
-	const emitter = mitt<Events<TValue>>();
+	const emitter = mitt<StoreEvents<TValue>>();
 
 	return {
 		put(key: string, value: TValue) {
 			this.putMany([{ key, value }]);
 		},
+
 		update(key: string, value: DeepPartial<TValue>) {
 			this.updateMany([{ key, value }]);
 		},
+
 		delete(key: string) {
 			this.deleteMany([key]);
 		},
+
 		putMany(data: { key: string; value: TValue }[]) {
 			encodeMany(data, config.eventstampFn).forEach(({ key, value }) => {
 				map.set(key, value);
@@ -32,6 +36,7 @@ const createStore = <TValue extends object>(config: {
 
 			emitter.emit("put", data);
 		},
+
 		updateMany(data: { key: string; value: DeepPartial<TValue> }[]) {
 			const updateKeys = new Set(data.map((d) => d.key));
 
@@ -41,10 +46,7 @@ const createStore = <TValue extends object>(config: {
 			if (validData.length === 0) return;
 
 			// Get current values as array
-			const current = Iterator.from(map.entries())
-				.filter(([k]) => updateKeys.has(k))
-				.map(([key, value]) => ({ key, value }))
-				.toArray();
+			const current = mapToArray(map).filter(({ key }) => updateKeys.has(key));
 
 			// Encode updates to be mergable
 			const updates = validData.map(({ key, value }) => ({
@@ -70,6 +72,7 @@ const createStore = <TValue extends object>(config: {
 
 			emitter.emit("update", final);
 		},
+
 		deleteMany(keys: string[]) {
 			// Filter to only include keys that exist
 			const validKeys = keys.filter((key) => map.has(key));
@@ -104,14 +107,12 @@ const createStore = <TValue extends object>(config: {
 		},
 
 		snapshot(): { key: string; value: EncodedObject }[] {
-			return Iterator.from(map.entries())
-				.map(([key, value]) => ({ key, value }))
-				.toArray();
+			return mapToArray(map);
 		},
 
-		on<K extends keyof Events<TValue>>(
+		on<K extends keyof StoreEvents<TValue>>(
 			event: K,
-			callback: (data: Events<TValue>[K]) => void,
+			callback: (data: StoreEvents<TValue>[K]) => void,
 		) {
 			emitter.on(event, callback);
 			return () => {
@@ -125,4 +126,7 @@ const createStore = <TValue extends object>(config: {
 	};
 };
 
+type Store<T extends object> = ReturnType<typeof createStore<T>>;
+
 export { createStore };
+export type { StoreEvents, Store };
