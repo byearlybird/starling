@@ -1,5 +1,5 @@
 import { flatten, unflatten } from "flat";
-import type { EncodedObject, EncodedRecord } from "./types";
+import type { EncodedObject, EncodedRecord, EventstampFn } from "./types";
 
 export function encode<T extends object>(
 	obj: T,
@@ -90,3 +90,14 @@ export function mergeRecords(
 
 	return [result, changed];
 }
+
+export const encodeMany = <TValue extends object>(
+	data: { key: string; value: TValue }[],
+	eventstampFn: EventstampFn,
+): { key: string; value: EncodedObject }[] =>
+	data.map(({ key, value }) => ({ key, value: encode(value, eventstampFn()) }));
+
+export const decodeMany = <TValue extends object>(
+	data: { key: string; value: EncodedObject }[],
+): { key: string; value: TValue }[] =>
+	data.map(({ key, value }) => ({ key, value: decode<TValue>(value) }));
