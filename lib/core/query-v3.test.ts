@@ -7,7 +7,7 @@ function createStoreV3<T extends object>() {
 	let eventCounter = 0;
 	const eventstampFn = () => String(eventCounter++);
 
-	const store = createStore<T>({
+	const store = createStore<T>("collection", {
 		eventstampFn,
 	});
 

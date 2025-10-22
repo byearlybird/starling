@@ -11,7 +11,7 @@ const createEventstampFn = () => {
 };
 
 test("put() adds a new item and emits put event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -32,7 +32,7 @@ test("put() adds a new item and emits put event", () => {
 });
 
 test("put() replaces existing item and emits put event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -43,13 +43,11 @@ test("put() replaces existing item and emits put event", () => {
 	store.put("user1", { name: "Bob" });
 
 	expect(putHandler).toHaveBeenCalledTimes(2);
-	expect(store.values()).toEqual({
-		user1: { name: "Bob" },
-	});
+	expect(store.values()).toEqual([{ key: "user1", value: { name: "Bob" } }]);
 });
 
 test("putMany() adds multiple items and emits put event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -69,7 +67,7 @@ test("putMany() adds multiple items and emits put event", () => {
 });
 
 test("putMany() replaces existing items and emits put event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -84,14 +82,14 @@ test("putMany() replaces existing items and emits put event", () => {
 	]);
 
 	expect(putHandler).toHaveBeenCalledTimes(1);
-	expect(store.values()).toEqual({
-		user1: { name: "Updated" },
-		user2: { name: "Bob" },
-	});
+	expect(store.values()).toEqual([
+		{ key: "user1", value: { name: "Updated" } },
+		{ key: "user2", value: { name: "Bob" } },
+	]);
 });
 
 test("update() modifies existing item and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>({
+	const store = createStore<{ name: string; age?: number }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -115,7 +113,7 @@ test("update() modifies existing item and emits update event", () => {
 });
 
 test("update() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -126,11 +124,11 @@ test("update() is a graceful no-op when key does not exist", () => {
 	store.update("nonexistent", { name: "Alice" });
 
 	expect(updateHandler).toHaveBeenCalledTimes(0);
-	expect(store.values()).toEqual({});
+	expect(store.values()).toEqual([]);
 });
 
 test("updateMany() modifies multiple items and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>({
+	const store = createStore<{ name: string; age?: number }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -155,7 +153,7 @@ test("updateMany() modifies multiple items and emits update event", () => {
 });
 
 test("updateMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -171,13 +169,13 @@ test("updateMany() gracefully skips nonexistent keys", () => {
 	]);
 
 	expect(updateHandler).toHaveBeenCalledTimes(1);
-	expect(store.values()).toEqual({
-		user1: { name: "Updated" },
-	});
+	expect(store.values()).toEqual([
+		{ key: "user1", value: { name: "Updated" } },
+	]);
 });
 
 test("delete() soft-deletes an item and emits delete event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -193,7 +191,7 @@ test("delete() soft-deletes an item and emits delete event", () => {
 });
 
 test("delete() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -207,7 +205,7 @@ test("delete() is a graceful no-op when key does not exist", () => {
 });
 
 test("deleteMany() soft-deletes multiple items and emits delete event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -229,7 +227,7 @@ test("deleteMany() soft-deletes multiple items and emits delete event", () => {
 });
 
 test("deleteMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -246,7 +244,7 @@ test("deleteMany() gracefully skips nonexistent keys", () => {
 });
 
 test("values() returns decoded non-deleted items", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -259,13 +257,11 @@ test("values() returns decoded non-deleted items", () => {
 
 	const values = store.values();
 
-	expect(values).toEqual({
-		user1: { name: "Alice" },
-	});
+	expect(values).toEqual([{ key: "user1", value: { name: "Alice" } }]);
 });
 
 test("values() excludes deleted items", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -279,11 +275,11 @@ test("values() excludes deleted items", () => {
 
 	const values = store.values();
 
-	expect(Object.keys(values)).toEqual(["user1", "user3"]);
+	expect(values.map((v) => v.key)).toEqual(["user1", "user3"]);
 });
 
 test("snapshot() returns raw encoded state including deleted items", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -300,7 +296,7 @@ test("snapshot() returns raw encoded state including deleted items", () => {
 });
 
 test("on() returns unsubscribe function that stops callbacks", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -319,7 +315,7 @@ test("on() returns unsubscribe function that stops callbacks", () => {
 });
 
 test("on() supports multiple listeners for the same event", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -341,7 +337,7 @@ test("on() supports multiple listeners for the same event", () => {
 });
 
 test("dispose() clears all event listeners", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -373,23 +369,26 @@ test("dispose() clears all event listeners", () => {
 });
 
 test("merge preserves eventstamps and handles deep updates", () => {
-	const store = createStore<{ name: string; profile?: { bio: string } }>({
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string; profile?: { bio: string } }>(
+		"users",
+		{
+			eventstampFn: createEventstampFn(),
+		},
+	);
 
 	store.put("user1", { name: "Alice", profile: { bio: "Hello" } });
 	store.update("user1", { profile: { bio: "Updated" } });
 
 	const values = store.values();
 
-	expect(values.user1).toEqual({
+	expect(values[0]?.value).toEqual({
 		name: "Alice",
 		profile: { bio: "Updated" },
 	});
 });
 
 test("store operations are synchronous", () => {
-	const store = createStore<{ name: string }>({
+	const store = createStore<{ name: string }>("users", {
 		eventstampFn: createEventstampFn(),
 	});
 
@@ -401,5 +400,5 @@ test("store operations are synchronous", () => {
 
 	// Should complete in less than 100ms for 1000 puts
 	expect(duration).toBeLessThan(100);
-	expect(Object.keys(store.values())).toHaveLength(1000);
+	expect(store.values()).toHaveLength(1000);
 });

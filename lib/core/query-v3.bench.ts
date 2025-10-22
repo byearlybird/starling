@@ -40,7 +40,7 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 group("Query Operations - 4000 items", () => {
 	bench("createQuery with all items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -49,7 +49,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("createQuery with 50% items matching (active=true)", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -58,7 +58,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("createQuery with no items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -67,7 +67,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("createQuery with complex predicate (value >= 50 && active)", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -76,7 +76,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("results() on query with all items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -86,7 +86,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("results() on query with 50% items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -96,7 +96,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("putMany + query onChange callback (all matching)", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -116,7 +116,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("updateMany on query with 50% items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -136,7 +136,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("deleteMany on query with all items matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -153,7 +153,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("multiple onChange listeners on same query", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -182,7 +182,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("subscribe and unsubscribe from query", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -212,7 +212,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("dispose query", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -235,7 +235,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("full lifecycle: create, query, observe, update, dispose", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 
 		// Create and populate store
@@ -274,7 +274,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("predicate filter with string matching", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -283,7 +283,7 @@ group("Query Operations - 4000 items", () => {
 
 	bench("predicate filter with multiple conditions", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 

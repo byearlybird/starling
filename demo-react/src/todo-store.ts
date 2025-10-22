@@ -1,3 +1,4 @@
+import { monotonicFactory } from "ulid";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import {
@@ -9,9 +10,7 @@ import { createHttpSynchronizer } from "../../lib/sync";
 import type { Todo } from "./types";
 
 export const todoStore = createStore<Todo>("todos", {
-	storage: createStorage({
-		driver: localStorageDriver({ base: "todos" }),
-	}),
+	eventstampFn: monotonicFactory(),
 });
 
 export const todoSync = createHttpSynchronizer(todoStore, {

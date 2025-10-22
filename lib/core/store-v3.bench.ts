@@ -39,14 +39,14 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 group("Store Operations - 4000 items", () => {
 	bench("putMany 4000 items", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 	});
 
 	bench("updateMany 4000 items", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -60,7 +60,7 @@ group("Store Operations - 4000 items", () => {
 
 	bench("deleteMany 4000 items", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -71,7 +71,7 @@ group("Store Operations - 4000 items", () => {
 
 	bench("putMany + updateMany + deleteMany (full cycle)", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 
 		// Insert
@@ -91,7 +91,7 @@ group("Store Operations - 4000 items", () => {
 
 	bench("values() after putMany", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 		store.values();
@@ -99,7 +99,7 @@ group("Store Operations - 4000 items", () => {
 
 	bench("snapshot() after putMany", () => {
 		resetCounter();
-		const store = createStore<TestItem>({ eventstampFn });
+		const store = createStore<TestItem>("items", { eventstampFn });
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 		store.snapshot();

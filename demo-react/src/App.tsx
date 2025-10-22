@@ -30,7 +30,7 @@ function App() {
 				<button
 					type="button"
 					onClick={() => {
-						todoStore.insert(crypto.randomUUID(), {
+						todoStore.put(crypto.randomUUID(), {
 							text: newTodo,
 							completed: false,
 						});
@@ -42,31 +42,31 @@ function App() {
 			</div>
 			<section>
 				<h3>Incomplete</h3>
-				{Object.entries(incomplete).map(([id, todo]) => (
-					<label key={id}>
+				{incomplete.map(({ key, value }) => (
+					<label key={key}>
 						<input
 							type="checkbox"
-							checked={todo.completed}
+							checked={value.completed}
 							onChange={(e) =>
-								todoStore.update(id, { completed: e.currentTarget.checked })
+								todoStore.update(key, { completed: e.currentTarget.checked })
 							}
 						/>
-						<span>{todo.text}</span>
+						<span>{value.text}</span>
 					</label>
 				))}
 			</section>
 			<section>
 				<h3>All</h3>
-				{Object.entries(todos).map(([id, todo]) => (
-					<label key={id}>
+				{todos.map(({ key, value }) => (
+					<label key={key}>
 						<input
 							type="checkbox"
-							checked={todo.completed}
+							checked={value.completed}
 							onChange={(e) =>
-								todoStore.update(id, { completed: e.currentTarget.checked })
+								todoStore.update(key, { completed: e.currentTarget.checked })
 							}
 						/>
-						<span>{todo.text}</span>
+						<span>{value.text}</span>
 					</label>
 				))}
 			</section>

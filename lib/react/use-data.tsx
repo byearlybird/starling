@@ -3,22 +3,19 @@ import type { Store } from "../core";
 
 export function useData<TValue extends object>(store: Store<TValue>) {
 	const [isLoading, setIsLoading] = useState(true);
-	const [data, setData] = useState<Record<string, TValue>>({});
+	const [data, setData] = useState<{ key: string; value: TValue }[]>([]);
 
 	useEffect(() => {
-		const load = async () => {
-			const values = await store.values();
-			setData(values);
-			setIsLoading(false);
-		};
+		setData(store.values());
 
-		const dispose = store.on("mutate", async () => {
-			setData(await store.values());
+		const dispose = store.on("change", async () => {
+			setData(store.values());
 		});
 
-		load();
+		setIsLoading(false);
 
 		return () => {
+			setIsLoading(true);
 			dispose();
 		};
 	}, [store]);

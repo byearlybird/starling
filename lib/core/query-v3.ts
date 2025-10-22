@@ -15,7 +15,7 @@ const createQuery = <TValue extends object>(
 	const emitter = mitt<QueryEvents>();
 
 	// Run predicate for initial results
-	Object.entries(store.values()).forEach(([key, value]) => {
+	store.values().forEach(({ key, value }) => {
 		if (predicate(value)) {
 			results.set(key, value);
 		}

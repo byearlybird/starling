@@ -7,15 +7,26 @@ type StoreEvents<TValue> = {
 	put: { key: string; value: TValue }[];
 	update: { key: string; value: TValue }[];
 	delete: { key: string }[];
+	change: undefined;
 };
 
-const createStore = <TValue extends object>(config: {
-	eventstampFn: EventstampFn;
-}) => {
+const createStore = <TValue extends object>(
+	collectionKey: string,
+	config: {
+		eventstampFn: EventstampFn;
+	},
+) => {
 	const map = new Map<string, EncodedObject>();
 	const emitter = mitt<StoreEvents<TValue>>();
 
+	emitter.on("*", (event) => {
+		if (event === "change") return;
+		emitter.emit("change");
+	});
+
 	return {
+		collectionKey,
+
 		put(key: string, value: TValue) {
 			this.putMany([{ key, value }]);
 		},
@@ -96,13 +107,10 @@ const createStore = <TValue extends object>(config: {
 			);
 		},
 
-		values(): Record<string, TValue> {
-			return Object.fromEntries(
-				map
-					.entries()
-					.filter(([_, value]) => !value.__deleted)
-					.map(([key, value]) => [key, decode(value)]),
-			);
+		values(): { key: string; value: TValue }[] {
+			return mapToArray(map)
+				.filter(({ value }) => !value.__deleted)
+				.map(({ key, value }) => ({ key, value: decode(value) }));
 		},
 
 		snapshot(): { key: string; value: EncodedObject }[] {

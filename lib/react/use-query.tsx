@@ -9,28 +9,30 @@ export function useQuery<TValue extends object>(
 	deps: DependencyList = [],
 ) {
 	const [isLoading, setIsLoading] = useState(true);
-	const [data, setData] = useState<Record<string, TValue>>({});
+	const [data, setData] = useState<
+		{
+			key: string;
+			value: TValue;
+		}[]
+	>([]);
 
 	// Capture the latest predicate in a ref
 	const predicateRef = useRef(predicate);
 	predicateRef.current = predicate;
 
 	useEffect(() => {
-		setIsLoading(true);
-
 		// Create query inside effect so it's fresh on each mount
 		const query = createQuery(store, (data) => predicateRef.current(data));
 
-		const unsubscribe = query.on("change", (results) => {
-			setData(results);
+		const unsubscribe = query.onChange(() => {
+			setData(query.results());
 		});
 
-		query.load().then((data) => {
-			setData(data);
-			setIsLoading(false);
-		});
+		setData(query.results());
+		setIsLoading(false);
 
 		return () => {
+			setIsLoading(true);
 			unsubscribe();
 			query.dispose();
 		};

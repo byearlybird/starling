@@ -1,6 +1,6 @@
+import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 import type { Store } from "../core";
 import { createQuery } from "../core";
-import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 
 export function useQuery<T extends object>(
 	store: Store<T>,
@@ -10,16 +10,16 @@ export function useQuery<T extends object>(
 	const query = createMemo(() => createQuery(store, predicate));
 
 	// Use query as source signal - refetches automatically when query changes
-	const [data, { mutate }] = createResource(query, (q) => q.load(), {
-		initialValue: {},
+	const [data, { refetch }] = createResource(query, (q) => q.results(), {
+		initialValue: [],
 	});
 
 	// Set up event listener that responds to data changes
 	createEffect(() => {
 		const currentQuery = query();
 
-		const unsubscribe = currentQuery.on("change", (newData) => {
-			mutate(newData);
+		const unsubscribe = currentQuery.onChange(() => {
+			refetch();
 		});
 
 		// Clean up listener when query changes or component unmounts

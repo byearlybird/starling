@@ -1,12 +1,12 @@
-import type { Store } from "../core";
 import { createResource, onCleanup } from "solid-js";
+import type { Store } from "../core";
 
 export function useData<T extends object>(store: Store<T>) {
 	const [data, { refetch }] = createResource(store.values, {
-		initialValue: {},
+		initialValue: [],
 	});
 
-	const unwatch = store.on("mutate", () => {
+	const unwatch = store.on("change", () => {
 		refetch();
 	});
 
