@@ -58,34 +58,27 @@ const createStore = <TValue extends object>(
 
 			if (validData.length === 0) return;
 
-			// Get current values directly from map (O(k) instead of O(n))
-			const current: ArrayKV<EncodedObject> = [];
-			for (const { key } of validData) {
-				const value = map.get(key);
-				if (value !== undefined) {
-					current.push({ key, value });
+			// Single-pass merge: encode, merge, and collect changed items
+			const updateEvents: ArrayKV<TValue> = [];
+			let anyChanged = false;
+
+			for (const { key, value } of validData) {
+				const current = map.get(key);
+				if (!current) continue;
+
+				// Encode and merge immediately
+				const encoded = encode(value, config.eventstampFn());
+				const [mergedValue, itemChanged] = merge(current, encoded);
+
+				if (itemChanged) {
+					map.set(key, mergedValue);
+					updateEvents.push({ key, value: decode<TValue>(mergedValue) });
+					anyChanged = true;
 				}
 			}
 
-			// Encode updates to be mergable
-			const updates = validData.map(({ key, value }) => ({
-				key,
-				value: encode(value, config.eventstampFn()),
-			}));
-
-			// Merge updates
-			const [merged, changed] = mergeArray(current, updates);
-
-			if (!changed) return;
-
-			// Update the store and collect decoded results in single pass
-			const final: ArrayKV<TValue> = [];
-			merged.forEach(({ key, value }) => {
-				map.set(key, value);
-				final.push({ key, value: decode<TValue>(value) });
-			});
-
-			emitter.emit("update", final);
+			if (!anyChanged) return;
+			emitter.emit("update", updateEvents);
 		},
 
 		deleteMany(keys: string[]) {
