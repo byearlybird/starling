@@ -2,18 +2,17 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
-import type { EncodedObject } from "../lib";
+import type { ArrayKV, EncodedObject } from "../lib";
 import { mergeArray } from "../lib";
 
 const storage = createStorage({
 	driver: fsDriver({
-		base: ".todos",
+		base: ".data",
 	}),
 });
 
 async function getTodos() {
-	const persisted =
-		await storage.get<{ key: string; value: EncodedObject }[]>("todos");
+	const persisted = await storage.get<ArrayKV<EncodedObject>>("todos");
 	return persisted || [];
 }
 
@@ -26,7 +25,7 @@ const app = new Hono()
 	.put("/api/todos", async (c) => {
 		const persisted = await getTodos();
 		const { todos } = (await c.req.json()) as {
-			todos: { key: string; value: EncodedObject }[];
+			todos: ArrayKV<EncodedObject>;
 		};
 		const [merged, changed] = mergeArray(persisted, todos);
 		if (changed) {
