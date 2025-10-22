@@ -36,7 +36,10 @@ export function merge(
 	let changed = false;
 
 	// Collect all property keys from both objects
-	const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)]);
+	const allKeys = new Set(Object.keys(obj1));
+	for (const key of Object.keys(obj2)) {
+		allKeys.add(key);
+	}
 
 	for (const key of allKeys) {
 		const value1 = obj1[key];
@@ -48,11 +51,11 @@ export function merge(
 			result[key] = value2;
 			changed = true; // New property added
 		} else if (value1 && value2) {
-			result[key] =
-				value1.__eventstamp >= value2.__eventstamp ? value1 : value2;
-			// Mark as changed if obj2's value won (had newer eventstamp)
-			if (result[key] === value2) {
-				changed = true;
+			if (value1.__eventstamp >= value2.__eventstamp) {
+				result[key] = value1;
+			} else {
+				result[key] = value2;
+				changed = true; // Mark as changed if obj2's value won (had newer eventstamp)
 			}
 		}
 	}
@@ -70,7 +73,10 @@ export function mergeArray(
 	let changed = false;
 
 	// Collect all keys from both arrays
-	const allKeys = new Set([...currentMap.keys(), ...updatesMap.keys()]);
+	const allKeys = new Set(currentMap.keys());
+	for (const key of updatesMap.keys()) {
+		allKeys.add(key);
+	}
 
 	for (const key of allKeys) {
 		const obj1 = currentMap.get(key);
