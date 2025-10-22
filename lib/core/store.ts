@@ -1,5 +1,5 @@
 import mitt from "mitt";
-import { decode, encode, encodeMany, mergeArray } from "./operations";
+import { decode, encode, encodeMany, merge, mergeArray } from "./operations";
 import type {
 	ArrayKV,
 	DeepPartial,
@@ -53,15 +53,19 @@ const createStore = <TValue extends object>(
 		},
 
 		updateMany(data: ArrayKV<DeepPartial<TValue>>) {
-			const updateKeys = new Set(data.map((d) => d.key));
-
 			// Filter to only include keys that exist
 			const validData = data.filter((d) => map.has(d.key));
 
 			if (validData.length === 0) return;
 
-			// Get current values as array
-			const current = mapToArray(map).filter(({ key }) => updateKeys.has(key));
+			// Get current values directly from map (O(k) instead of O(n))
+			const current: ArrayKV<EncodedObject> = [];
+			for (const { key } of validData) {
+				const value = map.get(key);
+				if (value !== undefined) {
+					current.push({ key, value });
+				}
+			}
 
 			// Encode updates to be mergable
 			const updates = validData.map(({ key, value }) => ({
@@ -74,15 +78,11 @@ const createStore = <TValue extends object>(
 
 			if (!changed) return;
 
-			// Decode the final result for validation
-			const final = merged.map(({ key, value }) => ({
-				key,
-				value: decode<TValue>(value),
-			}));
-
-			// Update the store
+			// Update the store and collect decoded results in single pass
+			const final: ArrayKV<TValue> = [];
 			merged.forEach(({ key, value }) => {
 				map.set(key, value);
+				final.push({ key, value: decode<TValue>(value) });
 			});
 
 			emitter.emit("update", final);
@@ -102,14 +102,14 @@ const createStore = <TValue extends object>(
 
 			if (merged.length === 0) return;
 
+			// Update map and collect delete events in single pass
+			const deleteEvents: { key: string }[] = [];
 			merged.forEach(({ key, value }) => {
 				map.set(key, value);
+				deleteEvents.push({ key });
 			});
 
-			emitter.emit(
-				"delete",
-				merged.map(({ key }) => ({ key })),
-			);
+			emitter.emit("delete", deleteEvents);
 		},
 
 		merge(snapshot: ArrayKV<EncodedObject>) {
@@ -117,12 +117,8 @@ const createStore = <TValue extends object>(
 			const updateEvents: ArrayKV<TValue> = [];
 			const deleteEvents: { key: string }[] = [];
 
-			const snapshotMap = new Map(
-				snapshot.map(({ key, value }) => [key, value]),
-			);
-
-			// Process new and updated items from snapshot
-			for (const [key, snapshotValue] of snapshotMap) {
+			// Process new and updated items from snapshot - iterate directly without intermediate map
+			for (const { key, value: snapshotValue } of snapshot) {
 				const currentValue = map.get(key);
 
 				if (!currentValue) {
@@ -131,27 +127,20 @@ const createStore = <TValue extends object>(
 					map.set(key, snapshotValue);
 				} else {
 					// Existing item - merge and check for changes
-					const [merged, changed] = mergeArray(
-						[{ key, value: currentValue }],
-						[{ key, value: snapshotValue }],
-					);
+					const [mergedValue, changed] = merge(currentValue, snapshotValue);
 
-					if (changed && merged.length > 0) {
-						const mergedItem = merged[0];
-						if (mergedItem) {
-							const mergedValue = mergedItem.value;
-							const wasDeleted = currentValue.__deleted !== undefined;
-							const isDeleted = mergedValue.__deleted !== undefined;
+					if (changed) {
+						const wasDeleted = currentValue.__deleted !== undefined;
+						const isDeleted = mergedValue.__deleted !== undefined;
 
-							if (!wasDeleted && isDeleted) {
-								// Item was deleted - emit delete event
-								map.set(key, mergedValue);
-								deleteEvents.push({ key });
-							} else {
-								// Item was updated - emit update event
-								map.set(key, mergedValue);
-								updateEvents.push({ key, value: decode<TValue>(mergedValue) });
-							}
+						if (!wasDeleted && isDeleted) {
+							// Item was deleted - emit delete event
+							map.set(key, mergedValue);
+							deleteEvents.push({ key });
+						} else {
+							// Item was updated - emit update event
+							map.set(key, mergedValue);
+							updateEvents.push({ key, value: decode<TValue>(mergedValue) });
 						}
 					}
 				}
@@ -170,9 +159,13 @@ const createStore = <TValue extends object>(
 		},
 
 		values(): ArrayKV<TValue> {
-			return mapToArray(map)
-				.filter(({ value }) => !value.__deleted)
-				.map(({ key, value }) => ({ key, value: decode(value) }));
+			const result: ArrayKV<TValue> = [];
+			for (const [key, value] of map) {
+				if (!value.__deleted) {
+					result.push({ key, value: decode(value) });
+				}
+			}
+			return result;
 		},
 
 		snapshot(): ArrayKV<EncodedObject> {
