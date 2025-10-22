@@ -2,8 +2,6 @@ import { bench, group, run } from "mitata";
 import { ulid } from "ulid";
 import { createStore } from "./store";
 
-const ITEM_COUNT = 4000;
-
 // Create a monotonic counter-based eventstamp function
 let counter = 0;
 const eventstampFn = () => {
@@ -36,73 +34,162 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 	}));
 };
 
-group("Store Operations - 4000 items", () => {
-	bench("putMany 4000 items", () => {
+// Pre-generate test data at all sizes (outside benchmarks)
+const items100 = generateItems(100);
+const items5000 = generateItems(5000);
+const items25000 = generateItems(25000);
+
+// Pre-generate update data
+const updates100 = items100.map(({ key }) => ({
+	key,
+	value: { active: false, value: 42 },
+}));
+const updates5000 = items5000.map(({ key }) => ({
+	key,
+	value: { active: false, value: 42 },
+}));
+const updates25000 = items25000.map(({ key }) => ({
+	key,
+	value: { active: false, value: 42 },
+}));
+
+// Pre-generate deletion keys
+const keys100 = items100.map(({ key }) => key);
+const keys5000 = items5000.map(({ key }) => key);
+const keys25000 = items25000.map(({ key }) => key);
+
+group("putMany", () => {
+	bench("putMany 100 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-		store.putMany(items);
+		store.putMany(items100);
 	});
 
-	bench("updateMany 4000 items", () => {
+	bench("putMany 5000 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-		store.putMany(items);
-
-		// Update all items
-		const updates = items.map(({ key }) => ({
-			key,
-			value: { active: false, value: 42 },
-		}));
-		store.updateMany(updates);
+		store.putMany(items5000);
 	});
 
-	bench("deleteMany 4000 items", () => {
+	bench("putMany 25000 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-		store.putMany(items);
+		store.putMany(items25000);
+	});
+});
 
-		// Delete all items
-		const keys = items.map(({ key }) => key);
-		store.deleteMany(keys);
+group("updateMany", () => {
+	bench("updateMany 100 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100);
+		store.updateMany(updates100);
 	});
 
-	bench("putMany + updateMany + deleteMany (full cycle)", () => {
+	bench("updateMany 5000 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-
-		// Insert
-		store.putMany(items);
-
-		// Update
-		const updates = items.map(({ key }) => ({
-			key,
-			value: { active: false },
-		}));
-		store.updateMany(updates);
-
-		// Delete
-		const keys = items.map(({ key }) => key);
-		store.deleteMany(keys);
+		store.putMany(items5000);
+		store.updateMany(updates5000);
 	});
 
-	bench("values() after putMany", () => {
+	bench("updateMany 25000 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-		store.putMany(items);
+		store.putMany(items25000);
+		store.updateMany(updates25000);
+	});
+});
+
+group("deleteMany", () => {
+	bench("deleteMany 100 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100);
+		store.deleteMany(keys100);
+	});
+
+	bench("deleteMany 5000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items5000);
+		store.deleteMany(keys5000);
+	});
+
+	bench("deleteMany 25000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items25000);
+		store.deleteMany(keys25000);
+	});
+});
+
+group("values()", () => {
+	bench("values() 100 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100);
 		store.values();
 	});
 
-	bench("snapshot() after putMany", () => {
+	bench("values() 5000 items", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
-		const items = generateItems(ITEM_COUNT);
-		store.putMany(items);
+		store.putMany(items5000);
+		store.values();
+	});
+
+	bench("values() 25000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items25000);
+		store.values();
+	});
+});
+
+group("snapshot()", () => {
+	bench("snapshot() 100 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100);
 		store.snapshot();
+	});
+
+	bench("snapshot() 5000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items5000);
+		store.snapshot();
+	});
+
+	bench("snapshot() 25000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items25000);
+		store.snapshot();
+	});
+});
+
+group("merge()", () => {
+	bench("merge() 100 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100);
+		store.merge(store.snapshot());
+	});
+
+	bench("merge() 5000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items5000);
+		store.merge(store.snapshot());
+	});
+
+	bench("merge() 25000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items25000);
+		store.merge(store.snapshot());
 	});
 });
 
