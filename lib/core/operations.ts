@@ -35,28 +35,31 @@ export function merge(
 	const result: EncodedObject = {};
 	let changed = false;
 
-	// Collect all property keys from both objects
-	const allKeys = new Set(Object.keys(obj1));
-	for (const key of Object.keys(obj2)) {
-		allKeys.add(key);
+	// Pass 1: Process all keys from obj1
+	for (const key in obj1) {
+		if (Object.hasOwn(obj1, key)) {
+			const value1 = obj1[key];
+			const value2 = obj2[key];
+			if (value1 && value2) {
+				// Both objects have this key, compare eventstamps
+				if (value1.__eventstamp >= value2.__eventstamp) {
+					result[key] = value1;
+				} else {
+					result[key] = value2;
+					changed = true;
+				}
+			} else if (value1) {
+				// Only in obj1
+				result[key] = value1;
+			}
+		}
 	}
 
-	for (const key of allKeys) {
-		const value1 = obj1[key];
-		const value2 = obj2[key];
-
-		if (value1 && !value2) {
-			result[key] = value1;
-		} else if (!value1 && value2) {
-			result[key] = value2;
-			changed = true; // New property added
-		} else if (value1 && value2) {
-			if (value1.__eventstamp >= value2.__eventstamp) {
-				result[key] = value1;
-			} else {
-				result[key] = value2;
-				changed = true; // Mark as changed if obj2's value won (had newer eventstamp)
-			}
+	// Pass 2: Process keys only in obj2
+	for (const key in obj2) {
+		if (Object.hasOwn(obj2, key) && !(key in result)) {
+			result[key] = obj2[key]!;
+			changed = true;
 		}
 	}
 
