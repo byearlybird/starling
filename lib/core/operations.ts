@@ -6,11 +6,14 @@ export function encode<T extends object>(
 	eventstamp: string,
 ): EncodedObject {
 	const result: EncodedObject = {};
-	const flattened = flatten<object, object>(obj, { safe: true });
+	const flattened = flatten<object, object>(obj, { safe: true }) as Record<
+		string,
+		unknown
+	>;
 
-	for (const [key, value] of Object.entries(flattened)) {
+	for (const key of Object.keys(flattened)) {
 		result[key] = {
-			__value: value,
+			__value: flattened[key],
 			__eventstamp: eventstamp,
 		};
 	}
@@ -21,8 +24,8 @@ export function encode<T extends object>(
 export function decode<T extends object>(obj: EncodedObject): T {
 	const flattened: Record<string, unknown> = {};
 
-	for (const [key, value] of Object.entries(obj)) {
-		flattened[key] = value.__value;
+	for (const key of Object.keys(obj)) {
+		flattened[key] = (obj[key] as { __value: unknown }).__value;
 	}
 
 	return unflatten(flattened);

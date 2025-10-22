@@ -1,5 +1,5 @@
 import mitt from "mitt";
-import { decode, encode, encodeMany, merge, mergeArray } from "./operations";
+import { decode, encode, encodeMany, merge } from "./operations";
 import type {
 	ArrayKV,
 	DeepPartial,
