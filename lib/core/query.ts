@@ -1,5 +1,5 @@
 import mitt from "mitt";
-import type { Store } from "./store-v3";
+import type { Store } from "./store";
 import { mapToArray } from "./utils";
 
 type QueryEvents = {

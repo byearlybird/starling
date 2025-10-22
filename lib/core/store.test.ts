@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { createStore } from "./store-v3";
+import { createStore } from "./store";
 
 // Simple monotonic timestamp for testing
 const createEventstampFn = () => {

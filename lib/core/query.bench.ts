@@ -1,7 +1,7 @@
 import { bench, group, run } from "mitata";
 import { ulid } from "ulid";
-import { createQuery } from "./query-v3";
-import { createStore } from "./store-v3";
+import { createQuery } from "./query";
+import { createStore } from "./store";
 
 const ITEM_COUNT = 4000;
 
@@ -289,8 +289,7 @@ group("Query Operations - 4000 items", () => {
 
 		createQuery(
 			store,
-			(item) =>
-				item.active === true && item.value > 50 && item.name.length > 5,
+			(item) => item.active === true && item.value > 50 && item.name.length > 5,
 		);
 	});
 });

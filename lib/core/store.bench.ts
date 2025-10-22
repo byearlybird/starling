@@ -1,6 +1,6 @@
 import { bench, group, run } from "mitata";
 import { ulid } from "ulid";
-import { createStore } from "./store-v3";
+import { createStore } from "./store";
 
 const ITEM_COUNT = 4000;
 

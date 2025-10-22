@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
-import { createQuery } from "./query-v3";
-import { createStore } from "./store-v3";
+import { createQuery } from "./query";
+import { createStore } from "./store";
 
 // Helper to create a store with v3 API
 function createStoreV3<T extends object>() {
