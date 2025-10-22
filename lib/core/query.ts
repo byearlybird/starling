@@ -1,5 +1,6 @@
 import mitt from "mitt";
 import type { Store } from "./store";
+import type { ArrayKV } from "./types";
 import { mapToArray } from "./utils";
 
 type QueryEvents = {
@@ -63,7 +64,7 @@ const createQuery = <TValue extends object>(
 	unwatchers.add(unwatchDelete);
 
 	return {
-		results() {
+		results(): ArrayKV<TValue> {
 			return mapToArray(results);
 		},
 

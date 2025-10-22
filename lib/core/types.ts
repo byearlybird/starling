@@ -13,3 +13,5 @@ export type DeepPartial<T> = T extends object
 	: T;
 
 export type EventstampFn = () => string;
+
+export type ArrayKV<T> = { key: string; value: T }[];

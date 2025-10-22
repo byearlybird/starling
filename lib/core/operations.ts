@@ -1,5 +1,5 @@
 import { flatten, unflatten } from "flat";
-import type { EncodedObject, EventstampFn } from "./types";
+import type { ArrayKV, EncodedObject, EventstampFn } from "./types";
 
 export function encode<T extends object>(
 	obj: T,
@@ -61,12 +61,12 @@ export function merge(
 }
 
 export function mergeArray(
-	current: { key: string; value: EncodedObject }[],
-	updates: { key: string; value: EncodedObject }[],
-): [{ key: string; value: EncodedObject }[], boolean] {
+	current: ArrayKV<EncodedObject>,
+	updates: ArrayKV<EncodedObject>,
+): [ArrayKV<EncodedObject>, boolean] {
 	const currentMap = new Map(current.map((item) => [item.key, item.value]));
 	const updatesMap = new Map(updates.map((item) => [item.key, item.value]));
-	const result: { key: string; value: EncodedObject }[] = [];
+	const result: ArrayKV<EncodedObject> = [];
 	let changed = false;
 
 	// Collect all keys from both arrays
@@ -94,12 +94,12 @@ export function mergeArray(
 }
 
 export const encodeMany = <TValue extends object>(
-	data: { key: string; value: TValue }[],
+	data: ArrayKV<TValue>,
 	eventstampFn: EventstampFn,
-): { key: string; value: EncodedObject }[] =>
+): ArrayKV<EncodedObject> =>
 	data.map(({ key, value }) => ({ key, value: encode(value, eventstampFn()) }));
 
 export const decodeMany = <TValue extends object>(
-	data: { key: string; value: EncodedObject }[],
-): { key: string; value: TValue }[] =>
+	data: ArrayKV<EncodedObject>,
+): ArrayKV<TValue> =>
 	data.map(({ key, value }) => ({ key, value: decode<TValue>(value) }));

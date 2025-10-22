@@ -1,22 +1,18 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <testing purposes> */
 import { expect, mock, test } from "bun:test";
-import type { Store } from "../core/store";
-import type { EncodedRecord } from "../core/types";
+import type { Store } from "../core";
+import type { ArrayKV } from "../core/types";
 import { createHttpSynchronizer } from "./http-sync";
 
 test("start calls pull, mergeState, and sets up interval", async () => {
-	const mockData: EncodedRecord = {
-		key1: { foo: "bar" } as any,
-	};
+	const mockDataArray = [{ key: "key1", value: { foo: "bar" } as any }];
 
-	const mockState: EncodedRecord = {};
-
-	const pull = mock(() => Promise.resolve(mockData));
+	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
 
 	const mockStore = {
-		mergeState: mock(() => {}),
-		state: mock(() => mockState),
+		merge: mock(() => {}),
+		snapshot: mock(() => []),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -28,22 +24,21 @@ test("start calls pull, mergeState, and sets up interval", async () => {
 	await start();
 
 	expect(pull).toHaveBeenCalledTimes(1);
-	expect(mockStore.mergeState).toHaveBeenCalledWith(mockData);
-	expect(mockStore.on).toHaveBeenCalledWith("mutate", expect.any(Function));
+	expect(mockStore.merge).toHaveBeenCalledWith(mockDataArray);
+	expect(mockStore.on).toHaveBeenCalledWith("change", expect.any(Function));
 
 	dispose();
 });
 
 test("refresh does NOT push when store state is empty", async () => {
-	const mockData: EncodedRecord = {};
-	const emptyState: EncodedRecord = {};
+	const mockDataArray: ArrayKV<any> = [];
 
-	const pull = mock(() => Promise.resolve(mockData));
+	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
 
 	const mockStore = {
-		mergeState: mock(() => {}),
-		state: mock(() => emptyState),
+		merge: mock(() => {}),
+		snapshot: mock(() => []),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -55,19 +50,19 @@ test("refresh does NOT push when store state is empty", async () => {
 	await refresh();
 
 	expect(pull).toHaveBeenCalledTimes(1);
-	expect(mockStore.mergeState).toHaveBeenCalledWith(mockData);
+	expect(mockStore.merge).toHaveBeenCalledWith(mockDataArray);
 	expect(push).not.toHaveBeenCalled();
 
 	dispose();
 });
 
 test("dispose clears the interval", async () => {
-	const pull = mock(() => Promise.resolve({}));
+	const pull = mock(() => Promise.resolve([] as ArrayKV<any>));
 	const push = mock(() => Promise.resolve());
 
 	const mockStore = {
-		mergeState: mock(() => {}),
-		state: mock(() => ({})),
+		merge: mock(() => {}),
+		snapshot: mock(() => []),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -90,20 +85,14 @@ test("dispose clears the interval", async () => {
 });
 
 test("refresh can be called manually and pushes non-empty state", async () => {
-	const mockData: EncodedRecord = {
-		key1: { foo: "bar" } as any,
-	};
+	const mockDataArray = [{ key: "key1", value: { foo: "bar" } as any }];
 
-	const mockState: EncodedRecord = {
-		key1: { foo: "bar" } as any,
-	};
-
-	const pull = mock(() => Promise.resolve(mockData));
+	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
 
 	const mockStore = {
-		mergeState: mock(() => {}),
-		state: mock(() => mockState),
+		merge: mock(() => {}),
+		snapshot: mock(() => mockDataArray),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -116,8 +105,8 @@ test("refresh can be called manually and pushes non-empty state", async () => {
 	await refresh();
 
 	expect(pull).toHaveBeenCalled();
-	expect(mockStore.mergeState).toHaveBeenCalledWith(mockData);
-	expect(push).toHaveBeenCalledWith(mockState);
+	expect(mockStore.merge).toHaveBeenCalledWith(mockDataArray);
+	expect(push).toHaveBeenCalledWith(mockDataArray);
 
 	dispose();
 });

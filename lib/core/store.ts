@@ -1,11 +1,16 @@
 import mitt from "mitt";
 import { decode, encode, encodeMany, mergeArray } from "./operations";
-import type { DeepPartial, EncodedObject, EventstampFn } from "./types";
+import type {
+	ArrayKV,
+	DeepPartial,
+	EncodedObject,
+	EventstampFn,
+} from "./types";
 import { mapToArray, mergeItems } from "./utils";
 
 type StoreEvents<TValue> = {
-	put: { key: string; value: TValue }[];
-	update: { key: string; value: TValue }[];
+	put: ArrayKV<TValue>;
+	update: ArrayKV<TValue>;
 	delete: { key: string }[];
 	change: undefined;
 };
@@ -39,7 +44,7 @@ const createStore = <TValue extends object>(
 			this.deleteMany([key]);
 		},
 
-		putMany(data: { key: string; value: TValue }[]) {
+		putMany(data: ArrayKV<TValue>) {
 			encodeMany(data, config.eventstampFn).forEach(({ key, value }) => {
 				map.set(key, value);
 			});
@@ -47,7 +52,7 @@ const createStore = <TValue extends object>(
 			emitter.emit("put", data);
 		},
 
-		updateMany(data: { key: string; value: DeepPartial<TValue> }[]) {
+		updateMany(data: ArrayKV<DeepPartial<TValue>>) {
 			const updateKeys = new Set(data.map((d) => d.key));
 
 			// Filter to only include keys that exist
@@ -107,9 +112,9 @@ const createStore = <TValue extends object>(
 			);
 		},
 
-		merge(snapshot: { key: string; value: EncodedObject }[]) {
-			const putEvents: { key: string; value: TValue }[] = [];
-			const updateEvents: { key: string; value: TValue }[] = [];
+		merge(snapshot: ArrayKV<EncodedObject>) {
+			const putEvents: ArrayKV<TValue> = [];
+			const updateEvents: ArrayKV<TValue> = [];
 			const deleteEvents: { key: string }[] = [];
 
 			const snapshotMap = new Map(
@@ -164,13 +169,13 @@ const createStore = <TValue extends object>(
 			}
 		},
 
-		values(): { key: string; value: TValue }[] {
+		values(): ArrayKV<TValue> {
 			return mapToArray(map)
 				.filter(({ value }) => !value.__deleted)
 				.map(({ key, value }) => ({ key, value: decode(value) }));
 		},
 
-		snapshot(): { key: string; value: EncodedObject }[] {
+		snapshot(): ArrayKV<EncodedObject> {
 			return mapToArray(map);
 		},
 

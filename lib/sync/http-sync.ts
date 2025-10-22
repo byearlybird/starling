@@ -1,14 +1,14 @@
-import type { Store } from "../core/store";
-import type { EncodedObject } from "../core/types";
+import type { Store } from "../core";
+import type { ArrayKV, EncodedObject } from "../core/types";
 
 export type HttpConfig = {
 	pullInterval?: number;
 	preprocess?: (
 		event: "pull" | "push",
-		data: { key: string; value: EncodedObject }[],
-	) => Promise<{ key: string; value: EncodedObject }[]>;
-	push: (data: { key: string; value: EncodedObject }[]) => Promise<void>;
-	pull: () => Promise<{ key: string; value: EncodedObject }[]>;
+		data: ArrayKV<EncodedObject>,
+	) => Promise<ArrayKV<EncodedObject>>;
+	push: (data: ArrayKV<EncodedObject>) => Promise<void>;
+	pull: () => Promise<ArrayKV<EncodedObject>>;
 };
 
 export function createHttpSynchronizer<TValue extends object>(
@@ -22,15 +22,12 @@ export function createHttpSynchronizer<TValue extends object>(
 ) {
 	let started = false;
 	let intervalId: Timer | null = null;
-	const unwatch = store.on("mutate", async () => {
+	const unwatch = store.on("change", async () => {
 		if (started) {
-			const latest = await store.state();
-			const data = Object.entries(latest).map(([key, value]) => ({
-				key,
-				value: value as EncodedObject,
-			}));
-			if (data.length > 0) {
-				await pushData(data);
+			const latest = store.snapshot();
+
+			if (latest.length > 0) {
+				await pushData(latest);
 			}
 		}
 	});
@@ -38,24 +35,20 @@ export function createHttpSynchronizer<TValue extends object>(
 	async function pullData() {
 		const data = await pull();
 		const processed = preprocess ? await preprocess("pull", data) : data;
-		await store.mergeState(processed);
+		store.merge(processed);
 	}
 
-	async function pushData(data: { key: string; value: EncodedObject }[]) {
+	async function pushData(data: ArrayKV<EncodedObject>) {
 		const processed = preprocess ? await preprocess("push", data) : data;
 		await push(processed);
 	}
 
 	async function refresh() {
 		await pullData();
-		const latest = await store.state();
-		const data = Object.entries(latest).map(([key, value]) => ({
-			key,
-			value: value as EncodedObject,
-		}));
+		const latest = store.snapshot();
 
-		if (data.length > 0) {
-			await pushData(data);
+		if (latest.length > 0) {
+			await pushData(latest);
 		}
 	}
 
