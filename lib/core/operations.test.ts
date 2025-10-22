@@ -370,8 +370,8 @@ test("mergeArray merges objects with same key based on eventstamp", () => {
 	const [merged, changed] = mergeArray(current, updates);
 
 	expect(merged).toHaveLength(1);
-	expect(merged[0].key).toBe("user1");
-	expect(merged[0].value).toEqual({
+	expect(merged[0]?.key).toBe("user1");
+	expect(merged[0]?.value).toEqual({
 		name: {
 			__value: "Alice",
 			__eventstamp: "2024-01-01T00:00:00Z",
@@ -415,7 +415,7 @@ test("mergeArray returns changed=false when arrays are identical", () => {
 	const [merged, changed] = mergeArray(current, updates);
 
 	expect(merged).toHaveLength(1);
-	expect(merged[0].key).toBe("user1");
+	expect(merged[0]?.key).toBe("user1");
 	expect(changed).toBe(false); // No change
 });
 
@@ -466,8 +466,8 @@ test("mergeArray handles multiple arrays with mixed changes", () => {
 	expect(merged).toHaveLength(3);
 	const mergedMap = new Map(merged.map((item) => [item.key, item.value]));
 
-	expect(mergedMap.get("user1")?.name.__value).toBe("Alice"); // Kept newer timestamp
-	expect(mergedMap.get("user2")?.name.__value).toBe("Bob");
-	expect(mergedMap.get("user3")?.name.__value).toBe("Charlie");
+	expect(mergedMap.get("user1")?.name?.__value).toBe("Alice"); // Kept newer timestamp
+	expect(mergedMap.get("user2")?.name?.__value).toBe("Bob");
+	expect(mergedMap.get("user3")?.name?.__value).toBe("Charlie");
 	expect(changed).toBe(true); // user3 was added
 });
