@@ -402,3 +402,216 @@ test("store operations are synchronous", () => {
 	expect(duration).toBeLessThan(100);
 	expect(store.values()).toHaveLength(1000);
 });
+
+test("merge() adds new items and emits put event", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	const putHandler = mock();
+	store.on("put", putHandler);
+
+	const snapshot = [
+		{
+			key: "user1",
+			value: {
+				name: {
+					__value: "Alice",
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+				},
+			},
+		},
+	];
+
+	store.merge(snapshot);
+
+	expect(putHandler).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Alice" } },
+	]);
+	expect(putHandler).toHaveBeenCalledTimes(1);
+});
+
+test("merge() updates existing items and emits update event", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	// Add initial item
+	store.put("user1", { name: "Alice" });
+
+	const updateHandler = mock();
+	store.on("update", updateHandler);
+
+	// Merge with newer version
+	const snapshot = [
+		{
+			key: "user1",
+			value: {
+				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999" },
+			},
+		},
+	];
+
+	store.merge(snapshot);
+
+	expect(updateHandler).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Bob" } },
+	]);
+	expect(updateHandler).toHaveBeenCalledTimes(1);
+});
+
+test("merge() deletes items when __deleted is introduced and emits delete event", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	// Add initial item
+	store.put("user1", { name: "Alice" });
+
+	const deleteHandler = mock();
+	store.on("delete", deleteHandler);
+
+	// Merge with deletion marker
+	const snapshot = [
+		{
+			key: "user1",
+			value: {
+				name: {
+					__value: "Alice",
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+				},
+				__deleted: {
+					__value: true,
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+				},
+			},
+		},
+	];
+
+	store.merge(snapshot);
+
+	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
+	expect(deleteHandler).toHaveBeenCalledTimes(1);
+	expect(store.values()).toHaveLength(0);
+});
+
+test("merge() handles multiple items with mixed operations", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	// Add initial items
+	store.putMany([
+		{ key: "user1", value: { name: "Alice" } },
+		{ key: "user2", value: { name: "Bob" } },
+	]);
+
+	const putHandler = mock();
+	const updateHandler = mock();
+	const deleteHandler = mock();
+
+	store.on("put", putHandler);
+	store.on("update", updateHandler);
+	store.on("delete", deleteHandler);
+
+	// Merge with: new item (user3), updated item (user1), deleted item (user2)
+	const snapshot = [
+		{
+			key: "user1",
+			value: {
+				name: {
+					__value: "Alice Updated",
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+				},
+			},
+		},
+		{
+			key: "user2",
+			value: {
+				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001" },
+				__deleted: {
+					__value: true,
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+				},
+			},
+		},
+		{
+			key: "user3",
+			value: {
+				name: {
+					__value: "Charlie",
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+				},
+			},
+		},
+	];
+
+	store.merge(snapshot);
+
+	expect(putHandler).toHaveBeenCalledWith([
+		{ key: "user3", value: { name: "Charlie" } },
+	]);
+	expect(updateHandler).toHaveBeenCalledWith([
+		{ key: "user1", value: { name: "Alice Updated" } },
+	]);
+	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user2" }]);
+
+	expect(store.values()).toEqual([
+		{ key: "user1", value: { name: "Alice Updated" } },
+		{ key: "user3", value: { name: "Charlie" } },
+	]);
+});
+
+test("merge() ignores items with older eventstamps", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	// Add initial item with newer timestamp
+	store.put("user1", { name: "Alice" });
+
+	const updateHandler = mock();
+	store.on("update", updateHandler);
+
+	// Try to merge with older version
+	const snapshot = [
+		{
+			key: "user1",
+			value: {
+				name: {
+					__value: "Older",
+					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+				},
+			},
+		},
+	];
+
+	store.merge(snapshot);
+
+	// Should not emit update because incoming value is older
+	expect(updateHandler).toHaveBeenCalledTimes(0);
+	expect(store.values()).toEqual([{ key: "user1", value: { name: "Alice" } }]);
+});
+
+test("merge() handles empty snapshot gracefully", () => {
+	const store = createStore<{ name: string }>("users", {
+		eventstampFn: createEventstampFn(),
+	});
+
+	store.put("user1", { name: "Alice" });
+
+	const putHandler = mock();
+	const updateHandler = mock();
+	const deleteHandler = mock();
+
+	store.on("put", putHandler);
+	store.on("update", updateHandler);
+	store.on("delete", deleteHandler);
+
+	store.merge([]);
+
+	expect(putHandler).toHaveBeenCalledTimes(0);
+	expect(updateHandler).toHaveBeenCalledTimes(0);
+	expect(deleteHandler).toHaveBeenCalledTimes(0);
+	expect(store.values()).toEqual([{ key: "user1", value: { name: "Alice" } }]);
+});

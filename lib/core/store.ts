@@ -107,6 +107,63 @@ const createStore = <TValue extends object>(
 			);
 		},
 
+		merge(snapshot: { key: string; value: EncodedObject }[]) {
+			const putEvents: { key: string; value: TValue }[] = [];
+			const updateEvents: { key: string; value: TValue }[] = [];
+			const deleteEvents: { key: string }[] = [];
+
+			const snapshotMap = new Map(
+				snapshot.map(({ key, value }) => [key, value]),
+			);
+
+			// Process new and updated items from snapshot
+			for (const [key, snapshotValue] of snapshotMap) {
+				const currentValue = map.get(key);
+
+				if (!currentValue) {
+					// New item - emit put event
+					putEvents.push({ key, value: decode<TValue>(snapshotValue) });
+					map.set(key, snapshotValue);
+				} else {
+					// Existing item - merge and check for changes
+					const [merged, changed] = mergeArray(
+						[{ key, value: currentValue }],
+						[{ key, value: snapshotValue }],
+					);
+
+					if (changed && merged.length > 0) {
+						const mergedItem = merged[0];
+						if (mergedItem) {
+							const mergedValue = mergedItem.value;
+							const wasDeleted = currentValue.__deleted !== undefined;
+							const isDeleted = mergedValue.__deleted !== undefined;
+
+							if (!wasDeleted && isDeleted) {
+								// Item was deleted - emit delete event
+								map.set(key, mergedValue);
+								deleteEvents.push({ key });
+							} else {
+								// Item was updated - emit update event
+								map.set(key, mergedValue);
+								updateEvents.push({ key, value: decode<TValue>(mergedValue) });
+							}
+						}
+					}
+				}
+			}
+
+			// Emit events
+			if (putEvents.length > 0) {
+				emitter.emit("put", putEvents);
+			}
+			if (updateEvents.length > 0) {
+				emitter.emit("update", updateEvents);
+			}
+			if (deleteEvents.length > 0) {
+				emitter.emit("delete", deleteEvents);
+			}
+		},
+
 		values(): { key: string; value: TValue }[] {
 			return mapToArray(map)
 				.filter(({ value }) => !value.__deleted)
