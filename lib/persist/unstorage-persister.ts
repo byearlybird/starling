@@ -3,13 +3,11 @@ import type { ArrayKV, EncodedObject, Store } from "../core";
 
 const makePersisted = <TValue extends object>(
 	store: Store<TValue>,
-	{
-		storage: baseStorage,
-	}: {
+	config: {
 		storage: Storage;
 	},
 ) => {
-	const storage = prefixStorage(baseStorage, store.collectionKey);
+	const storage = prefixStorage(config.storage, store.collectionKey);
 
 	const unwatch = store.on("change", () => {
 		storage.set<{ key: string; value: EncodedObject }[]>(

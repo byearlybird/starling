@@ -6,11 +6,18 @@ import {
 	psuedoEncryptRecord,
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
+import { makePersisted } from "../../lib/persist";
 import { createHttpSynchronizer } from "../../lib/sync";
 import type { Todo } from "./types";
 
 export const todoStore = createStore<Todo>("todos", {
 	eventstampFn: monotonicFactory(),
+});
+
+export const persister = makePersisted(todoStore, {
+	storage: createStorage({
+		driver: localStorageDriver(undefined),
+	}),
 });
 
 export const todoSync = createHttpSynchronizer(todoStore, {

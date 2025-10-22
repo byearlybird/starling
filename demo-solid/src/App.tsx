@@ -1,7 +1,9 @@
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import "./App.css";
 import { useData, useQuery } from "../../lib/solid";
-import { todoStore, todoSync } from "./todo-store";
+import { persister, todoStore, todoSync } from "./todo-store";
+
+await persister.load();
 
 function App() {
 	const [newTodo, setNewTodo] = createSignal("");
