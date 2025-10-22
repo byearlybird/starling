@@ -1,13 +1,6 @@
 import mitt from "mitt";
-import { KeyNotFoundError } from "./errors";
-import { decode, decodeMany, encodeMany } from "./operations";
-import { mergeItems } from "./store-utils";
-import type {
-	DeepPartial,
-	EncodedObject,
-	EncodedRecord,
-	EventstampFn,
-} from "./types";
+import { decode, encode, encodeMany, mergeArray } from "./operations";
+import type { DeepPartial, EncodedObject, EventstampFn } from "./types";
 
 type Events<TValue> = {
 	put: { key: string; value: TValue }[];
@@ -18,8 +11,11 @@ type Events<TValue> = {
 const createStore = <TValue extends object>(config: {
 	eventstampFn: EventstampFn;
 }) => {
-	const map = new Map<string, EncodedObject>();
+	const state: { key: string; value: EncodedObject }[] = [];
 	const emitter = mitt<Events<TValue>>();
+
+	const findIndex = (key: string) => state.findIndex((item) => item.key === key);
+	const findItem = (key: string) => state.find((item) => item.key === key);
 
 	return {
 		put(key: string, value: TValue) {
@@ -33,50 +29,82 @@ const createStore = <TValue extends object>(config: {
 		},
 		putMany(data: { key: string; value: TValue }[]) {
 			encodeMany(data, config.eventstampFn).forEach(({ key, value }) => {
-				map.set(key, value);
+				const idx = findIndex(key);
+				if (idx >= 0) {
+					state[idx] = { key, value };
+				} else {
+					state.push({ key, value });
+				}
 			});
 
 			emitter.emit("put", data);
 		},
 		updateMany(data: { key: string; value: DeepPartial<TValue> }[]) {
-			const missingKeys = data
-				.filter(({ key }) => !map.has(key))
-				.map(({ key }) => key);
+			const updateKeys = new Set(data.map((d) => d.key));
 
-			if (missingKeys.length > 0) {
-				throw new KeyNotFoundError(missingKeys);
-			}
+			// Get current values for keys that exist
+			const current = state
+				.filter(({ key }) => updateKeys.has(key))
+				.map(({ key, value }) => ({ key, value }));
 
-			const encoded = encodeMany(data, config.eventstampFn);
-			const merged = mergeItems(map, encoded);
+			// Only process if we have matching keys (graceful no-op if none match)
+			if (current.length === 0) return;
 
-			if (merged.length === 0) return;
+			// Encode updates to be mergable
+			const updates = data.map(({ key, value }) => ({
+				key,
+				value: encode(value, config.eventstampFn()),
+			}));
 
+			// Merge updates
+			const [merged, changed] = mergeArray(current, updates);
+
+			if (!changed) return;
+
+			// Decode the final result for validation
+			const final = merged.map(({ key, value }) => ({
+				key,
+				value: decode<TValue>(value),
+			}));
+
+			// Update the state array
 			merged.forEach(({ key, value }) => {
-				map.set(key, value);
+				const idx = findIndex(key);
+				if (idx >= 0) {
+					state[idx] = { key, value };
+				}
 			});
 
-			const updatedData = decodeMany<TValue>(merged);
-
-			emitter.emit("update", updatedData);
+			emitter.emit("update", final);
 		},
 		deleteMany(keys: string[]) {
-			const missing = keys.filter((key) => !map.has(key));
+			// Filter to only existing keys (graceful no-op for missing)
+			const keysToDelete = keys.filter((key) => findItem(key) !== undefined);
 
-			if (missing.length > 0) {
-				throw new KeyNotFoundError(missing);
-			}
+			if (keysToDelete.length === 0) return;
 
 			const deletionMarkers = encodeMany(
-				keys.map((key) => ({ key, value: { __deleted: true } as TValue })),
+				keysToDelete.map((key) => ({ key, value: { __deleted: true } as TValue })),
 				config.eventstampFn,
 			);
-			const merged = mergeItems(map, deletionMarkers);
+
+			// Merge deletions with current state items
+			const merged: { key: string; value: EncodedObject }[] = [];
+			deletionMarkers.forEach(({ key, value: deletionValue }) => {
+				const current = findItem(key);
+				if (current) {
+					const [mergedValue] = mergeArray([current], [{ key, value: deletionValue }]);
+					merged.push(...mergedValue);
+				}
+			});
 
 			if (merged.length === 0) return;
 
 			merged.forEach(({ key, value }) => {
-				map.set(key, value);
+				const idx = findIndex(key);
+				if (idx >= 0) {
+					state[idx] = { key, value };
+				}
 			});
 
 			emitter.emit(
@@ -87,15 +115,14 @@ const createStore = <TValue extends object>(config: {
 
 		values(): Record<string, TValue> {
 			return Object.fromEntries(
-				map
-					.entries()
-					.filter(([_, value]) => !value.__deleted)
-					.map(([key, value]) => [key, decode(value)]),
+				state
+					.filter(({ value }) => !value.__deleted)
+					.map(({ key, value }) => [key, decode<TValue>(value)]),
 			);
 		},
 
-		snapshot(): EncodedRecord {
-			return Object.fromEntries(map);
+		snapshot(): { key: string; value: EncodedObject }[] {
+			return state.map(({ key, value }) => ({ key, value }));
 		},
 
 		on<K extends keyof Events<TValue>>(

@@ -1,5 +1,4 @@
 import { expect, mock, test } from "bun:test";
-import { KeyNotFoundError } from "./errors";
 import { createStore } from "./store-v3";
 
 // Simple monotonic timestamp for testing
@@ -115,14 +114,19 @@ test("update() modifies existing item and emits update event", () => {
 	expect(updateHandler).toHaveBeenCalledTimes(1);
 });
 
-test("update() throws KeyNotFoundError when key does not exist", () => {
+test("update() is a graceful no-op when key does not exist", () => {
 	const store = createStore<{ name: string }>({
 		eventstampFn: createEventstampFn(),
 	});
 
-	expect(() => {
-		store.update("nonexistent", { name: "Alice" });
-	}).toThrow(KeyNotFoundError);
+	const updateHandler = mock();
+	store.on("update", updateHandler);
+
+	// Should not throw or emit event
+	store.update("nonexistent", { name: "Alice" });
+
+	expect(updateHandler).toHaveBeenCalledTimes(0);
+	expect(store.values()).toEqual({});
 });
 
 test("updateMany() modifies multiple items and emits update event", () => {
@@ -150,19 +154,26 @@ test("updateMany() modifies multiple items and emits update event", () => {
 	expect(updateHandler).toHaveBeenCalledTimes(1);
 });
 
-test("updateMany() throws KeyNotFoundError if any key does not exist", () => {
+test("updateMany() gracefully skips nonexistent keys", () => {
 	const store = createStore<{ name: string }>({
 		eventstampFn: createEventstampFn(),
 	});
 
 	store.put("user1", { name: "Alice" });
 
-	expect(() => {
-		store.updateMany([
-			{ key: "user1", value: { name: "Updated" } },
-			{ key: "nonexistent", value: { name: "Bob" } },
-		]);
-	}).toThrow(KeyNotFoundError);
+	const updateHandler = mock();
+	store.on("update", updateHandler);
+
+	// Should update only user1, silently ignore nonexistent
+	store.updateMany([
+		{ key: "user1", value: { name: "Updated" } },
+		{ key: "nonexistent", value: { name: "Bob" } },
+	]);
+
+	expect(updateHandler).toHaveBeenCalledTimes(1);
+	expect(store.values()).toEqual({
+		user1: { name: "Updated" },
+	});
 });
 
 test("delete() soft-deletes an item and emits delete event", () => {
@@ -181,14 +192,18 @@ test("delete() soft-deletes an item and emits delete event", () => {
 	expect(deleteHandler).toHaveBeenCalledTimes(1);
 });
 
-test("delete() throws KeyNotFoundError when key does not exist", () => {
+test("delete() is a graceful no-op when key does not exist", () => {
 	const store = createStore<{ name: string }>({
 		eventstampFn: createEventstampFn(),
 	});
 
-	expect(() => {
-		store.delete("nonexistent");
-	}).toThrow(KeyNotFoundError);
+	const deleteHandler = mock();
+	store.on("delete", deleteHandler);
+
+	// Should not throw or emit event
+	store.delete("nonexistent");
+
+	expect(deleteHandler).toHaveBeenCalledTimes(0);
 });
 
 test("deleteMany() soft-deletes multiple items and emits delete event", () => {
@@ -206,20 +221,28 @@ test("deleteMany() soft-deletes multiple items and emits delete event", () => {
 
 	store.deleteMany(["user1", "user2"]);
 
-	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }, { key: "user2" }]);
+	expect(deleteHandler).toHaveBeenCalledWith([
+		{ key: "user1" },
+		{ key: "user2" },
+	]);
 	expect(deleteHandler).toHaveBeenCalledTimes(1);
 });
 
-test("deleteMany() throws KeyNotFoundError if any key does not exist", () => {
+test("deleteMany() gracefully skips nonexistent keys", () => {
 	const store = createStore<{ name: string }>({
 		eventstampFn: createEventstampFn(),
 	});
 
 	store.put("user1", { name: "Alice" });
 
-	expect(() => {
-		store.deleteMany(["user1", "nonexistent"]);
-	}).toThrow(KeyNotFoundError);
+	const deleteHandler = mock();
+	store.on("delete", deleteHandler);
+
+	// Should delete only user1, silently ignore nonexistent
+	store.deleteMany(["user1", "nonexistent"]);
+
+	expect(deleteHandler).toHaveBeenCalledTimes(1);
+	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
 });
 
 test("values() returns decoded non-deleted items", () => {
@@ -269,10 +292,11 @@ test("snapshot() returns raw encoded state including deleted items", () => {
 	store.delete("user2");
 
 	const snapshot = store.snapshot();
+	const snapshotMap = new Map(snapshot.map((item) => [item.key, item.value]));
 
-	expect(Object.keys(snapshot)).toContain("user1");
-	expect(Object.keys(snapshot)).toContain("user2");
-	expect(snapshot.user2?.__deleted).toBeDefined();
+	expect(snapshotMap.has("user1")).toBe(true);
+	expect(snapshotMap.has("user2")).toBe(true);
+	expect(snapshotMap.get("user2")?.__deleted).toBeDefined();
 });
 
 test("on() returns unsubscribe function that stops callbacks", () => {

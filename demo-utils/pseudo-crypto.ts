@@ -1,19 +1,21 @@
-import type { EncodedObject, EncodedRecord } from "../lib";
+import type { EncodedObject } from "../lib";
 
-export function psuedoEncryptRecord(record: EncodedRecord): EncodedRecord {
-	const encryptedRecord: EncodedRecord = {};
-	for (const [key, obj] of Object.entries(record)) {
-		encryptedRecord[key] = pseudoEncryptObject(obj);
-	}
-	return encryptedRecord;
+export function psuedoEncryptRecord(
+	record: { key: string; value: EncodedObject }[],
+): { key: string; value: EncodedObject }[] {
+	return record.map(({ key, value }) => ({
+		key,
+		value: pseudoEncryptObject(value),
+	}));
 }
 
-export function pseudoDecryptRecord(record: EncodedRecord): EncodedRecord {
-	const decryptedRecord: EncodedRecord = {};
-	for (const [key, obj] of Object.entries(record)) {
-		decryptedRecord[key] = pseudoDecryptObject(obj);
-	}
-	return decryptedRecord;
+export function pseudoDecryptRecord(
+	record: { key: string; value: EncodedObject }[],
+): { key: string; value: EncodedObject }[] {
+	return record.map(({ key, value }) => ({
+		key,
+		value: pseudoDecryptObject(value),
+	}));
 }
 
 function pseudoEncryptObject(obj: EncodedObject): EncodedObject {

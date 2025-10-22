@@ -1,5 +1,5 @@
 import { flatten, unflatten } from "flat";
-import type { EncodedObject, EncodedRecord, EventstampFn } from "./types";
+import type { EncodedObject, EventstampFn } from "./types";
 
 export function encode<T extends object>(
 	obj: T,
@@ -60,28 +60,30 @@ export function merge(
 	return [result, changed];
 }
 
-export function mergeRecords(
-	record1: EncodedRecord,
-	record2: EncodedRecord,
-): [EncodedRecord, boolean] {
-	const result: EncodedRecord = {};
+export function mergeArray(
+	current: { key: string; value: EncodedObject }[],
+	updates: { key: string; value: EncodedObject }[],
+): [{ key: string; value: EncodedObject }[], boolean] {
+	const currentMap = new Map(current.map((item) => [item.key, item.value]));
+	const updatesMap = new Map(updates.map((item) => [item.key, item.value]));
+	const result: { key: string; value: EncodedObject }[] = [];
 	let changed = false;
 
-	// Collect all keys from both records
-	const allKeys = new Set([...Object.keys(record1), ...Object.keys(record2)]);
+	// Collect all keys from both arrays
+	const allKeys = new Set([...currentMap.keys(), ...updatesMap.keys()]);
 
 	for (const key of allKeys) {
-		const obj1 = record1[key];
-		const obj2 = record2[key];
+		const obj1 = currentMap.get(key);
+		const obj2 = updatesMap.get(key);
 
 		if (obj1 && !obj2) {
-			result[key] = obj1;
+			result.push({ key, value: obj1 });
 		} else if (!obj1 && obj2) {
-			result[key] = obj2;
+			result.push({ key, value: obj2 });
 			changed = true; // New object added
 		} else if (obj1 && obj2) {
 			const [merged, objChanged] = merge(obj1, obj2);
-			result[key] = merged;
+			result.push({ key, value: merged });
 			if (objChanged) {
 				changed = true; // Object was changed during merge
 			}

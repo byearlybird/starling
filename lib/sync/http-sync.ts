@@ -1,14 +1,14 @@
 import type { Store } from "../core/store";
-import type { EncodedRecord } from "../core/types";
+import type { EncodedObject } from "../core/types";
 
 export type HttpConfig = {
 	pullInterval?: number;
 	preprocess?: (
 		event: "pull" | "push",
-		data: EncodedRecord,
-	) => Promise<EncodedRecord>;
-	push: (data: EncodedRecord) => Promise<void>;
-	pull: () => Promise<EncodedRecord>;
+		data: { key: string; value: EncodedObject }[],
+	) => Promise<{ key: string; value: EncodedObject }[]>;
+	push: (data: { key: string; value: EncodedObject }[]) => Promise<void>;
+	pull: () => Promise<{ key: string; value: EncodedObject }[]>;
 };
 
 export function createHttpSynchronizer<TValue extends object>(
