@@ -1,8 +1,7 @@
 import mitt from "mitt";
 import { decode, encode, encodeMany, mergeArray } from "./operations";
-import { mergeItems } from "./store-utils";
 import type { DeepPartial, EncodedObject, EventstampFn } from "./types";
-import { mapToArray } from "./utils";
+import { mapToArray, mergeItems } from "./utils";
 
 type StoreEvents<TValue> = {
 	put: { key: string; value: TValue }[];
