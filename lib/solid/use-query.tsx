@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 import type { Store } from "../core";
-import { createQuery } from "../core";
+import { createQuery } from "../query";
 
 export function useQuery<T extends object>(
 	store: Store<T>,

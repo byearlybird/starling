@@ -1,5 +1,5 @@
 import mitt from "mitt";
-import type { Store } from "./store";
+import type { Store } from "../core/store";
 
 type QueryEvents = {
 	change: undefined;

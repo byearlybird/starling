@@ -1,20 +1,8 @@
 import { bench, group, run } from "mitata";
+import { createStore } from "../core/store";
 import { createQuery } from "./query";
-import { createStore } from "./store";
 
 const ITEM_COUNT = 4000;
-
-// Create a monotonic counter-based eventstamp function
-let counter = 0;
-const eventstampFn = () => {
-	counter++;
-	return `${Date.now()}-${counter}`;
-};
-
-// Reset counter between benches
-const resetCounter = () => {
-	counter = 0;
-};
 
 interface TestItem {
 	id: string;
@@ -38,8 +26,7 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 
 group("Query Operations - 4000 items", () => {
 	bench("createQuery with all items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -47,8 +34,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("createQuery with 50% items matching (active=true)", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -56,8 +42,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("createQuery with no items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -65,8 +50,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("createQuery with complex predicate (value >= 50 && active)", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -74,8 +58,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("results() on query with all items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -84,8 +67,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("results() on query with 50% items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -94,8 +76,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("putMany + query onChange callback (all matching)", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -114,8 +95,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("updateMany on query with 50% items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -134,8 +114,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("deleteMany on query with all items matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -151,8 +130,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("multiple onChange listeners on same query", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -180,8 +158,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("subscribe and unsubscribe from query", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -210,8 +187,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("dispose query", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -233,8 +209,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("full lifecycle: create, query, observe, update, dispose", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 
 		// Create and populate store
@@ -242,9 +217,6 @@ group("Query Operations - 4000 items", () => {
 
 		// Create query with predicate
 		const query = createQuery(store, (item) => item.value >= 50);
-
-		// Get initial results
-		const initialResults = query.results();
 
 		// Subscribe to changes
 		let changeCount = 0;
@@ -259,9 +231,6 @@ group("Query Operations - 4000 items", () => {
 		}));
 		store.updateMany(updates);
 
-		// Get updated results
-		const updatedResults = query.results();
-
 		// Delete subset of items
 		const keysToDelete = items.slice(500, 1000).map(({ key }) => key);
 		store.deleteMany(keysToDelete);
@@ -272,8 +241,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("predicate filter with string matching", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 
@@ -281,8 +249,7 @@ group("Query Operations - 4000 items", () => {
 	});
 
 	bench("predicate filter with multiple conditions", () => {
-		resetCounter();
-		const store = createStore<TestItem>("items", { eventstampFn });
+		const store = createStore<TestItem>("items");
 		const items = generateItems(ITEM_COUNT);
 		store.putMany(items);
 

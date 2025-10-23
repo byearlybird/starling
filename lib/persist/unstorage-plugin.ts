@@ -5,6 +5,7 @@ import type { Plugin } from "../core/store";
 const unstoragePlugin = (baseStorage: Storage): Plugin => {
 	let unwatch: (() => void) | null = null;
 	let storage: Storage | null = null;
+
 	const plugin: Plugin = (store) => ({
 		init: async () => {
 			storage = prefixStorage(baseStorage, store.collectionKey);
