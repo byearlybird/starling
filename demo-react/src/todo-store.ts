@@ -6,6 +6,7 @@ import {
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
 import { unstoragePlugin } from "../../lib/persist";
+import { queryEngine } from "../../lib/query";
 import { pushPullPlugin } from "../../lib/sync";
 import type { Todo } from "./types";
 
@@ -47,4 +48,10 @@ const sync = pushPullPlugin({
 	},
 });
 
-export const todoStore = createStore<Todo>("todos").use(storage).use(sync);
+const { query, queryPlugin } = queryEngine<Todo>();
+
+export { query };
+export const todoStore = createStore<Todo>("todos")
+	.use(storage)
+	.use(sync)
+	.use(queryPlugin);
