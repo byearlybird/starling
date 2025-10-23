@@ -1,9 +1,9 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useData, useQuery } from "../../lib/react";
-import { persistence, todoStore, todoSync } from "./todo-store";
+import { todoStore, todoSync } from "./todo-store";
 
-await persistence.load();
+await todoStore.init();
 
 function App() {
 	const [newTodo, setNewTodo] = useState("");

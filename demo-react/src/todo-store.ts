@@ -5,17 +5,17 @@ import {
 	psuedoEncryptRecord,
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
-import { makePersisted } from "../../lib/persist";
+import { unstoragePlugin } from "../../lib/persist";
 import { createHttpSynchronizer } from "../../lib/sync";
 import type { Todo } from "./types";
 
-export const todoStore = createStore<Todo>("todos");
-
-export const persistence = makePersisted(todoStore, {
-	storage: createStorage({
-		driver: localStorageDriver(undefined),
-	}),
+const storage = createStorage({
+	driver: localStorageDriver(undefined),
 });
+
+export const todoStore = createStore<Todo>("todos").use(
+	unstoragePlugin(storage),
+);
 
 export const todoSync = createHttpSynchronizer(todoStore, {
 	pullInterval: 1000 * 5, // 5 second for demo purposes

@@ -1,9 +1,9 @@
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import "./App.css";
 import { useData, useQuery } from "../../lib/solid";
-import { persister, todoStore, todoSync } from "./todo-store";
+import { todoStore, todoSync } from "./todo-store";
 
-await persister.load();
+await todoStore.init();
 
 function App() {
 	const [newTodo, setNewTodo] = createSignal("");
@@ -43,24 +43,24 @@ function App() {
 			</div>
 			<section>
 				<h3>Incomplete</h3>
-				<For each={incomplete()}>
-					{({ key, value }) => (
+				<For each={Array.from(incomplete())}>
+					{([key, todo]) => (
 						<label>
 							<input
 								type="checkbox"
-								checked={value.completed}
+								checked={todo.completed}
 								onChange={(e) =>
 									todoStore.update(key, { completed: e.currentTarget.checked })
 								}
 							/>
-							<span>{value.text}</span>
+							<span>{todo.text}</span>
 						</label>
 					)}
 				</For>
 			</section>
 			<section>
 				<h3>All</h3>
-				<For each={todos()}>
+				<For each={Array.from(todos())}>
 					{({ key, value }) => (
 						<label>
 							<input

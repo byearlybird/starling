@@ -1,12 +1,8 @@
 import mitt from "mitt";
-import { decode, encode, encodeMany, merge } from "./operations";
-import type {
-	ArrayKV,
-	DeepPartial,
-	EncodedObject,
-} from "./types";
-import { mapToArray, mergeItems } from "./utils";
 import { createClock } from "./clock";
+import { decode, encode, encodeMany, merge } from "./operations";
+import type { ArrayKV, DeepPartial, EncodedObject } from "./types";
+import { mapToArray, mergeItems } from "./utils";
 
 type StoreEvents<TValue> = {
 	put: ArrayKV<TValue>;
@@ -15,12 +11,18 @@ type StoreEvents<TValue> = {
 	change: undefined;
 };
 
-const createStore = <TValue extends object>(
-	collectionKey: string,
-) => {
+type PluginHandle = {
+	init: () => Promise<void> | void;
+	dispose: () => Promise<void> | void;
+};
+
+type Plugin = <TValue extends object>(store: Store<TValue>) => PluginHandle;
+
+const createStore = <TValue extends object>(collectionKey: string) => {
 	const map = new Map<string, EncodedObject>();
 	const emitter = mitt<StoreEvents<TValue>>();
 	const clock = createClock();
+	const handles = new Set<PluginHandle>();
 
 	emitter.on("*", (event) => {
 		if (event === "change") return;
@@ -103,7 +105,10 @@ const createStore = <TValue extends object>(
 			emitter.emit("delete", deleteEvents);
 		},
 
-		merge(snapshot: ArrayKV<EncodedObject>) {
+		merge(
+			snapshot: ArrayKV<EncodedObject>,
+			opts: { silent: boolean } = { silent: false },
+		) {
 			const putEvents: ArrayKV<TValue> = [];
 			const updateEvents: ArrayKV<TValue> = [];
 			const deleteEvents: { key: string }[] = [];
@@ -137,7 +142,9 @@ const createStore = <TValue extends object>(
 				}
 			}
 
-			// Emit events
+			// Emit events if not silent
+			if (opts.silent) return;
+
 			if (putEvents.length > 0) {
 				emitter.emit("put", putEvents);
 			}
@@ -173,7 +180,24 @@ const createStore = <TValue extends object>(
 			};
 		},
 
-		dispose() {
+		use(plugin: Plugin) {
+			const handle = plugin(this);
+			handles.add(handle);
+			return this;
+		},
+
+		async init() {
+			for (const handle of handles) {
+				// Run these sequentially to respect the order that they're registered in
+				await handle.init();
+			}
+		},
+
+		async dispose() {
+			handles.forEach(async (handle) => {
+				// Run these sequentially to respect the order that they're registered in
+				await handle.dispose();
+			});
 			emitter.all.clear();
 		},
 	};
@@ -182,4 +206,4 @@ const createStore = <TValue extends object>(
 type Store<T extends object> = ReturnType<typeof createStore<T>>;
 
 export { createStore };
-export type { StoreEvents, Store };
+export type { StoreEvents, Store, Plugin };
