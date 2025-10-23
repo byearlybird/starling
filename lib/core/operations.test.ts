@@ -34,13 +34,17 @@ test("encode converts a nested object to encoded format", () => {
 	const encoded = encode(obj, eventstamp);
 
 	expect(encoded).toEqual({
-		"user.name": {
-			__value: "Bob",
-			__eventstamp: eventstamp,
-		},
-		"user.profile.age": {
-			__value: 25,
-			__eventstamp: eventstamp,
+		user: {
+			name: {
+				__value: "Bob",
+				__eventstamp: eventstamp,
+			},
+			profile: {
+				age: {
+					__value: 25,
+					__eventstamp: eventstamp,
+				},
+			},
 		},
 	});
 });
@@ -67,13 +71,17 @@ test("decode converts encoded object back to original format", () => {
 
 test("decode converts encoded nested object back to original format", () => {
 	const encoded: EncodedObject = {
-		"user.name": {
-			__value: "Diana",
-			__eventstamp: "2024-01-01T00:00:00Z",
-		},
-		"user.profile.age": {
-			__value: 28,
-			__eventstamp: "2024-01-01T00:00:00Z",
+		user: {
+			name: {
+				__value: "Diana",
+				__eventstamp: "2024-01-01T00:00:00Z",
+			},
+			profile: {
+				age: {
+					__value: 28,
+					__eventstamp: "2024-01-01T00:00:00Z",
+				},
+			},
 		},
 	};
 

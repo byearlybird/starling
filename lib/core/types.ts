@@ -5,7 +5,7 @@ export type EncodedValue<TValue = unknown> = {
 
 export type EncodedObject = {
 	__deleted?: EncodedValue<boolean>;
-	[path: string]: EncodedValue;
+	[key: string]: EncodedValue | EncodedObject;
 };
 
 export type DeepPartial<T> = T extends object

@@ -1,4 +1,3 @@
-import { flatten, unflatten } from "flat";
 import type { ArrayKV, EncodedObject, EventstampFn } from "./types";
 
 export function encode<T extends object>(
@@ -6,29 +5,61 @@ export function encode<T extends object>(
 	eventstamp: string,
 ): EncodedObject {
 	const result: EncodedObject = {};
-	const flattened = flatten<object, object>(obj, { safe: true }) as Record<
-		string,
-		unknown
-	>;
 
-	for (const key of Object.keys(flattened)) {
-		result[key] = {
-			__value: flattened[key],
-			__eventstamp: eventstamp,
-		};
+	function step(target: Record<string, unknown>, output: EncodedObject) {
+		for (const key in target) {
+			if (!Object.hasOwn(target, key)) continue;
+
+			const value = target[key];
+
+			// Check if this is a nested object (not array, plain object)
+			if (
+				value != null &&
+				typeof value === "object" &&
+				!Array.isArray(value) &&
+				Object.getPrototypeOf(value) === Object.prototype
+			) {
+				// Recurse into nested object
+				output[key] = {} as EncodedObject;
+				step(value as Record<string, unknown>, output[key] as EncodedObject);
+			} else {
+				// Leaf value - wrap with eventstamp
+				(output as Record<string, unknown>)[key] = {
+					__value: value,
+					__eventstamp: eventstamp,
+				};
+			}
+		}
 	}
 
+	step(obj as Record<string, unknown>, result);
 	return result;
 }
 
 export function decode<T extends object>(obj: EncodedObject): T {
-	const flattened: Record<string, unknown> = {};
+	const result: Record<string, unknown> = {};
 
-	for (const key of Object.keys(obj)) {
-		flattened[key] = (obj[key] as { __value: unknown }).__value;
+	function step(source: EncodedObject, output: Record<string, unknown>) {
+		for (const key in source) {
+			if (!Object.hasOwn(source, key)) continue;
+			if (key === "__deleted") continue;
+
+			const value = source[key];
+
+			// Check if this is an EncodedValue or a nested EncodedObject
+			if (value && "__value" in value && "__eventstamp" in value) {
+				// This is an EncodedValue - extract the value
+				output[key] = (value as { __value: unknown }).__value;
+			} else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+				// This is a nested EncodedObject - recurse
+				output[key] = {};
+				step(value as EncodedObject, output[key] as Record<string, unknown>);
+			}
+		}
 	}
 
-	return unflatten(flattened);
+	step(obj, result);
+	return result as T;
 }
 
 export function merge(
@@ -38,34 +69,68 @@ export function merge(
 	const result: EncodedObject = {};
 	let changed = false;
 
-	// Pass 1: Process all keys from obj1
-	for (const key in obj1) {
-		if (Object.hasOwn(obj1, key)) {
-			const value1 = obj1[key];
-			const value2 = obj2[key];
-			if (value1 && value2) {
-				// Both objects have this key, compare eventstamps
+	function isEncodedValue(
+		val: unknown,
+	): val is { __value: unknown; __eventstamp: string } {
+		return (
+			val != null &&
+			typeof val === "object" &&
+			"__value" in val &&
+			"__eventstamp" in val
+		);
+	}
+
+	function step(v1: EncodedObject, v2: EncodedObject, output: EncodedObject) {
+		// Process all keys from v1
+		for (const key in v1) {
+			if (!Object.hasOwn(v1, key)) continue;
+
+			const value1 = v1[key];
+			const value2 = v2[key];
+
+			if (isEncodedValue(value1) && isEncodedValue(value2)) {
+				// Both are EncodedValues - compare eventstamps
 				if (value1.__eventstamp >= value2.__eventstamp) {
-					result[key] = value1;
+					(output as Record<string, unknown>)[key] = value1;
 				} else {
-					result[key] = value2;
+					(output as Record<string, unknown>)[key] = value2;
 					changed = true;
 				}
+			} else if (isEncodedValue(value1)) {
+				// Only in v1 or v2 is nested
+				(output as Record<string, unknown>)[key] = value1;
+			} else if (
+				value1 &&
+				value2 &&
+				typeof value1 === "object" &&
+				typeof value2 === "object"
+			) {
+				// Both are nested objects - recurse
+				(output as Record<string, unknown>)[key] = {};
+				step(
+					value1 as EncodedObject,
+					value2 as EncodedObject,
+					(output as Record<string, unknown>)[key] as EncodedObject,
+				);
 			} else if (value1) {
-				// Only in obj1
-				result[key] = value1;
+				// Only in v1
+				(output as Record<string, unknown>)[key] = value1;
+			}
+		}
+
+		// Process keys only in v2
+		for (const key in v2) {
+			if (!Object.hasOwn(v2, key) || Object.hasOwn(result, key)) continue;
+
+			const value = v2[key];
+			if (value) {
+				(output as Record<string, unknown>)[key] = value;
+				changed = true;
 			}
 		}
 	}
 
-	// Pass 2: Process keys only in obj2
-	for (const key in obj2) {
-		if (Object.hasOwn(obj2, key) && !(key in result)) {
-			result[key] = obj2[key]!;
-			changed = true;
-		}
-	}
-
+	step(obj1, obj2, result);
 	return [result, changed];
 }
 
