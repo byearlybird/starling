@@ -50,7 +50,11 @@ export function decode<T extends object>(obj: EncodedObject): T {
 			if (value && "__value" in value && "__eventstamp" in value) {
 				// This is an EncodedValue - extract the value
 				output[key] = (value as { __value: unknown }).__value;
-			} else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+			} else if (
+				typeof value === "object" &&
+				value !== null &&
+				!Array.isArray(value)
+			) {
 				// This is a nested EncodedObject - recurse
 				output[key] = {};
 				step(value as EncodedObject, output[key] as Record<string, unknown>);
