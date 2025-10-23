@@ -1,24 +1,15 @@
 import "./App.css";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useData, useQuery } from "../../lib/react";
-import { todoStore, todoSync } from "./todo-store";
+import { query, todoStore } from "./todo-store";
 
 await todoStore.init();
+const queryFn = query();
 
 function App() {
 	const [newTodo, setNewTodo] = useState("");
 	const { data: todos } = useData(todoStore);
-	const { data: incomplete } = useQuery(
-		todoStore,
-		(todo) => !todo.completed,
-		[],
-	);
-
-	useEffect(() => {
-		todoSync.start().then(() => {
-			todoSync.refresh();
-		});
-	}, []);
+	const { data: incomplete } = useQuery(queryFn, (todo) => !todo.completed, []);
 
 	return (
 		<>
@@ -44,7 +35,7 @@ function App() {
 			</div>
 			<section>
 				<h3>Incomplete</h3>
-				{Object.entries(incomplete).map(([id, todo]) => (
+				{Array.from(incomplete.entries()).map(([id, todo]) => (
 					<label key={id}>
 						<input
 							type="checkbox"

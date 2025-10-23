@@ -53,5 +53,5 @@ const { query, queryPlugin } = queryEngine<Todo>();
 export { query };
 export const todoStore = createStore<Todo>("todos")
 	.use(storage)
-	.use(sync)
 	.use(queryPlugin);
+// .use(sync);

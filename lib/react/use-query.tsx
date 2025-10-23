@@ -1,10 +1,9 @@
 import type { DependencyList } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { Store } from "../core";
-import { createQuery } from "../query";
+import type { QueryEngine } from "../query";
 
 export function useQuery<TValue extends object>(
-	store: Store<TValue>,
+	queryFn: QueryEngine<TValue>["query"],
 	predicate: (data: TValue) => boolean,
 	deps: DependencyList = [],
 ) {
@@ -17,8 +16,8 @@ export function useQuery<TValue extends object>(
 
 	useEffect(() => {
 		// Create query inside effect so it's fresh on each mount
-		const query = createQuery(store, (data) => predicateRef.current(data));
-
+		const query = queryFn((data) => predicateRef.current(data));
+		console.log("query berry", query.results());
 		const unsubscribe = query.onChange(() => {
 			setData(query.results());
 		});
@@ -32,7 +31,7 @@ export function useQuery<TValue extends object>(
 			query.dispose();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [store, ...deps]);
+	}, [queryFn, ...deps]);
 
 	return { data, isLoading };
 }

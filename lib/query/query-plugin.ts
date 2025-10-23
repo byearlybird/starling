@@ -1,5 +1,4 @@
 import type { Plugin, Store } from "../core/store";
-import { mapToArray } from "../core/utils";
 
 type Predicate<T> = (data: T) => boolean;
 type Callback = () => void;
@@ -93,7 +92,7 @@ const createQueryEngine = <T extends object>(store: Store<T>) => {
 
 		return {
 			results() {
-				return mapToArray(results);
+				return results;
 			},
 			onChange: (callback: Callback) => {
 				internal.callbacks.add(callback);
@@ -120,9 +119,10 @@ const createQueryEngine = <T extends object>(store: Store<T>) => {
 };
 
 const queryEngine = <TValue extends object>(): {
-	query: ReturnType<typeof createQueryEngine<TValue>>["query"];
+	query: () => ReturnType<typeof createQueryEngine<TValue>>["query"];
 	queryPlugin: Plugin<TValue>;
 } => {
+	console.log("making engine");
 	let queryEngine: ReturnType<typeof createQueryEngine<TValue>> | null = null;
 
 	const queryPlugin: Plugin<TValue> = (store) => ({
@@ -135,17 +135,23 @@ const queryEngine = <TValue extends object>(): {
 	});
 
 	return {
-		get query() {
+		query() {
+			console.log("query");
 			if (!queryEngine?.query) {
+				console.log("boutta throw");
 				throw new Error(
 					"Attempt to run query before the query engine has been initialized",
 				);
 			}
+
+			console.log("returning engine");
 			return queryEngine.query;
 		},
 		queryPlugin,
 	};
 };
 
-export type { Predicate, Callback };
+type QueryEngine<T extends object> = ReturnType<typeof createQueryEngine<T>>;
+
+export type { Predicate, Callback, QueryEngine };
 export { queryEngine, createQueryEngine };

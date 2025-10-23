@@ -187,6 +187,7 @@ const createStore = <TValue extends object>(collectionKey: string) => {
 		},
 
 		async init() {
+			console.log("running init");
 			for (const handle of handles) {
 				// Run these sequentially to respect the order that they're registered in
 				await handle.init();
