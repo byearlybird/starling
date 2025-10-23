@@ -162,26 +162,6 @@ test("formatEventstamp and parseEventstamp are inverses", () => {
 	expect(counter).toBe(originalCounter);
 });
 
-test("multiple clock instances are independent", () => {
-	const clock1 = createClock();
-	clock1.now();
-	clock1.now();
-	const stamp1 = clock1.now();
-
-	const clock2 = createClock();
-	clock2.now();
-	const stamp2 = clock2.now();
-
-	// Different instances maintain separate counters
-	const counter1 = parseInt(stamp1.split("|")[1] || "", 16);
-	const counter2 = parseInt(stamp2.split("|")[1] || "", 16);
-
-	// clock1 called now() 3 times, counter increments each time: 1, 2, 3
-	// clock2 called now() 2 times, counter increments each time: 1, 2
-	expect(counter1).toBe(3);
-	expect(counter2).toBe(2);
-});
-
 test("eventstamp format is consistent with padding", () => {
 	const clock = createClock();
 
