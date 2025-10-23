@@ -1,19 +1,8 @@
 import { expect, mock, test } from "bun:test";
 import { createStore } from "./store";
 
-// Simple monotonic timestamp for testing
-const createEventstampFn = () => {
-	let counter = 0;
-	return () => {
-		counter++;
-		return `01ARZ3NDEKTSV4RRFFQ69G5FAV${String(counter).padStart(3, "0")}`;
-	};
-};
-
 test("put() adds a new item and emits put event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const putHandler = mock();
 	store.on("put", putHandler);
@@ -32,9 +21,7 @@ test("put() adds a new item and emits put event", () => {
 });
 
 test("put() replaces existing item and emits put event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const putHandler = mock();
 	store.on("put", putHandler);
@@ -47,9 +34,7 @@ test("put() replaces existing item and emits put event", () => {
 });
 
 test("putMany() adds multiple items and emits put event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const putHandler = mock();
 	store.on("put", putHandler);
@@ -67,9 +52,7 @@ test("putMany() adds multiple items and emits put event", () => {
 });
 
 test("putMany() replaces existing items and emits put event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 
@@ -89,9 +72,7 @@ test("putMany() replaces existing items and emits put event", () => {
 });
 
 test("update() modifies existing item and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string; age?: number }>("users");
 
 	store.put("user1", { name: "Alice" });
 
@@ -113,9 +94,7 @@ test("update() modifies existing item and emits update event", () => {
 });
 
 test("update() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const updateHandler = mock();
 	store.on("update", updateHandler);
@@ -128,9 +107,7 @@ test("update() is a graceful no-op when key does not exist", () => {
 });
 
 test("updateMany() modifies multiple items and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string; age?: number }>("users");
 
 	store.putMany([
 		{ key: "user1", value: { name: "Alice" } },
@@ -153,9 +130,7 @@ test("updateMany() modifies multiple items and emits update event", () => {
 });
 
 test("updateMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 
@@ -175,9 +150,7 @@ test("updateMany() gracefully skips nonexistent keys", () => {
 });
 
 test("delete() soft-deletes an item and emits delete event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 
@@ -191,9 +164,7 @@ test("delete() soft-deletes an item and emits delete event", () => {
 });
 
 test("delete() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const deleteHandler = mock();
 	store.on("delete", deleteHandler);
@@ -205,9 +176,7 @@ test("delete() is a graceful no-op when key does not exist", () => {
 });
 
 test("deleteMany() soft-deletes multiple items and emits delete event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
 		{ key: "user1", value: { name: "Alice" } },
@@ -227,9 +196,7 @@ test("deleteMany() soft-deletes multiple items and emits delete event", () => {
 });
 
 test("deleteMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 
@@ -244,9 +211,7 @@ test("deleteMany() gracefully skips nonexistent keys", () => {
 });
 
 test("values() returns decoded non-deleted items", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
 		{ key: "user1", value: { name: "Alice" } },
@@ -261,9 +226,7 @@ test("values() returns decoded non-deleted items", () => {
 });
 
 test("values() excludes deleted items", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
 		{ key: "user1", value: { name: "Alice" } },
@@ -279,9 +242,7 @@ test("values() excludes deleted items", () => {
 });
 
 test("snapshot() returns raw encoded state including deleted items", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 	store.put("user2", { name: "Bob" });
@@ -296,9 +257,7 @@ test("snapshot() returns raw encoded state including deleted items", () => {
 });
 
 test("on() returns unsubscribe function that stops callbacks", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	let putCount = 0;
 	const unsubscribe = store.on("put", () => {
@@ -315,9 +274,7 @@ test("on() returns unsubscribe function that stops callbacks", () => {
 });
 
 test("on() supports multiple listeners for the same event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	let count1 = 0;
 	let count2 = 0;
@@ -337,9 +294,7 @@ test("on() supports multiple listeners for the same event", () => {
 });
 
 test("dispose() clears all event listeners", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	let putCount = 0;
 	let updateCount = 0;
@@ -371,9 +326,6 @@ test("dispose() clears all event listeners", () => {
 test("merge preserves eventstamps and handles deep updates", () => {
 	const store = createStore<{ name: string; profile?: { bio: string } }>(
 		"users",
-		{
-			eventstampFn: createEventstampFn(),
-		},
 	);
 
 	store.put("user1", { name: "Alice", profile: { bio: "Hello" } });
@@ -388,9 +340,7 @@ test("merge preserves eventstamps and handles deep updates", () => {
 });
 
 test("store operations are synchronous", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const start = performance.now();
 	for (let i = 0; i < 1000; i++) {
@@ -404,9 +354,7 @@ test("store operations are synchronous", () => {
 });
 
 test("merge() adds new items and emits put event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	const putHandler = mock();
 	store.on("put", putHandler);
@@ -417,7 +365,7 @@ test("merge() adds new items and emits put event", () => {
 			value: {
 				name: {
 					__value: "Alice",
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
 				},
 			},
 		},
@@ -432,9 +380,7 @@ test("merge() adds new items and emits put event", () => {
 });
 
 test("merge() updates existing items and emits update event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	// Add initial item
 	store.put("user1", { name: "Alice" });
@@ -447,7 +393,7 @@ test("merge() updates existing items and emits update event", () => {
 		{
 			key: "user1",
 			value: {
-				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999" },
+				name: { __value: "Bob", __eventstamp: "2999-12-31T23:59:59.999Z|ffffffff" },
 			},
 		},
 	];
@@ -461,9 +407,7 @@ test("merge() updates existing items and emits update event", () => {
 });
 
 test("merge() deletes items when __deleted is introduced and emits delete event", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	// Add initial item
 	store.put("user1", { name: "Alice" });
@@ -478,11 +422,11 @@ test("merge() deletes items when __deleted is introduced and emits delete event"
 			value: {
 				name: {
 					__value: "Alice",
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
 				},
 				__deleted: {
 					__value: true,
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
 		},
@@ -496,9 +440,7 @@ test("merge() deletes items when __deleted is introduced and emits delete event"
 });
 
 test("merge() handles multiple items with mixed operations", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	// Add initial items
 	store.putMany([
@@ -521,7 +463,7 @@ test("merge() handles multiple items with mixed operations", () => {
 			value: {
 				name: {
 					__value: "Alice Updated",
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
 		},
@@ -531,7 +473,7 @@ test("merge() handles multiple items with mixed operations", () => {
 				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001" },
 				__deleted: {
 					__value: true,
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
 		},
@@ -540,7 +482,7 @@ test("merge() handles multiple items with mixed operations", () => {
 			value: {
 				name: {
 					__value: "Charlie",
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV999",
+					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
 		},
@@ -563,9 +505,7 @@ test("merge() handles multiple items with mixed operations", () => {
 });
 
 test("merge() ignores items with older eventstamps", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	// Add initial item with newer timestamp
 	store.put("user1", { name: "Alice" });
@@ -580,7 +520,7 @@ test("merge() ignores items with older eventstamps", () => {
 			value: {
 				name: {
 					__value: "Older",
-					__eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001",
+					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
 				},
 			},
 		},
@@ -594,9 +534,7 @@ test("merge() ignores items with older eventstamps", () => {
 });
 
 test("merge() handles empty snapshot gracefully", () => {
-	const store = createStore<{ name: string }>("users", {
-		eventstampFn: createEventstampFn(),
-	});
+	const store = createStore<{ name: string }>("users");
 
 	store.put("user1", { name: "Alice" });
 

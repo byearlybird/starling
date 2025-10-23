@@ -4,13 +4,7 @@ import { createStore } from "./store";
 
 // Helper to create a store with v3 API
 function createStoreV3<T extends object>() {
-	let eventCounter = 0;
-	const eventstampFn = () => String(eventCounter++);
-
-	const store = createStore<T>("collection", {
-		eventstampFn,
-	});
-
+	const store = createStore<T>("collection");
 	return store;
 }
 

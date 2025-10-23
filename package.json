@@ -53,8 +53,7 @@
 		}
 	},
 	"dependencies": {
-		"mitt": "^3.0.1",
-		"ulid": "^3.0.1"
+		"mitt": "^3.0.1"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",

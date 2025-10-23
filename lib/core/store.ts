@@ -4,9 +4,9 @@ import type {
 	ArrayKV,
 	DeepPartial,
 	EncodedObject,
-	EventstampFn,
 } from "./types";
 import { mapToArray, mergeItems } from "./utils";
+import { createClock } from "./clock";
 
 type StoreEvents<TValue> = {
 	put: ArrayKV<TValue>;
@@ -17,12 +17,10 @@ type StoreEvents<TValue> = {
 
 const createStore = <TValue extends object>(
 	collectionKey: string,
-	config: {
-		eventstampFn: EventstampFn;
-	},
 ) => {
 	const map = new Map<string, EncodedObject>();
 	const emitter = mitt<StoreEvents<TValue>>();
+	const clock = createClock();
 
 	emitter.on("*", (event) => {
 		if (event === "change") return;
@@ -45,7 +43,7 @@ const createStore = <TValue extends object>(
 		},
 
 		putMany(data: ArrayKV<TValue>) {
-			encodeMany(data, config.eventstampFn).forEach(({ key, value }) => {
+			encodeMany(data, () => clock.now()).forEach(({ key, value }) => {
 				map.set(key, value);
 			});
 
@@ -67,7 +65,7 @@ const createStore = <TValue extends object>(
 				if (!current) continue;
 
 				// Encode and merge immediately
-				const encoded = encode(value, config.eventstampFn());
+				const encoded = encode(value, clock.now());
 				const [mergedValue, itemChanged] = merge(current, encoded);
 
 				if (itemChanged) {
@@ -89,7 +87,7 @@ const createStore = <TValue extends object>(
 
 			const deletionMarkers = encodeMany(
 				validKeys.map((key) => ({ key, value: { __deleted: true } as TValue })),
-				config.eventstampFn,
+				() => clock.now(),
 			);
 			const merged = mergeItems(map, deletionMarkers);
 

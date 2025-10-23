@@ -1,5 +1,4 @@
 import { bench, group, run } from "mitata";
-import { ulid } from "ulid";
 import { createQuery } from "./query";
 import { createStore } from "./store";
 
@@ -29,7 +28,7 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 	return Array.from({ length: count }, (_, i) => ({
 		key: `item-${i}`,
 		value: {
-			id: ulid(),
+			id: crypto.randomUUID(),
 			name: `Item ${i}`,
 			value: Math.random() * 100,
 			active: i % 2 === 0,

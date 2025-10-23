@@ -1,4 +1,3 @@
-import { monotonicFactory } from "ulid";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import {
@@ -10,9 +9,7 @@ import { makePersisted } from "../../lib/persist";
 import { createHttpSynchronizer } from "../../lib/sync";
 import type { Todo } from "./types";
 
-export const todoStore = createStore<Todo>("todos", {
-	eventstampFn: monotonicFactory(),
-});
+export const todoStore = createStore<Todo>("todos");
 
 export const persister = makePersisted(todoStore, {
 	storage: createStorage({
