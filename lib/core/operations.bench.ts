@@ -367,6 +367,23 @@ group("Array Merge Operations - Multiple Deep Objects", () => {
 		resetCounter();
 		mergeArray(encoded25000Current, encoded25000Updates);
 	});
+
+	// 100000 objects - no conflicts
+	const current100000 = generateComplexArray(100000);
+	const updates100000 = generateComplexArray(100000);
+	const encoded100000Current = current100000.map(({ key, value }) => ({
+		key,
+		value: encode(value, eventstampFn()),
+	}));
+	const encoded100000Updates = updates100000.map(({ key, value }) => ({
+		key,
+		value: encode(value, eventstampFn()),
+	}));
+
+	bench("mergeArray() - 100000 objects, no conflicts", () => {
+		resetCounter();
+		mergeArray(encoded100000Current, encoded100000Updates);
+	});
 });
 
 group("Encode/Decode Operations - Arrays", () => {
@@ -454,6 +471,43 @@ group("Encode/Decode Operations - Arrays", () => {
 	bench("encodeMany + decodeMany round-trip - 25000 objects", () => {
 		resetCounter();
 		encoded25000ForRoundTrip.map(({ key, value }) => ({
+			key,
+			value: decode<DeepNestedObject>(value),
+		}));
+	});
+
+	// 100000 objects
+	const items100000 = generateComplexArray(100000);
+
+	bench("encodeMany() - 100000 deep nested objects", () => {
+		resetCounter();
+		items100000.map(({ key, value }) => ({
+			key,
+			value: encode(value, eventstampFn()),
+		}));
+	});
+
+	const encoded100000ForDecode = items100000.map(({ key, value }) => ({
+		key,
+		value: encode(value, eventstampFn()),
+	}));
+
+	bench("decodeMany() - 100000 deep nested objects", () => {
+		resetCounter();
+		encoded100000ForDecode.map(({ key, value }) => ({
+			key,
+			value: decode<DeepNestedObject>(value),
+		}));
+	});
+
+	const encoded100000ForRoundTrip = items100000.map(({ key, value }) => ({
+		key,
+		value: encode(value, eventstampFn()),
+	}));
+
+	bench("encodeMany + decodeMany round-trip - 100000 objects", () => {
+		resetCounter();
+		encoded100000ForRoundTrip.map(({ key, value }) => ({
 			key,
 			value: decode<DeepNestedObject>(value),
 		}));

@@ -38,6 +38,7 @@ const generateItems = (count: number): { key: string; value: TestItem }[] => {
 const items100 = generateItems(100);
 const items5000 = generateItems(5000);
 const items25000 = generateItems(25000);
+const items100000 = generateItems(100000);
 
 // Pre-generate update data
 const updates100 = items100.map(({ key }) => ({
@@ -52,11 +53,16 @@ const updates25000 = items25000.map(({ key }) => ({
 	key,
 	value: { active: false, value: 42 },
 }));
+const updates100000 = items100000.map(({ key }) => ({
+	key,
+	value: { active: false, value: 42 },
+}));
 
 // Pre-generate deletion keys
 const keys100 = items100.map(({ key }) => key);
 const keys5000 = items5000.map(({ key }) => key);
 const keys25000 = items25000.map(({ key }) => key);
+const keys100000 = items100000.map(({ key }) => key);
 
 group("putMany", () => {
 	bench("putMany 100 items", () => {
@@ -75,6 +81,12 @@ group("putMany", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
 		store.putMany(items25000);
+	});
+
+	bench("putMany 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
 	});
 });
 
@@ -99,6 +111,13 @@ group("updateMany", () => {
 		store.putMany(items25000);
 		store.updateMany(updates25000);
 	});
+
+	bench("updateMany 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
+		store.updateMany(updates100000);
+	});
 });
 
 group("deleteMany", () => {
@@ -122,6 +141,13 @@ group("deleteMany", () => {
 		store.putMany(items25000);
 		store.deleteMany(keys25000);
 	});
+
+	bench("deleteMany 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
+		store.deleteMany(keys100000);
+	});
 });
 
 group("values()", () => {
@@ -143,6 +169,13 @@ group("values()", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
 		store.putMany(items25000);
+		store.values();
+	});
+
+	bench("values() 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
 		store.values();
 	});
 });
@@ -168,6 +201,13 @@ group("snapshot()", () => {
 		store.putMany(items25000);
 		store.snapshot();
 	});
+
+	bench("snapshot() 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
+		store.snapshot();
+	});
 });
 
 group("merge()", () => {
@@ -189,6 +229,13 @@ group("merge()", () => {
 		resetCounter();
 		const store = createStore<TestItem>("items", { eventstampFn });
 		store.putMany(items25000);
+		store.merge(store.snapshot());
+	});
+
+	bench("merge() 100000 items", () => {
+		resetCounter();
+		const store = createStore<TestItem>("items", { eventstampFn });
+		store.putMany(items100000);
 		store.merge(store.snapshot());
 	});
 });
