@@ -12,7 +12,9 @@ type PushPullConfig = {
 	immediate?: boolean;
 };
 
-const pushPullPlugin = (config: PushPullConfig): Plugin => {
+const pushPullPlugin = <TValue extends object>(
+	config: PushPullConfig,
+): Plugin<TValue> => {
 	const {
 		push,
 		pull,
@@ -21,7 +23,7 @@ const pushPullPlugin = (config: PushPullConfig): Plugin => {
 		immediate = true,
 	} = config;
 
-	const plugin: Plugin = (store) => {
+	const plugin: Plugin<TValue> = (store) => {
 		let intervalId: Timer | null = null;
 		let unwatch: (() => void) | null = null;
 

@@ -16,7 +16,7 @@ type PluginHandle = {
 	dispose: () => Promise<void> | void;
 };
 
-type Plugin = <TValue extends object>(store: Store<TValue>) => PluginHandle;
+type Plugin<TValue extends object> = (store: Store<TValue>) => PluginHandle;
 
 const createStore = <TValue extends object>(collectionKey: string) => {
 	const map = new Map<string, EncodedObject>();
@@ -180,7 +180,7 @@ const createStore = <TValue extends object>(collectionKey: string) => {
 			};
 		},
 
-		use(plugin: Plugin) {
+		use(plugin: Plugin<TValue>) {
 			const handle = plugin(this);
 			handles.add(handle);
 			return this;
