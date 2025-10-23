@@ -2,13 +2,14 @@ import type { Plugin } from "../core/store";
 import type { ArrayKV, EncodedObject } from "../core/types";
 
 type PushPullConfig = {
+	push: (data: ArrayKV<EncodedObject>) => Promise<void>;
+	pull: () => Promise<ArrayKV<EncodedObject>>;
 	pullInterval?: number;
 	preprocess?: (
 		event: "pull" | "push",
 		data: ArrayKV<EncodedObject>,
 	) => Promise<ArrayKV<EncodedObject>>;
-	push: (data: ArrayKV<EncodedObject>) => Promise<void>;
-	pull: () => Promise<ArrayKV<EncodedObject>>;
+	immediate?: boolean;
 };
 
 const pushPullPlugin = (config: PushPullConfig): Plugin => {
@@ -17,21 +18,12 @@ const pushPullPlugin = (config: PushPullConfig): Plugin => {
 		pull,
 		preprocess,
 		pullInterval = 1000 * 60 * 5, // 5 minutes
+		immediate = true,
 	} = config;
 
 	const plugin: Plugin = (store) => {
 		let intervalId: Timer | null = null;
-		let isInitialized = false;
-
-		const unwatch = store.on("change", async () => {
-			if (!isInitialized) return;
-
-			const latest = store.snapshot();
-
-			if (latest.length > 0) {
-				await pushData(latest);
-			}
-		});
+		let unwatch: (() => void) | null = null;
 
 		async function pullData() {
 			const data = await pull();
@@ -46,17 +38,24 @@ const pushPullPlugin = (config: PushPullConfig): Plugin => {
 
 		return {
 			init: async () => {
-				await pullData();
-				isInitialized = true;
+				unwatch = store.on("change", async () => {
+					const latest = store.snapshot();
+
+					if (latest.length > 0) {
+						await pushData(latest);
+					}
+				});
+
+				if (immediate) await pullData();
+
 				intervalId = setInterval(pullData, pullInterval);
 			},
 			dispose: async () => {
-				isInitialized = false;
 				if (intervalId !== null) {
 					clearInterval(intervalId);
 					intervalId = null;
 				}
-				unwatch();
+				unwatch?.();
 			},
 		};
 	};
