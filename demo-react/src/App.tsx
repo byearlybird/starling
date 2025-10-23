@@ -44,16 +44,16 @@ function App() {
 			</div>
 			<section>
 				<h3>Incomplete</h3>
-				{incomplete.map(({ key, value }) => (
-					<label key={key}>
+				{Object.entries(incomplete).map(([id, todo]) => (
+					<label key={id}>
 						<input
 							type="checkbox"
-							checked={value.completed}
+							checked={todo.completed}
 							onChange={(e) =>
-								todoStore.update(key, { completed: e.currentTarget.checked })
+								todoStore.update(id, { completed: e.currentTarget.checked })
 							}
 						/>
-						<span>{value.text}</span>
+						<span>{todo.text}</span>
 					</label>
 				))}
 			</section>

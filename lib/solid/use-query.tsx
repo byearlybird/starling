@@ -11,7 +11,7 @@ export function useQuery<T extends object>(
 
 	// Use query as source signal - refetches automatically when query changes
 	const [data, { refetch }] = createResource(query, (q) => q.results(), {
-		initialValue: [],
+		initialValue: new Map(),
 	});
 
 	// Set up event listener that responds to data changes

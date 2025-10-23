@@ -9,12 +9,7 @@ export function useQuery<TValue extends object>(
 	deps: DependencyList = [],
 ) {
 	const [isLoading, setIsLoading] = useState(true);
-	const [data, setData] = useState<
-		{
-			key: string;
-			value: TValue;
-		}[]
-	>([]);
+	const [data, setData] = useState<Map<string, TValue>>(new Map());
 
 	// Capture the latest predicate in a ref
 	const predicateRef = useRef(predicate);

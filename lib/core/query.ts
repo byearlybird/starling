@@ -1,7 +1,5 @@
 import mitt from "mitt";
 import type { Store } from "./store";
-import type { ArrayKV } from "./types";
-import { mapToArray } from "./utils";
 
 type QueryEvents = {
 	change: undefined;
@@ -11,14 +9,17 @@ const createQuery = <TValue extends object>(
 	store: Store<TValue>,
 	predicate: (data: TValue) => boolean,
 ) => {
-	const results = new Map<string, TValue>();
+	const matchingKeys = new Set<string>();
 	const unwatchers = new Set<() => void>();
 	const emitter = mitt<QueryEvents>();
 
-	// Run predicate for initial results
+	// Cache for decoded results
+	let cachedResultsMap: Map<string, TValue> | null = null;
+
+	// Init: only collect matching keys, don't decode yet
 	store.values().forEach(({ key, value }) => {
 		if (predicate(value)) {
-			results.set(key, value);
+			matchingKeys.add(key);
 		}
 	});
 
@@ -27,36 +28,49 @@ const createQuery = <TValue extends object>(
 		let changed = false;
 		data.forEach((item) => {
 			if (predicate(item.value)) {
-				results.set(item.key, item.value);
+				if (!matchingKeys.has(item.key)) {
+					matchingKeys.add(item.key);
+				}
 				changed = true;
 			}
 		});
-		if (changed) emitter.emit("change");
+		if (changed) {
+			cachedResultsMap = null;
+			emitter.emit("change");
+		}
 	});
 
 	const unwatchUpdate = store.on("update", (data) => {
 		let changed = false;
 		data.forEach((item) => {
 			if (predicate(item.value)) {
-				results.set(item.key, item.value);
+				if (!matchingKeys.has(item.key)) {
+					matchingKeys.add(item.key);
+				}
 				changed = true;
-			} else if (results.has(item.key)) {
-				results.delete(item.key);
+			} else if (matchingKeys.has(item.key)) {
+				matchingKeys.delete(item.key);
 				changed = true;
 			}
 		});
-		if (changed) emitter.emit("change");
+		if (changed) {
+			cachedResultsMap = null;
+			emitter.emit("change");
+		}
 	});
 
 	const unwatchDelete = store.on("delete", (data) => {
 		let changed = false;
 		data.forEach((item) => {
-			if (results.has(item.key)) {
+			if (matchingKeys.has(item.key)) {
+				matchingKeys.delete(item.key);
 				changed = true;
-				results.delete(item.key);
 			}
 		});
-		if (changed) emitter.emit("change");
+		if (changed) {
+			cachedResultsMap = null;
+			emitter.emit("change");
+		}
 	});
 
 	unwatchers.add(unwatchPut);
@@ -64,8 +78,24 @@ const createQuery = <TValue extends object>(
 	unwatchers.add(unwatchDelete);
 
 	return {
-		results(): ArrayKV<TValue> {
-			return mapToArray(results);
+		results(): Map<string, TValue> {
+			// Return cached map if valid
+			if (cachedResultsMap !== null) {
+				return cachedResultsMap;
+			}
+
+			// Build new map from store values for matching keys
+			const resultMap = new Map<string, TValue>();
+			const storeValues = store.values();
+
+			for (const { key, value } of storeValues) {
+				if (matchingKeys.has(key)) {
+					resultMap.set(key, value);
+				}
+			}
+
+			cachedResultsMap = resultMap;
+			return resultMap;
 		},
 
 		dispose() {

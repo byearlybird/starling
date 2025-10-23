@@ -14,13 +14,6 @@ function createStoreV3<T extends object>() {
 	return store;
 }
 
-// Helper to convert query results array to Record for easier testing
-function resultsToRecord<T extends object>(
-	results: { key: string; value: T }[],
-): Record<string, T> {
-	return Object.fromEntries(results.map(({ key, value }) => [key, value]));
-}
-
 // Initialization tests
 
 test("initialize filters existing store items", () => {
@@ -32,11 +25,11 @@ test("initialize filters existing store items", () => {
 
 	const q = createQuery(store, (user) => user.age >= 30);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
-	expect(results["user1"]).toEqual({ name: "Alice", age: 30 });
-	expect(results["user3"]).toEqual({ name: "Charlie", age: 35 });
-	expect("user2" in results).toBe(false);
+	const results = q.results();
+	expect(results.size).toBe(2);
+	expect(results.get("user1")).toEqual({ name: "Alice", age: 30 });
+	expect(results.get("user3")).toEqual({ name: "Charlie", age: 35 });
+	expect(results.has("user2")).toBe(false);
 });
 
 test("initialize returns empty results when no items match predicate", () => {
@@ -47,8 +40,8 @@ test("initialize returns empty results when no items match predicate", () => {
 
 	const q = createQuery(store, (user) => user.age >= 30);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(0);
+	const results = q.results();
+	expect(results.size).toBe(0);
 });
 
 test("initialize with empty store returns empty results", () => {
@@ -56,8 +49,8 @@ test("initialize with empty store returns empty results", () => {
 
 	const q = createQuery(store, (user) => user.age >= 30);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(0);
+	const results = q.results();
+	expect(results.size).toBe(0);
 });
 
 // Put operation tests
@@ -75,9 +68,9 @@ test("put matching item emits change event", () => {
 	store.put("user2", { name: "Bob", age: 35 });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
-	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
+	const results = q.results();
+	expect(results.size).toBe(2);
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 35 });
 });
 
 test("put non-matching item does not emit event", () => {
@@ -140,8 +133,8 @@ test("putMany with matching items emits single change event", () => {
 	]);
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
+	const results = q.results();
+	expect(results.size).toBe(2);
 });
 
 // Update operation tests
@@ -159,8 +152,8 @@ test("change item in results that still matches emits change event", () => {
 	store.update("user1", { age: 31 });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(results["user1"]?.age).toBe(31);
+	const results = q.results();
+	expect(results.get("user1")?.age).toBe(31);
 });
 
 test("change item in results to no longer match removes it", () => {
@@ -177,10 +170,10 @@ test("change item in results to no longer match removes it", () => {
 	store.update("user1", { age: 25 });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(1);
-	expect("user1" in results).toBe(false);
-	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
+	const results = q.results();
+	expect(results.size).toBe(1);
+	expect(results.has("user1")).toBe(false);
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 35 });
 });
 
 test("change item not in results does not emit event", () => {
@@ -215,10 +208,10 @@ test("change item not in results to now match predicate adds it to results", () 
 	store.update("user2", { age: 30 });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
-	expect(results["user1"]).toEqual({ name: "Alice", age: 30 });
-	expect(results["user2"]).toEqual({ name: "Bob", age: 30 });
+	const results = q.results();
+	expect(results.size).toBe(2);
+	expect(results.get("user1")).toEqual({ name: "Alice", age: 30 });
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 30 });
 });
 
 test("updateMany with mixed changes emits single change event", () => {
@@ -238,10 +231,10 @@ test("updateMany with mixed changes emits single change event", () => {
 	]);
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(1);
-	expect("user1" in results).toBe(false);
-	expect(results["user2"]).toEqual({ name: "Bob", age: 40 });
+	const results = q.results();
+	expect(results.size).toBe(1);
+	expect(results.has("user1")).toBe(false);
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 40 });
 });
 
 // Delete operation tests
@@ -260,10 +253,10 @@ test("delete item in results emits change event", () => {
 	store.delete("user1");
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(1);
-	expect("user1" in results).toBe(false);
-	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
+	const results = q.results();
+	expect(results.size).toBe(1);
+	expect(results.has("user1")).toBe(false);
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 35 });
 });
 
 test("delete item not in results does not emit event", () => {
@@ -299,9 +292,9 @@ test("deleteMany with mixed items emits single change event", () => {
 	store.deleteMany(["user1", "user3"]);
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(1);
-	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
+	const results = q.results();
+	expect(results.size).toBe(1);
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 35 });
 });
 
 // Event subscription tests
@@ -474,14 +467,14 @@ test("results array contains current filtered state", () => {
 	store.put("user3", { name: "Charlie", age: 40 });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(3);
-	expect(results["user1"]).toEqual({ name: "Alice", age: 30 });
-	expect(results["user2"]).toEqual({ name: "Bob", age: 35 });
-	expect(results["user3"]).toEqual({ name: "Charlie", age: 40 });
+	const results = q.results();
+	expect(results.size).toBe(3);
+	expect(results.get("user1")).toEqual({ name: "Alice", age: 30 });
+	expect(results.get("user2")).toEqual({ name: "Bob", age: 35 });
+	expect(results.get("user3")).toEqual({ name: "Charlie", age: 40 });
 });
 
-test("results array format is correct", () => {
+test("results map format is correct", () => {
 	const store = createStoreV3<{ name: string }>();
 
 	store.put("user1", { name: "Alice" });
@@ -490,12 +483,12 @@ test("results array format is correct", () => {
 	const q = createQuery(store, () => true);
 
 	const results = q.results();
-	expect(Array.isArray(results)).toBe(true);
-	expect(results.length).toBe(2);
-	expect(results[0]).toHaveProperty("key");
-	expect(results[0]).toHaveProperty("value");
-	expect(results[1]).toHaveProperty("key");
-	expect(results[1]).toHaveProperty("value");
+	expect(results instanceof Map).toBe(true);
+	expect(results.size).toBe(2);
+	expect(results.has("user1")).toBe(true);
+	expect(results.get("user1")).toEqual({ name: "Alice" });
+	expect(results.has("user2")).toBe(true);
+	expect(results.get("user2")).toEqual({ name: "Bob" });
 });
 
 test("complex predicate filters correctly", () => {
@@ -514,9 +507,9 @@ test("complex predicate filters correctly", () => {
 		(user) => user.age >= 30 && user.active === true,
 	);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
-	expect("user2" in results).toBe(false);
+	const results = q.results();
+	expect(results.size).toBe(2);
+	expect(results.has("user2")).toBe(false);
 
 	const mockChange = mock();
 	q.onChange(mockChange);
@@ -524,8 +517,8 @@ test("complex predicate filters correctly", () => {
 	store.update("user2", { age: 30, active: true });
 
 	expect(mockChange).toHaveBeenCalledTimes(1);
-	const updatedResults = resultsToRecord(q.results());
-	expect(Object.keys(updatedResults).length).toBe(3);
+	const updatedResults = q.results();
+	expect(updatedResults.size).toBe(3);
 });
 
 test("query with always-true predicate includes all items", () => {
@@ -536,8 +529,8 @@ test("query with always-true predicate includes all items", () => {
 
 	const q = createQuery(store, () => true);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(2);
+	const results = q.results();
+	expect(results.size).toBe(2);
 });
 
 test("query with always-false predicate includes no items", () => {
@@ -548,8 +541,8 @@ test("query with always-false predicate includes no items", () => {
 
 	const q = createQuery(store, () => false);
 
-	const results = resultsToRecord(q.results());
-	expect(Object.keys(results).length).toBe(0);
+	const results = q.results();
+	expect(results.size).toBe(0);
 
 	const mockChange = mock();
 	q.onChange(mockChange);
@@ -559,7 +552,7 @@ test("query with always-false predicate includes no items", () => {
 	expect(mockChange).toHaveBeenCalledTimes(0);
 });
 
-test("results() returns new array each call", () => {
+test("results() returns cached map until change event", () => {
 	const store = createStoreV3<{ name: string }>();
 
 	store.put("user1", { name: "Alice" });
@@ -570,6 +563,17 @@ test("results() returns new array each call", () => {
 	const results2 = q.results();
 
 	expect(results1).toEqual(results2);
-	// Arrays should be equal but not the same instance
-	expect(results1 === results2).toBe(false);
+	// Maps should be the same instance (cached)
+	expect(results1 === results2).toBe(true);
+
+	// After a change event, should get a new map
+	const mockChange = mock();
+	q.onChange(mockChange);
+
+	store.put("user2", { name: "Bob" });
+
+	expect(mockChange).toHaveBeenCalledTimes(1);
+	const results3 = q.results();
+	expect(results3 === results1).toBe(false);
+	expect(results3.size).toBe(2);
 });
