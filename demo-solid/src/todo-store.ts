@@ -6,44 +6,45 @@ import {
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
 import { unstoragePlugin } from "../../lib/persist";
-import { createHttpSynchronizer } from "../../lib/sync";
+import { pushPullPlugin } from "../../lib/sync";
 import type { Todo } from "./types";
 
 const storage = createStorage({
 	driver: localStorageDriver(undefined),
 });
 
-export const todoStore = createStore<Todo>("todos").use(
-	unstoragePlugin(storage),
-);
-export const todoSync = createHttpSynchronizer(todoStore, {
-	pullInterval: 1000 * 5, // 5 second for demo purposes
-	preprocess: async (event, data) => {
-		switch (event) {
-			case "push":
-				return psuedoEncryptRecord(data);
-			case "pull":
-				return pseudoDecryptRecord(data);
-			default:
-				return data;
-		}
-	},
-	push: async (data) => {
-		console.log("pushing");
-		await fetch("http://localhost:3000/api/todos", {
-			method: "PUT",
-			headers: {
-				"Content-Type": "application/json",
+export const todoStore = createStore<Todo>("todos")
+	.use(unstoragePlugin(storage))
+	.use(
+		pushPullPlugin({
+			pullInterval: 1000 * 5, // 5 second for demo purposes
+			preprocess: async (event, data) => {
+				switch (event) {
+					case "push":
+						return psuedoEncryptRecord(data);
+					case "pull":
+						return pseudoDecryptRecord(data);
+					default:
+						return data;
+				}
 			},
-			body: JSON.stringify({ todos: data }),
-		});
-	},
-	pull: async () => {
-		console.log("pulling");
-		const response = await fetch("http://localhost:3000/api/todos");
-		if (!response.ok) return [];
+			push: async (data) => {
+				console.log("pushing");
+				await fetch("http://localhost:3000/api/todos", {
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ todos: data }),
+				});
+			},
+			pull: async () => {
+				console.log("pulling");
+				const response = await fetch("http://localhost:3000/api/todos");
+				if (!response.ok) return [];
 
-		const json = await response.json();
-		return json.todos;
-	},
-});
+				const json = await response.json();
+				return json.todos;
+			},
+		}),
+	);

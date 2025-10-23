@@ -6,18 +6,16 @@ import {
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
 import { unstoragePlugin } from "../../lib/persist";
-import { createHttpSynchronizer } from "../../lib/sync";
+import { pushPullPlugin } from "../../lib/sync";
 import type { Todo } from "./types";
 
-const storage = createStorage({
-	driver: localStorageDriver(undefined),
-});
-
-export const todoStore = createStore<Todo>("todos").use(
-	unstoragePlugin(storage),
+const storage = unstoragePlugin(
+	createStorage({
+		driver: localStorageDriver(undefined),
+	}),
 );
 
-export const todoSync = createHttpSynchronizer(todoStore, {
+const sync = pushPullPlugin({
 	pullInterval: 1000 * 5, // 5 second for demo purposes
 	preprocess: async (event, data) => {
 		switch (event) {
@@ -48,3 +46,5 @@ export const todoSync = createHttpSynchronizer(todoStore, {
 		return json.todos;
 	},
 });
+
+export const todoStore = createStore<Todo>("todos").use(storage).use(sync);
