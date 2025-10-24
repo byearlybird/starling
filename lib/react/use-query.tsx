@@ -1,4 +1,4 @@
-import type { Store } from "@core";
+import type { Store } from "@core/store/store";
 import type { DependencyList } from "react";
 import { useEffect, useRef, useState } from "react";
 

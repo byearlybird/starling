@@ -5,9 +5,13 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
-		".": {
+		"./core": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./plugins": {
+			"types": "./dist/plugins/index.d.ts",
+			"import": "./dist/plugins/index.js"
 		},
 		"./react": {
 			"types": "./dist/react/index.d.ts",
@@ -16,10 +20,6 @@
 		"./solid": {
 			"types": "./dist/solid/index.d.ts",
 			"import": "./dist/solid/index.js"
-		},
-		"./sync": {
-			"types": "./dist/sync/index.d.ts",
-			"import": "./dist/sync/index.js"
 		}
 	},
 	"files": [
@@ -27,7 +27,7 @@
 	],
 	"scripts": {
 		"build": "bun run build:js && bun run build:types",
-		"build:js": "bun build lib/index.ts lib/react/index.ts lib/solid/index.ts lib/sync/index.ts --outdir=dist --target=node --format=esm",
+		"build:js": "bun build lib/core/index.ts lib/react/index.ts lib/solid/index.ts lib/plugins/index.ts --outdir=dist --target=node --format=esm",
 		"build:types": "tsc --project tsconfig.build.json",
 		"prepublishOnly": "bun run build"
 	},

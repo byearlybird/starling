@@ -1,4 +1,4 @@
-import type { Store } from "@core";
+import type { Store } from "@core/store/store";
 import { createResource, onCleanup } from "solid-js";
 
 export function useData<T extends object>(store: Store<T>) {

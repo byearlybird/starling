@@ -1,4 +1,4 @@
-import type { Store } from "@core";
+import type { Store } from "@core/store/store";
 import { useEffect, useState } from "react";
 
 export function useData<TValue extends object>(store: Store<TValue>) {

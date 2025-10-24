@@ -1,4 +1,4 @@
-import type { ArrayKV, EncodedObject } from "@core";
+import type { ArrayKV, EncodedObject } from "@core/shared/types";
 import type { Plugin } from "@core/store/store";
 import { prefixStorage, type Storage } from "unstorage";
 
