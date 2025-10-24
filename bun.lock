@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@byearlybird/flock",
+      "name": "@byearlybird/starling",
       "dependencies": {
         "mitt": "^3.0.1",
       },

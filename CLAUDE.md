@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Flock is a reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. It provides:
+Starling is a reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. It provides:
 - A reactive store with event-driven updates
 - Query system with predicate-based filtering
 - HTTP synchronization layer with conflict-free merging
@@ -12,7 +12,7 @@ Flock is a reactive, framework-agnostic data synchronization library with CRDT-l
 
 ## Project Structure and Architecture
 
-Flock uses a **three-layer architecture**:
+Starling uses a **three-layer architecture**:
 
 1. **Core Layer** (`lib/core/`) - Framework-agnostic data management
    - `store.ts` - Main store with CRDT-like merge semantics
@@ -137,7 +137,7 @@ cd demo-solid && bun run dev
 
 ### Creating a Store
 ```typescript
-import { createStore } from "@byearlybird/flock";
+import { createStore } from "@byearlybird/starling";
 
 const store = createStore<{ name: string; email: string }>("users");
 
@@ -156,7 +156,7 @@ const users = store.values(); // { key: string, value: T }[]
 
 ### Using Queries in React
 ```typescript
-import { useQuery } from "@byearlybird/flock/react";
+import { useQuery } from "@byearlybird/starling/react";
 
 function TodoList() {
   const { data, isLoading } = useQuery(
@@ -178,7 +178,7 @@ function TodoList() {
 
 ### Setting Up HTTP Synchronization
 ```typescript
-import { createHttpSynchronizer } from "@byearlybird/flock/sync";
+import { createHttpSynchronizer } from "@byearlybird/starling/sync";
 
 const sync = createHttpSynchronizer(store, {
   pullInterval: 5000, // Poll server every 5 seconds
@@ -239,10 +239,10 @@ unsubscribe();
 
 The package provides multiple entry points for tree-shaking and bundling efficiency:
 
-- `@byearlybird/flock` - Core store, query, and operations
-- `@byearlybird/flock/react` - React hooks
-- `@byearlybird/flock/solid` - Solid.js hooks
-- `@byearlybird/flock/sync` - HTTP synchronizer
+- `@byearlybird/starling` - Core store, query, and operations
+- `@byearlybird/starling/react` - React hooks
+- `@byearlybird/starling/solid` - Solid.js hooks
+- `@byearlybird/starling/sync` - HTTP synchronizer
 
 ## Dependencies
 

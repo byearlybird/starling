@@ -1,5 +1,5 @@
 {
-	"name": "@byearlybird/flock",
+	"name": "@byearlybird/starling",
 	"version": "0.1.1",
 	"type": "module",
 	"main": "./dist/index.js",

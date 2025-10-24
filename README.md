@@ -1,6 +1,6 @@
-# @byearlybird/flock
+# @byearlybird/starling
 
-A reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. Flock provides a simple yet powerful way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution.
+A reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. Starling provides a simple yet powerful way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution.
 
 ## Features
 
@@ -16,13 +16,13 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 
 ```bash
 # npm
-npm install @byearlybird/flock unstorage
+npm install @byearlybird/starling unstorage
 
 # bun
-bun add @byearlybird/flock unstorage
+bun add @byearlybird/starling unstorage
 
 # yarn
-yarn add @byearlybird/flock unstorage
+yarn add @byearlybird/starling unstorage
 ```
 
 ### Optional Framework Dependencies
@@ -40,7 +40,7 @@ npm install solid-js@^1.9.9
 ## Quick Start
 
 ```typescript
-import { createStore } from "@byearlybird/flock";
+import { createStore } from "@byearlybird/starling";
 import { createStorage } from "unstorage";
 
 // Create a store
@@ -50,7 +50,7 @@ const todoStore = createStore<{ text: string; completed: boolean }>("todos", {
 
 // Insert items
 await todoStore.insert("todo-1", {
-  text: "Learn Flock",
+  text: "Learn Starling",
   completed: false,
 });
 
@@ -59,7 +59,7 @@ await todoStore.update("todo-1", { completed: true });
 
 // Get all values
 const todos = await todoStore.values();
-console.log(todos); // { "todo-1": { text: "Learn Flock", completed: true, __eventstamp: "..." } }
+console.log(todos); // { "todo-1": { text: "Learn Starling", completed: true, __eventstamp: "..." } }
 
 // Listen to changes
 const unsubscribe = todoStore.on("update", (updates) => {
@@ -72,7 +72,7 @@ const unsubscribe = todoStore.on("update", (updates) => {
 ### Creating a Store
 
 ```typescript
-import { createStore } from "@byearlybird/flock";
+import { createStore } from "@byearlybird/starling";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 
@@ -150,7 +150,7 @@ unsubscribe();
 Queries provide reactive, filtered views of store data.
 
 ```typescript
-import { createQuery } from "@byearlybird/flock";
+import { createQuery } from "@byearlybird/starling";
 
 const query = createQuery(
   todoStore,
@@ -173,10 +173,10 @@ query.dispose();
 
 ## Synchronization
 
-Flock provides an HTTP synchronizer for bidirectional client-server sync.
+Starling provides an HTTP synchronizer for bidirectional client-server sync.
 
 ```typescript
-import { createHttpSynchronizer } from "@byearlybird/flock/sync";
+import { createHttpSynchronizer } from "@byearlybird/starling/sync";
 
 const sync = createHttpSynchronizer(todoStore, {
   pullInterval: 5000, // Pull from server every 5 seconds
@@ -237,7 +237,7 @@ app.get("/api/todos", async (c) => {
 ### React
 
 ```typescript
-import { useData, useQuery } from "@byearlybird/flock/react";
+import { useData, useQuery } from "@byearlybird/starling/react";
 
 function TodoList() {
   // Get all data from store
@@ -265,7 +265,7 @@ function TodoList() {
 ### Solid
 
 ```typescript
-import { useData, useQuery } from "@byearlybird/flock/solid";
+import { useData, useQuery } from "@byearlybird/starling/solid";
 
 function TodoList() {
   // Get all data from store
@@ -293,7 +293,7 @@ function TodoList() {
 
 ### Eventstamps
 
-Every value in Flock is encoded with an `__eventstamp` field containing a ULID (Universally Unique Lexicographically Sortable Identifier). This enables:
+Every value in Starling is encoded with an `__eventstamp` field containing a ULID (Universally Unique Lexicographically Sortable Identifier). This enables:
 
 - **Monotonic timestamps**: Later events always have higher eventstamps
 - **Conflict resolution**: When two clients update the same field, the update with the higher eventstamp wins (Last-Write-Wins)
@@ -301,7 +301,7 @@ Every value in Flock is encoded with an `__eventstamp` field containing a ULID (
 
 ### CRDT-like Merging
 
-When merging states, Flock compares eventstamps at the field level:
+When merging states, Starling compares eventstamps at the field level:
 
 ```typescript
 // Client A updates
@@ -319,12 +319,12 @@ When merging states, Flock compares eventstamps at the field level:
 
 ## Package Exports
 
-Flock provides multiple entry points for different use cases:
+Starling provides multiple entry points for different use cases:
 
-- `@byearlybird/flock` - Core library (stores, queries, operations)
-- `@byearlybird/flock/react` - React hooks (`useData`, `useQuery`)
-- `@byearlybird/flock/solid` - Solid hooks (`useData`, `useQuery`)
-- `@byearlybird/flock/sync` - HTTP synchronizer
+- `@byearlybird/starling` - Core library (stores, queries, operations)
+- `@byearlybird/starling/react` - React hooks (`useData`, `useQuery`)
+- `@byearlybird/starling/solid` - Solid hooks (`useData`, `useQuery`)
+- `@byearlybird/starling/sync` - HTTP synchronizer
 
 ## Development
 
