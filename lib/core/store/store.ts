@@ -24,7 +24,32 @@ type PluginHandle = {
 
 type Plugin<TValue extends object> = (store: Store<TValue>) => PluginHandle;
 
-const createStore = <T extends object>(collectionKey: string) => {
+type Store<T extends object> = {
+	collectionKey: string;
+	putMany: (data: ArrayKV<T>) => void;
+	updateMany: (data: ArrayKV<Partial<T>>) => void;
+	deleteMany: (keys: string[]) => void;
+	merge: (snapshot: ArrayKV<EncodedObject>, opts?: { silent: boolean }) => void;
+	put: (key: string, value: T) => void;
+	update: (key: string, value: DeepPartial<T>) => void;
+	delete: (key: string) => void;
+	values: () => ArrayKV<T>;
+	query: (predicate: (data: T) => boolean) => {
+		results: () => Map<string, T>;
+		onChange: (callback: () => void) => () => void;
+		dispose: () => void;
+	};
+	snapshot: () => ArrayKV<EncodedObject>;
+	on: <K extends keyof StoreEvents<T>>(
+		event: K,
+		callback: (data: StoreEvents<T>[K]) => void,
+	) => () => void;
+	use: (plugin: Plugin<T>) => Store<T>;
+	init: () => Promise<Store<T>>;
+	dispose: () => Promise<void> | void;
+};
+
+const createStore = <T extends object>(collectionKey: string): Store<T> => {
 	const $map = new Map<string, EncodedObject>();
 	const $emitter = mitt<StoreEvents<T>>();
 	const $clock = createClock();
@@ -144,7 +169,7 @@ const createStore = <T extends object>(collectionKey: string) => {
 			$handles.add(plugin(this));
 			return this;
 		},
-		async init() {
+		async init(): Promise<Store<T>> {
 			for (const handle of $handles) {
 				// Run these sequentially to respect the order that they're registered in
 				await handle.init();
@@ -160,8 +185,6 @@ const createStore = <T extends object>(collectionKey: string) => {
 		},
 	};
 };
-
-type Store<T extends object> = ReturnType<typeof createStore<T>>;
 
 export { createStore };
 export type { StoreEvents, Store, Plugin };

@@ -6,8 +6,8 @@
 	"types": "./dist/index.d.ts",
 	"exports": {
 		"./core": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
+			"types": "./dist/core/index.d.ts",
+			"import": "./dist/core/index.js"
 		},
 		"./plugins": {
 			"types": "./dist/plugins/index.d.ts",
@@ -26,11 +26,9 @@
 		"dist"
 	],
 	"scripts": {
-		"build": "bun run build:js && bun run build:types",
-		"build:js": "bun build lib/core/index.ts lib/react/index.ts lib/solid/index.ts lib/plugins/index.ts --outdir=dist --target=node --format=esm",
-		"build:types": "tsc --project tsconfig.build.json",
-		"prepublishOnly": "bun run build"
-	},
+    "build": "bun run ./build.ts",
+    "prepublishOnly": "bun run build"
+  },
 	"peerDependencies": {
 		"typescript": "^5",
 		"react": "^19",
@@ -60,6 +58,10 @@
 		"@types/bun": "latest",
 		"mitata": "^1.0.34",
 		"tinybench": "^5.0.1",
-		"typescript": "^5"
+		"typescript": "^5",
+		"react": "^19",
+		"react-dom": "^19",
+		"solid-js": "^1.9.9",
+		"unstorage": "^1.17.1"
 	}
 }

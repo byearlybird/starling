@@ -2,7 +2,9 @@ import type { ArrayKV, EncodedObject } from "@core/shared/types";
 import type { Plugin } from "@core/store/store";
 import { prefixStorage, type Storage } from "unstorage";
 
-const unstoragePlugin = <T extends object>(baseStorage: Storage): Plugin<T> => {
+const unstoragePlugin = <T extends object>(
+	baseStorage: Storage<any>,
+): Plugin<T> => {
 	let unwatch: (() => void) | null = null;
 	let storage: Storage | null = null;
 
@@ -13,7 +15,7 @@ const unstoragePlugin = <T extends object>(baseStorage: Storage): Plugin<T> => {
 				await storage?.set(store.collectionKey, store.snapshot());
 			});
 
-			const persisted = await storage.get<ArrayKV<EncodedObject>>(
+			const persisted = await storage?.get<ArrayKV<EncodedObject>>(
 				store.collectionKey,
 			);
 
