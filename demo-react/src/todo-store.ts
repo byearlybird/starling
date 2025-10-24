@@ -16,7 +16,7 @@ const storage = unstoragePlugin<Todo>(
 	}),
 );
 
-const sync = pushPullPlugin({
+const sync = pushPullPlugin<Todo>({
 	pullInterval: 1000 * 5, // 5 second for demo purposes
 	preprocess: async (event, data) => {
 		switch (event) {
@@ -48,5 +48,7 @@ const sync = pushPullPlugin({
 	},
 });
 
-export const todoStore = await createStore<Todo>("todos").use(storage).init();
-// .use(sync);
+export const todoStore = await createStore<Todo>("todos")
+	.use(storage)
+	.use(sync)
+	.init();
