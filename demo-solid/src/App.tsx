@@ -1,23 +1,12 @@
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { createSignal, For } from "solid-js";
 import "./App.css";
 import { useData, useQuery } from "../../lib/solid";
-import { todoStore, todoSync } from "./todo-store";
-
-await todoStore.init();
+import { todoStore } from "./todo-store";
 
 function App() {
 	const [newTodo, setNewTodo] = createSignal("");
 	const todos = useData(todoStore);
 	const incomplete = useQuery(todoStore, (todo) => !todo.completed);
-
-	onMount(() => {
-		todoSync.start().then(() => todoSync.refresh());
-	});
-
-	onCleanup(() => {
-		todoStore.dispose();
-		todoSync.dispose();
-	});
 
 	return (
 		<>

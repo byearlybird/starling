@@ -1,12 +1,12 @@
 import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
-import type { QueryEngine } from "../query";
+import type { Store } from "../core";
 
 export function useQuery<T extends object>(
-	queryFn: QueryEngine<T>["query"],
+	store: Store<T>,
 	predicate: (data: T) => boolean,
 ) {
 	// Wrap in createMemo to track reactive dependencies in predicate
-	const query = createMemo(() => queryFn(predicate));
+	const query = createMemo(() => store.query(predicate));
 
 	// Use query as source signal - refetches automatically when query changes
 	const [data, { refetch }] = createResource(query, (q) => q.results(), {

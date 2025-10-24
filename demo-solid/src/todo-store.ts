@@ -13,7 +13,7 @@ const storage = createStorage({
 	driver: localStorageDriver(undefined),
 });
 
-export const todoStore = createStore<Todo>("todos")
+export const todoStore = await createStore<Todo>("todos")
 	.use(unstoragePlugin(storage))
 	.use(
 		pushPullPlugin({
@@ -47,4 +47,5 @@ export const todoStore = createStore<Todo>("todos")
 				return json.todos;
 			},
 		}),
-	);
+	)
+	.init();
