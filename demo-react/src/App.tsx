@@ -3,8 +3,6 @@ import { useState } from "react";
 import { useData, useQuery } from "../../lib/react";
 import { todoStore } from "./todo-store";
 
-await todoStore.init();
-
 function App() {
 	const [newTodo, setNewTodo] = useState("");
 	const { data: todos } = useData(todoStore);

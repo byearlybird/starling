@@ -48,5 +48,5 @@ const sync = pushPullPlugin({
 	},
 });
 
-export const todoStore = createStore<Todo>("todos").use(storage);
+export const todoStore = await createStore<Todo>("todos").use(storage).init();
 // .use(sync);

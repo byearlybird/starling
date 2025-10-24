@@ -144,6 +144,7 @@ const createStore = <T extends object>(collectionKey: string) => {
 				// Run these sequentially to respect the order that they're registered in
 				await handle.init();
 			}
+			return this;
 		},
 		async dispose() {
 			$handles.forEach(async (handle) => {
