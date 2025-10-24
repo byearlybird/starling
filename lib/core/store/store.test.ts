@@ -393,7 +393,10 @@ test("merge() updates existing items and emits update event", () => {
 		{
 			key: "user1",
 			value: {
-				name: { __value: "Bob", __eventstamp: "2999-12-31T23:59:59.999Z|ffffffff" },
+				name: {
+					__value: "Bob",
+					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
+				},
 			},
 		},
 	];

@@ -1,6 +1,6 @@
 import { prefixStorage, type Storage } from "unstorage";
-import type { ArrayKV, EncodedObject } from "../core";
-import type { Plugin } from "../core/store";
+import type { ArrayKV, EncodedObject } from "../../core";
+import type { Plugin } from "../../core/store/store";
 
 const unstoragePlugin = <T extends object>(baseStorage: Storage): Plugin<T> => {
 	let unwatch: (() => void) | null = null;

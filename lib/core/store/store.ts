@@ -1,16 +1,21 @@
 import mitt from "mitt";
-import { createClock } from "./clock";
+import { createClock } from "../crdt/clock";
+import { decode } from "../crdt/operations";
+import type {
+	ArrayKV,
+	DeepPartial,
+	EncodedObject,
+	StoreEvents,
+} from "../shared/types";
+import { mapToArray } from "../shared/utils";
 import {
 	createDeleteMany,
 	createMerge,
 	createPutMany,
 	createUpdateMany,
 } from "./mutations";
-import { decode } from "./operations";
 import type { QueryInternal } from "./query";
 import { createQuery } from "./query";
-import type { ArrayKV, DeepPartial, EncodedObject, StoreEvents } from "./types";
-import { mapToArray } from "./utils";
 
 type PluginHandle = {
 	init: () => Promise<void> | void;

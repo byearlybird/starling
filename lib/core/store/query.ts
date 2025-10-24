@@ -1,5 +1,5 @@
-import { decode } from "./operations";
-import type { EncodedObject } from "./types";
+import { decode } from "../crdt/operations";
+import type { EncodedObject } from "../shared/types";
 
 type Predicate<T> = (data: T) => boolean;
 type Callback = () => void;

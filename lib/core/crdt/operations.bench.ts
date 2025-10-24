@@ -1,6 +1,6 @@
 import { bench, group, run } from "mitata";
+import type { ArrayKV, EncodedObject } from "../types";
 import { decode, encode, merge, mergeArray } from "./operations";
-import type { ArrayKV, EncodedObject } from "./types";
 
 // Create a monotonic counter-based eventstamp function
 let counter = 0;
@@ -303,10 +303,12 @@ group("Array Merge Operations - Multiple Deep Objects", () => {
 		key,
 		value: encode(value, eventstampFn()),
 	}));
-	const updates100Partial = encoded100ForPartial.slice(0, 25).map(({ key, value }) => {
-		const modified = { ...value };
-		return { key, value: modified };
-	});
+	const updates100Partial = encoded100ForPartial
+		.slice(0, 25)
+		.map(({ key, value }) => {
+			const modified = { ...value };
+			return { key, value: modified };
+		});
 
 	bench("mergeArray() - 100 objects, partial updates (25%)", () => {
 		resetCounter();

@@ -1,4 +1,4 @@
-import { merge } from "./operations";
+import { merge } from "../crdt/operations";
 import type { ArrayKV, EncodedObject } from "./types";
 
 export function mapToArray<TValue>(map: Map<string, TValue>): ArrayKV<TValue> {

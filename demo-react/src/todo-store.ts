@@ -5,7 +5,7 @@ import {
 	psuedoEncryptRecord,
 } from "../../demo-utils/pseudo-crypto";
 import { createStore } from "../../lib";
-import { unstoragePlugin } from "../../lib/persist";
+import { unstoragePlugin } from "../../lib/plugins/persistence";
 
 import { pushPullPlugin } from "../../lib/sync";
 import type { Todo } from "./types";
