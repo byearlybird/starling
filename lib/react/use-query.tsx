@@ -1,6 +1,6 @@
+import type { Store } from "@core";
 import type { DependencyList } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { Store } from "../core";
 
 export function useQuery<TValue extends object>(
 	store: Store<TValue>,

@@ -1,5 +1,5 @@
-import type { ArrayKV, EncodedObject } from "../../core/shared/types";
-import type { Plugin } from "../../core/store/store";
+import type { ArrayKV, EncodedObject } from "@core/shared/types";
+import type { Plugin } from "@core/store/store";
 
 type PushPullConfig = {
 	push: (data: ArrayKV<EncodedObject>) => Promise<void>;

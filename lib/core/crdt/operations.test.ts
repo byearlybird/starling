@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { EncodedObject } from "../shared/types";
+import type { EncodedObject } from "@core/shared/types";
 import { decode, encode, merge, mergeArray } from "./operations";
 
 test("encode converts a flat object to encoded format", () => {

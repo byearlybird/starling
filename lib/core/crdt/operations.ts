@@ -1,4 +1,4 @@
-import type { ArrayKV, EncodedObject, EventstampFn } from "../shared/types";
+import type { ArrayKV, EncodedObject, EventstampFn } from "@core/shared/types";
 
 export function encode<T extends object>(
 	obj: T,

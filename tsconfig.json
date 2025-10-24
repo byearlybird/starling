@@ -25,6 +25,15 @@
 		"noUncheckedSideEffectImports": true,
 		"allowUnusedLabels": false,
 		"allowUnreachableCode": false,
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
+		// Path aliases
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["lib/*"],
+			"@core/*": ["lib/core/*"],
+			"@plugins/*": ["lib/plugins/*"],
+			"@react/*": ["lib/react/*"],
+			"@solid/*": ["lib/solid/*"]
+		}
 	}
 }

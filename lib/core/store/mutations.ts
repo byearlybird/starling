@@ -1,7 +1,7 @@
+import { decode, encode, encodeMany, merge } from "@core/crdt/operations";
+import type { ArrayKV, EncodedObject, StoreEvents } from "@core/shared/types";
+import { mergeItems } from "@core/shared/utils";
 import type { Emitter } from "mitt";
-import { decode, encode, encodeMany, merge } from "../crdt/operations";
-import type { ArrayKV, EncodedObject, StoreEvents } from "../shared/types";
-import { mergeItems } from "../shared/utils";
 
 const createPutMany = <TValue extends object>(
 	map: Map<string, EncodedObject>,

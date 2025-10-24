@@ -1,5 +1,5 @@
+import type { ArrayKV, EncodedObject } from "@core/shared/types";
 import { bench, group, run } from "mitata";
-import type { ArrayKV, EncodedObject } from "../types";
 import { decode, encode, merge, mergeArray } from "./operations";
 
 // Create a monotonic counter-based eventstamp function

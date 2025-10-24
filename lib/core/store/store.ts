@@ -1,13 +1,13 @@
-import mitt from "mitt";
-import { createClock } from "../crdt/clock";
-import { decode } from "../crdt/operations";
+import { createClock } from "@core/crdt/clock";
+import { decode } from "@core/crdt/operations";
 import type {
 	ArrayKV,
 	DeepPartial,
 	EncodedObject,
 	StoreEvents,
-} from "../shared/types";
-import { mapToArray } from "../shared/utils";
+} from "@core/shared/types";
+import { mapToArray } from "@core/shared/utils";
+import mitt from "mitt";
 import {
 	createDeleteMany,
 	createMerge,
