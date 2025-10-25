@@ -8,11 +8,10 @@ Starling is a reactive, framework-agnostic data synchronization library with CRD
 - A reactive store with event-driven updates
 - Query system with predicate-based filtering
 - HTTP synchronization layer with conflict-free merging
-- Framework bindings for React and Solid
 
 ## Project Structure and Architecture
 
-Starling uses a **three-layer architecture**:
+Starling uses a **two-layer architecture**:
 
 1. **Core Layer** (`lib/core/`) - Framework-agnostic data management
    - `store.ts` - Main store with CRDT-like merge semantics
@@ -21,11 +20,7 @@ Starling uses a **three-layer architecture**:
    - `operations.ts` - Encode/decode/merge operations with conflict resolution
    - `types.ts` - Shared type definitions (EncodedObject, EncodedValue, etc.)
 
-2. **Framework Layer** - Thin adapters for reactive frameworks
-   - `lib/react/` - React hooks (`useData`, `useQuery`)
-   - `lib/solid/` - Solid.js hooks (equivalent to React hooks)
-
-3. **Plugins Layer** (`lib/plugins/`)
+2. **Plugins Layer** (`lib/plugins/`)
    - `push-pull-plugin.ts` - Bidirectional sync with pull-interval and push-on-change semantics
    - `unstorage-plugin.ts` - Persistence abstraction via `unstorage` (localStorage, filesystem, Redis, etc.)
 
@@ -59,11 +54,6 @@ Starling uses a **three-layer architecture**:
 - **Merge semantics**: Server and clients merge independently using eventstamps
 - **Optional preprocessing**: `preprocess` hook for encryption/compression before merge
 - Results in eventual consistency across all clients
-
-### Framework Bindings
-- **React**: `useData()` and `useQuery()` hooks that trigger re-renders
-- **Solid**: Equivalent hooks using Solid's reactive system
-- Thin wrappers around core store; same store instance can serve multiple frameworks
 
 ### Plugins
 Stores are extensible via a plugin system. Plugins are functions that receive a store and return lifecycle hooks (`init` and `dispose`).
@@ -125,7 +115,7 @@ bun biome lint .
 bun run build
 ```
 
-Note: `tsdown` handles bundling all entry points (`lib/core/`, `lib/react/`, `lib/solid/`, `lib/plugins/`) and generating TypeScript declarations automatically. The build output is written to `dist/`.
+Note: `tsdown` handles bundling all entry points (`lib/core/`, `lib/plugins/`) and generating TypeScript declarations automatically. The build output is written to `dist/`.
 
 
 ## Code Style
@@ -155,28 +145,6 @@ store.delete("user1");
 
 // Get all values
 const users = store.values(); // Map<string, T>
-```
-
-### Using Queries in React
-```typescript
-import { useQuery } from "@byearlybird/starling/react";
-
-function TodoList() {
-  const { data, isLoading } = useQuery(
-    todoStore,
-    (todo) => !todo.completed,
-    [] // dependency array (like useEffect)
-  );
-
-  return (
-    <>
-      {isLoading && <div>Loading...</div>}
-      {Object.entries(data || {}).map(([id, todo]) => (
-        <div key={id}>{todo.text}</div>
-      ))}
-    </>
-  );
-}
 ```
 
 ### Setting Up Bidirectional Synchronization
@@ -246,8 +214,6 @@ The package provides multiple entry points for tree-shaking and bundling efficie
 
 - `@byearlybird/starling` (or `@byearlybird/starling/core`) - Core store, query, and CRDT operations
 - `@byearlybird/starling/plugins` - Sync and persistence plugins (`pushPullPlugin`, `unstoragePlugin`)
-- `@byearlybird/starling/react` - React hooks (`useData`, `useQuery`)
-- `@byearlybird/starling/solid` - Solid.js hooks (`useData`, `useQuery`)
 
 ## Dependencies
 
@@ -255,8 +221,6 @@ The package provides multiple entry points for tree-shaking and bundling efficie
 - `mitt@^3.0.1` - Lightweight event emitter (2KB). Used for store's pub/sub event system.
 
 **Peer Dependencies** (optional):
-- `react@^19`, `react-dom@^19` - Required only for React bindings
-- `solid-js@^1.9.9` - Required only for Solid.js bindings
 - `unstorage@^1.17.1` - Required only for persistence via `unstoragePlugin`; supports localStorage, filesystem, Redis, memory, etc.
 - `typescript@^5` - Required for development; declarations exported for consumers
 
@@ -264,6 +228,7 @@ The package provides multiple entry points for tree-shaking and bundling efficie
 - `@biomejs/biome@2.2.5` - Fast code formatter and linter
 - `@types/bun` - TypeScript definitions for Bun runtime
 - `tinybench@^5.0.1`, `mitata@^1.0.34` - Benchmarking frameworks
+- `tsdown@^0.15.9` - Bundler for building entry points and generating TypeScript declarations
 
 ## Performance Considerations
 

@@ -8,7 +8,6 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 - **Query System**: Predicate-based filtering with reactive updates
 - **CRDT-like Merging**: Conflict-free state synchronization using eventstamps (ULID-based monotonic timestamps)
 - **HTTP Synchronization**: Bidirectional client-server sync with customizable push/pull strategies
-- **Framework Agnostic**: Works standalone or with React and Solid via dedicated hooks
 - **Storage Abstraction**: Powered by `unstorage` for flexible persistence (localStorage, filesystem, Redis, etc.)
 - **TypeScript First**: Full type safety with strict TypeScript support
 
@@ -23,18 +22,6 @@ bun add @byearlybird/starling unstorage
 
 # yarn
 yarn add @byearlybird/starling unstorage
-```
-
-### Optional Framework Dependencies
-
-For React:
-```bash
-npm install react@^19 react-dom@^19
-```
-
-For Solid:
-```bash
-npm install solid-js@^1.9.9
 ```
 
 ## Quick Start
@@ -232,63 +219,6 @@ app.get("/api/todos", async (c) => {
 });
 ```
 
-## Framework Bindings
-
-### React
-
-```typescript
-import { useData, useQuery } from "@byearlybird/starling/react";
-
-function TodoList() {
-  // Get all data from store
-  const { data: allTodos, isLoading } = useData(todoStore);
-
-  // Or use a query for filtered data
-  const { data: activeTodos, isLoading } = useQuery(
-    todoStore,
-    (todo) => !todo.completed,
-    [] // dependency array (like useEffect)
-  );
-
-  if (isLoading) return <div>Loading...</div>;
-
-  return (
-    <ul>
-      {Object.entries(activeTodos).map(([id, todo]) => (
-        <li key={id}>{todo.text}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-### Solid
-
-```typescript
-import { useData, useQuery } from "@byearlybird/starling/solid";
-
-function TodoList() {
-  // Get all data from store
-  const { data: allTodos, isLoading } = useData(todoStore);
-
-  // Or use a query for filtered data
-  const { data: activeTodos, isLoading } = useQuery(
-    todoStore,
-    (todo) => !todo.completed
-  );
-
-  return (
-    <Show when={!isLoading()} fallback={<div>Loading...</div>}>
-      <ul>
-        <For each={Object.entries(activeTodos())}>
-          {([id, todo]) => <li>{todo.text}</li>}
-        </For>
-      </ul>
-    </Show>
-  );
-}
-```
-
 ## Architecture
 
 ### Eventstamps
@@ -322,8 +252,6 @@ When merging states, Starling compares eventstamps at the field level:
 Starling provides multiple entry points for different use cases:
 
 - `@byearlybird/starling` - Core library (stores, queries, operations)
-- `@byearlybird/starling/react` - React hooks (`useData`, `useQuery`)
-- `@byearlybird/starling/solid` - Solid hooks (`useData`, `useQuery`)
 - `@byearlybird/starling/sync` - HTTP synchronizer
 
 ## Development

@@ -12,14 +12,6 @@
 		"./plugins": {
 			"types": "./dist/plugins/index.d.ts",
 			"import": "./dist/plugins/index.js"
-		},
-		"./react": {
-			"types": "./dist/react/index.d.ts",
-			"import": "./dist/react/index.js"
-		},
-		"./solid": {
-			"types": "./dist/solid/index.d.ts",
-			"import": "./dist/solid/index.js"
 		}
 	},
 	"files": [
@@ -31,22 +23,10 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5",
-		"react": "^19",
-		"react-dom": "^19",
-		"solid-js": "^1.9.9",
 		"unstorage": "^1.17.1"
 	},
 	"peerDependenciesMeta": {
 		"typescript": {
-			"optional": true
-		},
-		"react": {
-			"optional": true
-		},
-		"react-dom": {
-			"optional": true
-		},
-		"solid-js": {
 			"optional": true
 		}
 	},
@@ -57,9 +37,6 @@
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",
 		"mitata": "^1.0.34",
-		"react": "^19",
-		"react-dom": "^19",
-		"solid-js": "^1.9.9",
 		"tinybench": "^5.0.1",
 		"tsdown": "^0.15.9",
 		"typescript": "^5",
