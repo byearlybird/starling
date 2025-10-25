@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { createClock, formatEventstamp, parseEventstamp } from "./clock";
+import * as $clock from "./clock";
+import * as $eventstamp from "./eventstamp";
 
 test("now() returns ISO string with counter suffix", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 	const eventstamp = clock.now();
 
 	// Format: ISO|hexCounter
@@ -12,7 +13,7 @@ test("now() returns ISO string with counter suffix", () => {
 });
 
 test("now() returns monotonically increasing eventstamps", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	const stamp1 = clock.now();
 	const stamp2 = clock.now();
@@ -23,7 +24,7 @@ test("now() returns monotonically increasing eventstamps", () => {
 });
 
 test("counter increments when called multiple times in same millisecond", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	const stamps = [];
 	for (let i = 0; i < 5; i++) {
@@ -56,13 +57,13 @@ test("counter increments when called multiple times in same millisecond", () => 
 });
 
 test("counter increments when real time hasn't caught up to forwarded time", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	// Get initial eventstamp
 	clock.now();
 
 	// Move clock forward to a future eventstamp
-	const futureEventstamp = formatEventstamp(Date.now() + 1000, 0);
+	const futureEventstamp = $eventstamp.encode(Date.now() + 1000, 0);
 	clock.forward(futureEventstamp);
 
 	// Real time hasn't advanced that much yet, so counter increments
@@ -76,7 +77,7 @@ test("counter increments when real time hasn't caught up to forwarded time", () 
 });
 
 test("latest() returns last recorded eventstamp", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	const stamp = clock.now();
 	const latest = clock.latest();
@@ -88,11 +89,11 @@ test("latest() returns last recorded eventstamp", () => {
 });
 
 test("forward() updates lastMs when eventstamp is greater", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	const initialStamp = clock.latest();
-	const { timestampMs } = parseEventstamp(initialStamp);
-	const newEventstamp = formatEventstamp(timestampMs + 1000, 0);
+	const { timestampMs } = $eventstamp.decode(initialStamp);
+	const newEventstamp = $eventstamp.encode(timestampMs + 1000, 0);
 
 	clock.forward(newEventstamp);
 
@@ -100,13 +101,13 @@ test("forward() updates lastMs when eventstamp is greater", () => {
 });
 
 test("forward() does not update lastMs when eventstamp is not greater", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	clock.now();
 	const currentStamp = clock.latest();
 
-	const { timestampMs } = parseEventstamp(currentStamp);
-	const olderEventstamp = formatEventstamp(timestampMs - 100, 0);
+	const { timestampMs } = $eventstamp.decode(currentStamp);
+	const olderEventstamp = $eventstamp.encode(timestampMs - 100, 0);
 
 	clock.forward(olderEventstamp);
 
@@ -114,15 +115,15 @@ test("forward() does not update lastMs when eventstamp is not greater", () => {
 });
 
 test("forward() updates lastMs to allow counter reset when real time catches up", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	// Generate an eventstamp first
 	clock.now();
 
 	// Move clock forward to a much later time
 	const currentStamp = clock.latest();
-	const { timestampMs } = parseEventstamp(currentStamp);
-	const futureEventstamp = formatEventstamp(timestampMs + 1000, 0);
+	const { timestampMs } = $eventstamp.decode(currentStamp);
+	const futureEventstamp = $eventstamp.encode(timestampMs + 1000, 0);
 	clock.forward(futureEventstamp);
 
 	// Verify eventstamp was updated
@@ -134,36 +135,8 @@ test("forward() updates lastMs to allow counter reset when real time catches up"
 	expect(currentEventstamp).toBe(futureEventstamp);
 });
 
-test("parseEventstamp() extracts timestamp and counter correctly", () => {
-	const eventstamp = formatEventstamp(1234567890123, 42);
-	const { timestampMs, counter } = parseEventstamp(eventstamp);
-
-	expect(timestampMs).toBe(1234567890123);
-	expect(counter).toBe(42);
-});
-
-test("parseEventstamp() handles large counters", () => {
-	const eventstamp = formatEventstamp(Date.now(), 0xffffffff);
-	const { timestampMs, counter } = parseEventstamp(eventstamp);
-
-	expect(counter).toBe(0xffffffff);
-	expect(typeof timestampMs).toBe("number");
-	expect(timestampMs).toBeGreaterThan(0);
-});
-
-test("formatEventstamp and parseEventstamp are inverses", () => {
-	const originalTimestampMs = Date.now();
-	const originalCounter = 12345;
-
-	const eventstamp = formatEventstamp(originalTimestampMs, originalCounter);
-	const { timestampMs, counter } = parseEventstamp(eventstamp);
-
-	expect(timestampMs).toBe(originalTimestampMs);
-	expect(counter).toBe(originalCounter);
-});
-
 test("eventstamp format is consistent with padding", () => {
-	const clock = createClock();
+	const clock = $clock.create();
 
 	// Generate many eventstamps to potentially exceed single hex digit
 	for (let i = 0; i < 20; i++) {
