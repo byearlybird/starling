@@ -26,9 +26,9 @@
 		"dist"
 	],
 	"scripts": {
-    "build": "bun run ./build.ts",
-    "prepublishOnly": "bun run build"
-  },
+		"build": "tsdown",
+		"prepublishOnly": "bun run build"
+	},
 	"peerDependencies": {
 		"typescript": "^5",
 		"react": "^19",
@@ -57,11 +57,12 @@
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",
 		"mitata": "^1.0.34",
-		"tinybench": "^5.0.1",
-		"typescript": "^5",
 		"react": "^19",
 		"react-dom": "^19",
 		"solid-js": "^1.9.9",
+		"tinybench": "^5.0.1",
+		"tsdown": "^0.15.9",
+		"typescript": "^5",
 		"unstorage": "^1.17.1"
 	}
 }

@@ -1,4 +1,4 @@
-import type { ArrayKV, EncodedObject, EventstampFn } from "@core/shared/types";
+import type { EncodedObject, EventstampFn } from "@core/shared/types";
 
 export function encode<T extends object>(
 	obj: T,
@@ -139,36 +139,36 @@ export function merge(
 }
 
 export function mergeArray(
-	current: ArrayKV<EncodedObject>,
-	updates: ArrayKV<EncodedObject>,
-): [ArrayKV<EncodedObject>, boolean] {
-	const updatesMap = new Map(updates.map((item) => [item.key, item.value]));
-	const result: ArrayKV<EncodedObject> = [];
+	current: [string, EncodedObject][],
+	updates: [string, EncodedObject][],
+): [[string, EncodedObject][], boolean] {
+	const updatesMap = new Map(updates);
+	const result: [string, EncodedObject][] = [];
 	let changed = false;
 	const seenKeys = new Set<string>();
 
 	// Process all current items
-	for (const { key, value: obj1 } of current) {
+	for (const [key, obj1] of current) {
 		seenKeys.add(key);
 		const obj2 = updatesMap.get(key);
 
 		if (obj2) {
 			// Both objects exist - merge them
 			const [merged, objChanged] = merge(obj1, obj2);
-			result.push({ key, value: merged });
+			result.push([key, merged]);
 			if (objChanged) {
 				changed = true;
 			}
 		} else {
 			// Only in current
-			result.push({ key, value: obj1 });
+			result.push([key, obj1]);
 		}
 	}
 
 	// Process new items from updates (only those not in current)
-	for (const { key, value: obj2 } of updates) {
+	for (const [key, obj2] of updates) {
 		if (!seenKeys.has(key)) {
-			result.push({ key, value: obj2 });
+			result.push([key, obj2]);
 			changed = true; // New object added
 		}
 	}
@@ -177,12 +177,12 @@ export function mergeArray(
 }
 
 export const encodeMany = <TValue extends object>(
-	data: ArrayKV<TValue>,
+	data: [string, TValue][],
 	eventstampFn: EventstampFn,
-): ArrayKV<EncodedObject> =>
-	data.map(({ key, value }) => ({ key, value: encode(value, eventstampFn()) }));
+): [string, EncodedObject][] =>
+	data.map(([key, value]) => [key, encode(value, eventstampFn())]);
 
 export const decodeMany = <TValue extends object>(
-	data: ArrayKV<EncodedObject>,
-): ArrayKV<TValue> =>
-	data.map(({ key, value }) => ({ key, value: decode<TValue>(value) }));
+	data: [string, EncodedObject][],
+): [string, TValue][] =>
+	data.map(([key, value]) => [key, decode<TValue>(value)]);

@@ -9,14 +9,8 @@ test("put() adds a new item and emits put event", () => {
 
 	store.put("user1", { name: "Alice" });
 
-	expect(putHandler).toHaveBeenCalledWith([
-		{
-			key: "user1",
-			value: {
-				name: "Alice",
-			},
-		},
-	]);
+	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({ name: "Alice" });
 	expect(putHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -30,7 +24,8 @@ test("put() replaces existing item and emits put event", () => {
 	store.put("user1", { name: "Bob" });
 
 	expect(putHandler).toHaveBeenCalledTimes(2);
-	expect(store.values()).toEqual([{ key: "user1", value: { name: "Bob" } }]);
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([["user1", { name: "Bob" }]]);
 });
 
 test("putMany() adds multiple items and emits put event", () => {
@@ -44,10 +39,9 @@ test("putMany() adds multiple items and emits put event", () => {
 		{ key: "user2", value: { name: "Bob" } },
 	]);
 
-	expect(putHandler).toHaveBeenCalledWith([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
-	]);
+	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({ name: "Alice" });
+	expect(eventData.get("user2")).toEqual({ name: "Bob" });
 	expect(putHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -65,9 +59,10 @@ test("putMany() replaces existing items and emits put event", () => {
 	]);
 
 	expect(putHandler).toHaveBeenCalledTimes(1);
-	expect(store.values()).toEqual([
-		{ key: "user1", value: { name: "Updated" } },
-		{ key: "user2", value: { name: "Bob" } },
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([
+		["user1", { name: "Updated" }],
+		["user2", { name: "Bob" }],
 	]);
 });
 
@@ -81,15 +76,11 @@ test("update() modifies existing item and emits update event", () => {
 
 	store.update("user1", { age: 30 });
 
-	expect(updateHandler).toHaveBeenCalledWith([
-		{
-			key: "user1",
-			value: {
-				name: "Alice",
-				age: 30,
-			},
-		},
-	]);
+	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({
+		name: "Alice",
+		age: 30,
+	});
 	expect(updateHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -103,7 +94,7 @@ test("update() is a graceful no-op when key does not exist", () => {
 	store.update("nonexistent", { name: "Alice" });
 
 	expect(updateHandler).toHaveBeenCalledTimes(0);
-	expect(store.values()).toEqual([]);
+	expect(store.values().size).toBe(0);
 });
 
 test("updateMany() modifies multiple items and emits update event", () => {
@@ -122,10 +113,9 @@ test("updateMany() modifies multiple items and emits update event", () => {
 		{ key: "user2", value: { age: 25 } },
 	]);
 
-	expect(updateHandler).toHaveBeenCalledWith([
-		{ key: "user1", value: { name: "Alice", age: 30 } },
-		{ key: "user2", value: { name: "Bob", age: 25 } },
-	]);
+	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({ name: "Alice", age: 30 });
+	expect(eventData.get("user2")).toEqual({ name: "Bob", age: 25 });
 	expect(updateHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -144,8 +134,9 @@ test("updateMany() gracefully skips nonexistent keys", () => {
 	]);
 
 	expect(updateHandler).toHaveBeenCalledTimes(1);
-	expect(store.values()).toEqual([
-		{ key: "user1", value: { name: "Updated" } },
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([
+		["user1", { name: "Updated" }],
 	]);
 });
 
@@ -222,7 +213,7 @@ test("values() returns decoded non-deleted items", () => {
 
 	const values = store.values();
 
-	expect(values).toEqual([{ key: "user1", value: { name: "Alice" } }]);
+	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
 });
 
 test("values() excludes deleted items", () => {
@@ -238,7 +229,7 @@ test("values() excludes deleted items", () => {
 
 	const values = store.values();
 
-	expect(values.map((v) => v.key)).toEqual(["user1", "user3"]);
+	expect(Array.from(values.keys())).toEqual(["user1", "user3"]);
 });
 
 test("snapshot() returns raw encoded state including deleted items", () => {
@@ -249,11 +240,10 @@ test("snapshot() returns raw encoded state including deleted items", () => {
 	store.delete("user2");
 
 	const snapshot = store.snapshot();
-	const snapshotMap = new Map(snapshot.map((item) => [item.key, item.value]));
 
-	expect(snapshotMap.has("user1")).toBe(true);
-	expect(snapshotMap.has("user2")).toBe(true);
-	expect(snapshotMap.get("user2")?.__deleted).toBeDefined();
+	expect(snapshot.has("user1")).toBe(true);
+	expect(snapshot.has("user2")).toBe(true);
+	expect(snapshot.get("user2")?.__deleted).toBeDefined();
 });
 
 test("on() returns unsubscribe function that stops callbacks", () => {
@@ -332,8 +322,9 @@ test("merge preserves eventstamps and handles deep updates", () => {
 	store.update("user1", { profile: { bio: "Updated" } });
 
 	const values = store.values();
+	const user1 = values.get("user1");
 
-	expect(values[0]?.value).toEqual({
+	expect(user1).toEqual({
 		name: "Alice",
 		profile: { bio: "Updated" },
 	});
@@ -350,7 +341,7 @@ test("store operations are synchronous", () => {
 
 	// Should complete in less than 100ms for 1000 puts
 	expect(duration).toBeLessThan(100);
-	expect(store.values()).toHaveLength(1000);
+	expect(store.values().size).toBe(1000);
 });
 
 test("merge() adds new items and emits put event", () => {
@@ -373,9 +364,8 @@ test("merge() adds new items and emits put event", () => {
 
 	store.merge(snapshot);
 
-	expect(putHandler).toHaveBeenCalledWith([
-		{ key: "user1", value: { name: "Alice" } },
-	]);
+	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({ name: "Alice" });
 	expect(putHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -403,9 +393,8 @@ test("merge() updates existing items and emits update event", () => {
 
 	store.merge(snapshot);
 
-	expect(updateHandler).toHaveBeenCalledWith([
-		{ key: "user1", value: { name: "Bob" } },
-	]);
+	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(eventData.get("user1")).toEqual({ name: "Bob" });
 	expect(updateHandler).toHaveBeenCalledTimes(1);
 });
 
@@ -439,7 +428,7 @@ test("merge() deletes items when __deleted is introduced and emits delete event"
 
 	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
 	expect(deleteHandler).toHaveBeenCalledTimes(1);
-	expect(store.values()).toHaveLength(0);
+	expect(store.values().size).toBe(0);
 });
 
 test("merge() handles multiple items with mixed operations", () => {
@@ -493,17 +482,18 @@ test("merge() handles multiple items with mixed operations", () => {
 
 	store.merge(snapshot);
 
-	expect(putHandler).toHaveBeenCalledWith([
-		{ key: "user3", value: { name: "Charlie" } },
-	]);
-	expect(updateHandler).toHaveBeenCalledWith([
-		{ key: "user1", value: { name: "Alice Updated" } },
-	]);
+	const putEventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(putEventData.get("user3")).toEqual({ name: "Charlie" });
+
+	const updateEventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
+	expect(updateEventData.get("user1")).toEqual({ name: "Alice Updated" });
+
 	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user2" }]);
 
-	expect(store.values()).toEqual([
-		{ key: "user1", value: { name: "Alice Updated" } },
-		{ key: "user3", value: { name: "Charlie" } },
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([
+		["user1", { name: "Alice Updated" }],
+		["user3", { name: "Charlie" }],
 	]);
 });
 
@@ -533,7 +523,8 @@ test("merge() ignores items with older eventstamps", () => {
 
 	// Should not emit update because incoming value is older
 	expect(updateHandler).toHaveBeenCalledTimes(0);
-	expect(store.values()).toEqual([{ key: "user1", value: { name: "Alice" } }]);
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
 });
 
 test("merge() handles empty snapshot gracefully", () => {
@@ -554,5 +545,6 @@ test("merge() handles empty snapshot gracefully", () => {
 	expect(putHandler).toHaveBeenCalledTimes(0);
 	expect(updateHandler).toHaveBeenCalledTimes(0);
 	expect(deleteHandler).toHaveBeenCalledTimes(0);
-	expect(store.values()).toEqual([{ key: "user1", value: { name: "Alice" } }]);
+	const values = store.values();
+	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
 });

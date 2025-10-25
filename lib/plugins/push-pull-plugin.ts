@@ -33,8 +33,13 @@ const pushPullPlugin = <TValue extends object>(
 			store.merge(processed);
 		}
 
-		async function pushData(data: ArrayKV<EncodedObject>) {
-			const processed = preprocess ? await preprocess("push", data) : data;
+		async function pushData(data: Map<string, EncodedObject>) {
+			// Convert Map to ArrayKV for push callback
+			const arrayData: ArrayKV<EncodedObject> = Array.from(data.entries()).map(([key, value]) => ({
+				key,
+				value,
+			}));
+			const processed = preprocess ? await preprocess("push", arrayData) : arrayData;
 			await push(processed);
 		}
 
@@ -43,7 +48,7 @@ const pushPullPlugin = <TValue extends object>(
 				unwatch = store.on("change", async () => {
 					const latest = store.snapshot();
 
-					if (latest.length > 0) {
+					if (latest.size > 0) {
 						await pushData(latest);
 					}
 				});

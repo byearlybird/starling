@@ -12,7 +12,7 @@ test("init calls pull and sets up interval", async () => {
 
 	const mockStore = {
 		merge: mock(() => {}),
-		snapshot: mock(() => []),
+		snapshot: mock(() => new Map()),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -39,7 +39,7 @@ test("push-on-change does NOT push when store state is empty", async () => {
 
 	const mockStore = {
 		merge: mock(() => {}),
-		snapshot: mock(() => []),
+		snapshot: mock(() => new Map()),
 		on: mock((event, callback) => {
 			if (event === "change") {
 				// Simulate store change event
@@ -70,7 +70,7 @@ test("dispose clears the interval", async () => {
 
 	const mockStore = {
 		merge: mock(() => {}),
-		snapshot: mock(() => []),
+		snapshot: mock(() => new Map()),
 		on: mock(() => () => {}),
 	} as unknown as Store<any>;
 
@@ -101,9 +101,12 @@ test("push-on-change pushes non-empty state when store changes", async () => {
 
 	let changeCallback: ((data: any) => Promise<void>) | null = null;
 
+	// Create a Map from the mock data
+	const snapshotMap = new Map([["key1", { foo: "bar" }]]);
+
 	const mockStore = {
 		merge: mock(() => {}),
-		snapshot: mock(() => mockDataArray),
+		snapshot: mock(() => snapshotMap),
 		on: mock((event, callback) => {
 			if (event === "change") {
 				changeCallback = callback;
@@ -127,6 +130,7 @@ test("push-on-change pushes non-empty state when store changes", async () => {
 		await changeCallback(undefined);
 	}
 
+	// Push should be called with the converted ArrayKV format
 	expect(push).toHaveBeenCalledWith(mockDataArray);
 
 	await handle.dispose();

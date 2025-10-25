@@ -12,7 +12,15 @@ const unstoragePlugin = <T extends object>(
 		init: async () => {
 			storage = prefixStorage(baseStorage, store.collectionKey);
 			unwatch = store.on("change", async () => {
-				await storage?.set(store.collectionKey, store.snapshot());
+				const snapshot = store.snapshot();
+				// Convert Map to ArrayKV for storage
+				const arrayData: ArrayKV<EncodedObject> = Array.from(
+					snapshot.entries(),
+				).map(([key, value]) => ({
+					key,
+					value,
+				}));
+				await storage?.set(store.collectionKey, arrayData);
 			});
 
 			const persisted = await storage?.get<ArrayKV<EncodedObject>>(

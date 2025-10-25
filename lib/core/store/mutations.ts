@@ -1,5 +1,5 @@
 import { decode, encode, encodeMany, merge } from "@core/crdt/operations";
-import type { ArrayKV, EncodedObject, StoreEvents } from "@core/shared/types";
+import type { EncodedObject, StoreEvents } from "@core/shared/types";
 import { mergeItems } from "@core/shared/utils";
 import type { Emitter } from "mitt";
 
@@ -8,12 +8,14 @@ const createPutMany = <TValue extends object>(
 	clock: { now: () => string },
 	emitter: Emitter<StoreEvents<TValue>>,
 ) => {
-	return (data: ArrayKV<TValue>) => {
-		encodeMany(data, () => clock.now()).forEach(({ key, value }) => {
+	return (data: [string, TValue][]) => {
+		const eventData = new Map<string, TValue>();
+		encodeMany(data, () => clock.now()).forEach(([key, value]) => {
 			map.set(key, value);
+			eventData.set(key, decode<TValue>(value));
 		});
 
-		emitter.emit("put", data);
+		emitter.emit("put", eventData);
 	};
 };
 
@@ -29,7 +31,7 @@ const createUpdateMany = <TValue extends object>(
 		if (validData.length === 0) return;
 
 		// Single-pass merge: encode, merge, and collect changed items
-		const updateEvents: ArrayKV<TValue> = [];
+		const updateEvents = new Map<string, TValue>();
 		let anyChanged = false;
 
 		for (const { key, value } of validData) {
@@ -42,7 +44,7 @@ const createUpdateMany = <TValue extends object>(
 
 			if (itemChanged) {
 				map.set(key, mergedValue);
-				updateEvents.push({ key, value: decode<TValue>(mergedValue) });
+				updateEvents.set(key, decode<TValue>(mergedValue));
 				anyChanged = true;
 			}
 		}
@@ -90,8 +92,8 @@ const createMerge = <TValue extends object>(
 		snapshot: ArrayKV<EncodedObject>,
 		opts: { silent: boolean } = { silent: false },
 	) => {
-		const putEvents: ArrayKV<TValue> = [];
-		const updateEvents: ArrayKV<TValue> = [];
+		const putEvents = new Map<string, TValue>();
+		const updateEvents = new Map<string, TValue>();
 		const deleteEvents: { key: string }[] = [];
 
 		// Process new and updated items from snapshot - iterate directly without intermediate map
@@ -100,7 +102,7 @@ const createMerge = <TValue extends object>(
 
 			if (!currentValue) {
 				// New item - emit put event
-				putEvents.push({ key, value: decode<TValue>(snapshotValue) });
+				putEvents.set(key, decode<TValue>(snapshotValue));
 				map.set(key, snapshotValue);
 			} else {
 				// Existing item - merge and check for changes
@@ -117,7 +119,7 @@ const createMerge = <TValue extends object>(
 					} else {
 						// Item was updated - emit update event
 						map.set(key, mergedValue);
-						updateEvents.push({ key, value: decode<TValue>(mergedValue) });
+						updateEvents.set(key, decode<TValue>(mergedValue));
 					}
 				}
 			}
@@ -126,10 +128,10 @@ const createMerge = <TValue extends object>(
 		// Emit events if not silent
 		if (opts.silent) return;
 
-		if (putEvents.length > 0) {
+		if (putEvents.size > 0) {
 			emitter.emit("put", putEvents);
 		}
-		if (updateEvents.length > 0) {
+		if (updateEvents.size > 0) {
 			emitter.emit("update", updateEvents);
 		}
 		if (deleteEvents.length > 0) {

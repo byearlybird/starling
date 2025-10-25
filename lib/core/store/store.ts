@@ -6,7 +6,6 @@ import type {
 	EncodedObject,
 	StoreEvents,
 } from "@core/shared/types";
-import { mapToArray } from "@core/shared/utils";
 import mitt from "mitt";
 import {
 	createDeleteMany,
@@ -33,13 +32,13 @@ type Store<T extends object> = {
 	put: (key: string, value: T) => void;
 	update: (key: string, value: DeepPartial<T>) => void;
 	delete: (key: string) => void;
-	values: () => ArrayKV<T>;
+	values: () => Map<string, T>;
 	query: (predicate: (data: T) => boolean) => {
 		results: () => Map<string, T>;
 		onChange: (callback: () => void) => () => void;
 		dispose: () => void;
 	};
-	snapshot: () => ArrayKV<EncodedObject>;
+	snapshot: () => Map<string, EncodedObject>;
 	on: <K extends keyof StoreEvents<T>>(
 		event: K,
 		callback: (data: StoreEvents<T>[K]) => void,
@@ -75,9 +74,9 @@ const createStore = <T extends object>(collectionKey: string): Store<T> => {
 		const dirtyQueries = new Set<QueryInternal<T>>();
 
 		for (const query of $queries) {
-			for (const item of data) {
-				if (query.predicate(item.value)) {
-					query.results.set(item.key, item.value);
+			for (const [key, value] of data) {
+				if (query.predicate(value)) {
+					query.results.set(key, value);
 					dirtyQueries.add(query);
 				}
 			}
@@ -105,15 +104,15 @@ const createStore = <T extends object>(collectionKey: string): Store<T> => {
 		const dirtyQueries = new Set<QueryInternal<T>>();
 
 		for (const query of $queries) {
-			for (const item of data) {
-				const matches = query.predicate(item.value);
-				const inResults = query.results.has(item.key);
+			for (const [key, value] of data) {
+				const matches = query.predicate(value);
+				const inResults = query.results.has(key);
 
 				if (matches) {
-					query.results.set(item.key, item.value);
+					query.results.set(key, value);
 					dirtyQueries.add(query);
 				} else if (inResults) {
-					query.results.delete(item.key);
+					query.results.delete(key);
 					dirtyQueries.add(query);
 				}
 			}
@@ -143,18 +142,22 @@ const createStore = <T extends object>(collectionKey: string): Store<T> => {
 		delete(key: string) {
 			this.deleteMany([key]);
 		},
-		values(): ArrayKV<T> {
-			const result: ArrayKV<T> = [];
+		values(): Map<string, T> {
+			const result = new Map<string, T>();
 			for (const [key, value] of $map) {
 				if (!value.__deleted) {
-					result.push({ key, value: decode(value) });
+					result.set(key, decode(value));
 				}
 			}
 			return result;
 		},
 		query,
-		snapshot(): ArrayKV<EncodedObject> {
-			return mapToArray($map);
+		snapshot(): Map<string, EncodedObject> {
+			const result = new Map<string, EncodedObject>();
+			for (const [key, value] of $map) {
+				result.set(key, value);
+			}
+			return result;
 		},
 		on<K extends keyof StoreEvents<T>>(
 			event: K,

@@ -14,11 +14,10 @@ export type DeepPartial<T> = T extends object
 
 export type EventstampFn = () => string;
 
-export type ArrayKV<T> = { key: string; value: T }[];
 
 export type StoreEvents<TValue> = {
-	put: ArrayKV<TValue>;
-	update: ArrayKV<TValue>;
+	put: Map<string, TValue>;
+	update: Map<string, TValue>;
 	delete: { key: string }[];
 	change: undefined;
 };
