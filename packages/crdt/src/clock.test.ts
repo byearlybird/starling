@@ -50,7 +50,9 @@ test("counter increments when called multiple times in same millisecond", () => 
 
 	// Counters should be sequential hex values
 	for (let i = 0; i < counters.length - 1; i++) {
+		// biome-ignore lint/style/noNonNullAssertion: <test>
 		const current = parseInt(counters[i]!, 16);
+		// biome-ignore lint/style/noNonNullAssertion: <test>
 		const next = parseInt(counters[i + 1]!, 16);
 		expect(next).toBe(current + 1);
 	}
