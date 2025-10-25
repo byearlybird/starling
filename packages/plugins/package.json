@@ -12,7 +12,8 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5",
-		"unstorage": "^1.17.1"
+		"unstorage": "^1.17.1",
+		"@byearlybird/starling": "workspace:*"
 	},
 	"peerDependenciesMeta": {
 		"typescript": {
@@ -21,9 +22,6 @@
 		"unstorage": {
 			"optional": true
 		}
-	},
-	"dependencies": {
-		"@byearlybird/starling": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <testing purposes> */
 import { expect, mock, test } from "bun:test";
 import type { Store } from "@byearlybird/starling";
-import { pushPullPlugin } from "./push-pull-plugin";
+import { pushPullPlugin } from "../push-pull";
 
 test("init calls pull and sets up interval", async () => {
 	const mockDataArray = [["key1", { foo: "bar" }] as any];
