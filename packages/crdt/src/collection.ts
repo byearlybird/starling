@@ -48,6 +48,9 @@ const from = (docs: EncodedDocument[]): Collection => {
 	return final;
 };
 
+/**
+ * @deprecated i don't think i need this actually
+ */
 const insertFrom = <T extends Record<string, unknown>>(
 	collection: Collection,
 	id: string,
@@ -59,6 +62,9 @@ const insertFrom = <T extends Record<string, unknown>>(
 	return insert(collection, doc);
 };
 
+/**
+ * @deprecated i don't think i need this actually
+ */
 const updateFrom = <T extends Record<string, unknown>>(
 	collection: Collection,
 	id: string,
