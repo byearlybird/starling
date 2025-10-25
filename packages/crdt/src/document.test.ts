@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { decode, del, encode, merge } from "./doc";
+import { decode, del, encode, merge } from "./document";
 
 test("encode creates EncodedDocument with null __deletedAt", () => {
 	const result = encode(

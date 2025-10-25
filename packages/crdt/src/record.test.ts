@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { decode, encode, merge } from "./obj.ts";
+import { decode, encode, merge } from "./record.ts";
 
 test("encode wraps all leaf values with eventstamp", () => {
 	const obj = { name: "Alice", age: 30 };

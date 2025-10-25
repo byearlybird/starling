@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { decode, encode, isEncoded, merge } from "./val.ts";
+import { decode, encode, isEncoded, merge } from "./value.ts";
 
 test("encode creates an EncodedValue with value and eventstamp", () => {
 	const value = { text: "hello" };

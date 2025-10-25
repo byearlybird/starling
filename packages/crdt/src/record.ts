@@ -1,7 +1,7 @@
-import * as $value from "./val";
+import * as $value from "./value";
 
-export type EncodedObject = {
-	[key: string]: $value.EncodedValue<unknown> | EncodedObject;
+export type EncodedRecord = {
+	[key: string]: $value.EncodedValue<unknown> | EncodedRecord;
 };
 
 const isObject = (value: unknown): boolean =>
@@ -16,9 +16,9 @@ const encode = <T extends Record<string, unknown>>(
 	obj: T,
 	eventstamp: string,
 ) => {
-	const result: EncodedObject = {};
+	const result: EncodedRecord = {};
 
-	const step = (target: T, output: EncodedObject) => {
+	const step = (target: T, output: EncodedRecord) => {
 		for (const key in target) {
 			if (!Object.hasOwn(target, key)) continue;
 
@@ -26,8 +26,8 @@ const encode = <T extends Record<string, unknown>>(
 
 			if (isObject(value)) {
 				// Recurse into nested object
-				output[key] = {} as EncodedObject;
-				step(value as T, output[key] as EncodedObject);
+				output[key] = {} as EncodedRecord;
+				step(value as T, output[key] as EncodedRecord);
 			} else {
 				// Leaf value - wrap with eventstamp
 				output[key] = $value.encode(value, eventstamp);
@@ -40,10 +40,10 @@ const encode = <T extends Record<string, unknown>>(
 	return result;
 };
 
-const decode = <T extends Record<string, unknown>>(obj: EncodedObject): T => {
+const decode = <T extends Record<string, unknown>>(obj: EncodedRecord): T => {
 	const result: Record<string, unknown> = {};
 
-	const step = (source: EncodedObject, output: Record<string, unknown>) => {
+	const step = (source: EncodedRecord, output: Record<string, unknown>) => {
 		for (const key in source) {
 			if (!Object.hasOwn(source, key)) continue;
 			const value = source[key];
@@ -53,7 +53,7 @@ const decode = <T extends Record<string, unknown>>(obj: EncodedObject): T => {
 			} else if (isObject(value)) {
 				// This is a nested EncodedObject - recurse
 				output[key] = {};
-				step(value as EncodedObject, output[key] as Record<string, unknown>);
+				step(value as EncodedRecord, output[key] as Record<string, unknown>);
 			}
 		}
 	};
@@ -62,13 +62,13 @@ const decode = <T extends Record<string, unknown>>(obj: EncodedObject): T => {
 	return result as T;
 };
 
-const merge = (into: EncodedObject, from: EncodedObject): EncodedObject => {
-	const result: EncodedObject = {};
+const merge = (into: EncodedRecord, from: EncodedRecord): EncodedRecord => {
+	const result: EncodedRecord = {};
 
 	const step = (
-		v1: EncodedObject,
-		v2: EncodedObject,
-		output: EncodedObject,
+		v1: EncodedRecord,
+		v2: EncodedRecord,
+		output: EncodedRecord,
 	) => {
 		// Process all keys from v1
 		for (const key in v1) {
@@ -89,9 +89,9 @@ const merge = (into: EncodedObject, from: EncodedObject): EncodedObject => {
 				// Both are nested objects - recurse
 				output[key] = {};
 				step(
-					value1 as EncodedObject,
-					value2 as EncodedObject,
-					output[key] as EncodedObject,
+					value1 as EncodedRecord,
+					value2 as EncodedRecord,
+					output[key] as EncodedRecord,
 				);
 			} else if (value1) {
 				// Use v1's value
