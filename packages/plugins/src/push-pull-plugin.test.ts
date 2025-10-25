@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <testing purposes> */
 import { expect, mock, test } from "bun:test";
-import type { Store } from "@core/store/store";
+import type { Store } from "@byearlybird/starling";
 import { pushPullPlugin } from "./push-pull-plugin";
 
 test("init calls pull and sets up interval", async () => {

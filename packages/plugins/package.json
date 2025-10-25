@@ -1,0 +1,33 @@
+{
+	"name": "@byearlybird/starling-plugins",
+	"version": "0.1.2",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsdown"
+	},
+	"peerDependencies": {
+		"typescript": "^5",
+		"unstorage": "^1.17.1"
+	},
+	"peerDependenciesMeta": {
+		"typescript": {
+			"optional": true
+		},
+		"unstorage": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5",
+		"unstorage": "^1.17.1"
+	}
+}

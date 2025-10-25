@@ -15,13 +15,13 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 
 ```bash
 # npm
-npm install @byearlybird/starling unstorage
+npm install @byearlybird/starling @byearlybird/starling-plugins unstorage
 
 # bun
-bun add @byearlybird/starling unstorage
+bun add @byearlybird/starling @byearlybird/starling-plugins unstorage
 
 # yarn
-yarn add @byearlybird/starling unstorage
+yarn add @byearlybird/starling @byearlybird/starling-plugins unstorage
 ```
 
 ## Quick Start
@@ -163,7 +163,7 @@ query.dispose();
 Starling provides an HTTP synchronizer for bidirectional client-server sync.
 
 ```typescript
-import { createHttpSynchronizer } from "@byearlybird/starling/sync";
+import { pushPullPlugin } from "@byearlybird/starling-plugins";
 
 const sync = createHttpSynchronizer(todoStore, {
   pullInterval: 5000, // Pull from server every 5 seconds
@@ -249,10 +249,10 @@ When merging states, Starling compares eventstamps at the field level:
 
 ## Package Exports
 
-Starling provides multiple entry points for different use cases:
+Starling is organized as a monorepo with two packages:
 
-- `@byearlybird/starling` - Core library (stores, queries, operations)
-- `@byearlybird/starling/sync` - HTTP synchronizer
+- `@byearlybird/starling` - Core library (stores, queries, CRDT operations)
+- `@byearlybird/starling-plugins` - Optional sync and persistence plugins
 
 ## Development
 
@@ -265,7 +265,7 @@ bun test
 bun test --watch
 
 # Specific test file
-bun test lib/core/store.test.ts
+bun test packages/core/src/store/store.test.ts
 ```
 
 ### Linting and Formatting

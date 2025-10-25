@@ -2,36 +2,15 @@
 	"name": "@byearlybird/starling",
 	"version": "0.1.2",
 	"type": "module",
-	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"exports": {
-		"./core": {
-			"types": "./dist/core/index.d.ts",
-			"import": "./dist/core/index.js"
-		},
-		"./plugins": {
-			"types": "./dist/plugins/index.d.ts",
-			"import": "./dist/plugins/index.js"
-		}
-	},
-	"files": [
-		"dist"
+	"private": true,
+	"workspaces": [
+		"packages/*"
 	],
 	"scripts": {
-		"build": "tsdown",
+		"build": "bun run build:core && bun run build:plugins",
+		"build:core": "cd packages/core && bunx tsdown",
+		"build:plugins": "cd packages/plugins && bunx tsdown",
 		"prepublishOnly": "bun run build"
-	},
-	"peerDependencies": {
-		"typescript": "^5",
-		"unstorage": "^1.17.1"
-	},
-	"peerDependenciesMeta": {
-		"typescript": {
-			"optional": true
-		}
-	},
-	"dependencies": {
-		"mitt": "^3.0.1"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
@@ -39,7 +18,6 @@
 		"mitata": "^1.0.34",
 		"tinybench": "^5.0.1",
 		"tsdown": "^0.15.9",
-		"typescript": "^5",
-		"unstorage": "^1.17.1"
+		"typescript": "^5"
 	}
 }

@@ -11,18 +11,21 @@ Starling is a reactive, framework-agnostic data synchronization library with CRD
 
 ## Project Structure and Architecture
 
-Starling uses a **two-layer architecture**:
+Starling is a **monorepo** organized with two packages:
 
-1. **Core Layer** (`lib/core/`) - Framework-agnostic data management
-   - `store.ts` - Main store with CRDT-like merge semantics
-   - `query.ts` - Reactive, filtered views of store data
-   - `clock.ts` - Monotonic timestamp generation (ISO + hex counter)
-   - `operations.ts` - Encode/decode/merge operations with conflict resolution
-   - `types.ts` - Shared type definitions (EncodedObject, EncodedValue, etc.)
+1. **Core Package** (`packages/core/`) - Framework-agnostic data management
+   - `src/store/store.ts` - Main store with CRDT-like merge semantics
+   - `src/store/query.ts` - Reactive, filtered views of store data
+   - `src/crdt/clock.ts` - Monotonic timestamp generation (ISO + hex counter)
+   - `src/crdt/operations.ts` - Encode/decode/merge operations with conflict resolution
+   - `src/shared/types.ts` - Shared type definitions (EncodedObject, EncodedValue, etc.)
+   - Exports: `@byearlybird/starling`
 
-2. **Plugins Layer** (`lib/plugins/`)
-   - `push-pull-plugin.ts` - Bidirectional sync with pull-interval and push-on-change semantics
-   - `unstorage-plugin.ts` - Persistence abstraction via `unstorage` (localStorage, filesystem, Redis, etc.)
+2. **Plugins Package** (`packages/plugins/`) - Optional synchronization & persistence features
+   - `src/push-pull-plugin.ts` - Bidirectional sync with pull-interval and push-on-change semantics
+   - `src/unstorage-plugin.ts` - Persistence abstraction via `unstorage` (localStorage, filesystem, Redis, etc.)
+   - Exports: `@byearlybird/starling-plugins`
+   - Depends on: `@byearlybird/starling`
 
 ## Key Architecture Concepts
 
@@ -84,7 +87,8 @@ await store.dispose(); // Cleanup all plugins
 bun test
 
 # Run specific test file
-bun test lib/core/store.test.ts
+bun test packages/core/src/store/store.test.ts
+bun test packages/plugins/src/push-pull-plugin.test.ts
 
 # Run tests matching pattern
 bun test --test-name-pattern "merge"
@@ -93,8 +97,8 @@ bun test --test-name-pattern "merge"
 bun test --watch
 
 # Run benchmarks
-bun lib/core/store/store.bench.ts
-bun lib/core/crdt/operations.bench.ts
+bun packages/core/src/store/store.bench.ts
+bun packages/core/src/crdt/operations.bench.ts
 ```
 
 ### Linting & Formatting
@@ -111,11 +115,15 @@ bun biome lint .
 
 ### Building & Publishing
 ```bash
-# Build JavaScript bundles + TypeScript declarations
+# Build both packages
 bun run build
+
+# Build specific package
+bun run build:core
+bun run build:plugins
 ```
 
-Note: `tsdown` handles bundling all entry points (`lib/core/`, `lib/plugins/`) and generating TypeScript declarations automatically. The build output is written to `dist/`.
+Note: `tsdown` handles bundling each package's entry point and generating TypeScript declarations automatically. The build output for each package is written to its local `dist/` directory (e.g., `packages/core/dist/`, `packages/plugins/dist/`).
 
 
 ## Code Style
@@ -149,7 +157,8 @@ const users = store.values(); // Map<string, T>
 
 ### Setting Up Bidirectional Synchronization
 ```typescript
-import { pushPullPlugin } from "@byearlybird/starling/plugins";
+import { createStore } from "@byearlybird/starling";
+import { pushPullPlugin } from "@byearlybird/starling-plugins";
 
 // Create and initialize store with sync plugin
 const store = createStore<{ text: string; completed: boolean }>("todos")
@@ -208,12 +217,18 @@ store.on("change", () => {
 unsubscribe();
 ```
 
-## Package Exports
+## Monorepo Packages
 
-The package provides multiple entry points for tree-shaking and bundling efficiency:
+This is a monorepo with two independent packages:
 
-- `@byearlybird/starling` (or `@byearlybird/starling/core`) - Core store, query, and CRDT operations
-- `@byearlybird/starling/plugins` - Sync and persistence plugins (`pushPullPlugin`, `unstoragePlugin`)
+- **`@byearlybird/starling`** - Core store, query, and CRDT operations (in `packages/core/`)
+  - Exports: `createStore`, `encode`, `decode`, `merge`, and type definitions
+  - No external dependencies (only `mitt` for event handling)
+
+- **`@byearlybird/starling-plugins`** - Sync and persistence plugins (in `packages/plugins/`)
+  - Exports: `pushPullPlugin`, `unstoragePlugin`
+  - Depends on: `@byearlybird/starling`
+  - Optional peer dependency: `unstorage` (for persistence)
 
 ## Dependencies
 

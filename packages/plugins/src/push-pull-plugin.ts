@@ -1,5 +1,5 @@
-import type { EncodedObject } from "@core/shared/types";
-import type { Plugin } from "@core/store/store";
+import type { EncodedObject } from "@byearlybird/starling";
+import type { Plugin } from "@byearlybird/starling";
 
 type PushPullConfig = {
 	push: (data: [string, EncodedObject][]) => Promise<void>;
