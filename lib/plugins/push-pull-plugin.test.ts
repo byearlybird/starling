@@ -1,11 +1,10 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <testing purposes> */
 import { expect, mock, test } from "bun:test";
-import type { ArrayKV } from "@core/shared/types";
 import type { Store } from "@core/store/store";
 import { pushPullPlugin } from "./push-pull-plugin";
 
 test("init calls pull and sets up interval", async () => {
-	const mockDataArray = [{ key: "key1", value: { foo: "bar" } as any }];
+	const mockDataArray = [["key1", { foo: "bar" }] as any];
 
 	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
@@ -32,7 +31,7 @@ test("init calls pull and sets up interval", async () => {
 });
 
 test("push-on-change does NOT push when store state is empty", async () => {
-	const mockDataArray: ArrayKV<any> = [];
+	const mockDataArray: [string, any][] = [];
 
 	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
@@ -65,7 +64,7 @@ test("push-on-change does NOT push when store state is empty", async () => {
 });
 
 test("dispose clears the interval", async () => {
-	const pull = mock(() => Promise.resolve([] as ArrayKV<any>));
+	const pull = mock(() => Promise.resolve([] as [string, any][]));
 	const push = mock(() => Promise.resolve());
 
 	const mockStore = {
@@ -94,7 +93,7 @@ test("dispose clears the interval", async () => {
 });
 
 test("push-on-change pushes non-empty state when store changes", async () => {
-	const mockDataArray = [{ key: "key1", value: { foo: "bar" } as any }];
+	const mockDataArray = [["key1", { foo: "bar" }] as any];
 
 	const pull = mock(() => Promise.resolve(mockDataArray));
 	const push = mock(() => Promise.resolve());
@@ -130,7 +129,6 @@ test("push-on-change pushes non-empty state when store changes", async () => {
 		await changeCallback(undefined);
 	}
 
-	// Push should be called with the converted ArrayKV format
 	expect(push).toHaveBeenCalledWith(mockDataArray);
 
 	await handle.dispose();

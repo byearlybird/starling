@@ -1,14 +1,14 @@
-import type { ArrayKV, EncodedObject } from "@core/shared/types";
+import type { EncodedObject } from "@core/shared/types";
 import type { Plugin } from "@core/store/store";
 
 type PushPullConfig = {
-	push: (data: ArrayKV<EncodedObject>) => Promise<void>;
-	pull: () => Promise<ArrayKV<EncodedObject>>;
+	push: (data: [string, EncodedObject][]) => Promise<void>;
+	pull: () => Promise<[string, EncodedObject][]>;
 	pullInterval?: number;
 	preprocess?: (
 		event: "pull" | "push",
-		data: ArrayKV<EncodedObject>,
-	) => Promise<ArrayKV<EncodedObject>>;
+		data: [string, EncodedObject][],
+	) => Promise<[string, EncodedObject][]>;
 	immediate?: boolean;
 };
 
@@ -34,11 +34,8 @@ const pushPullPlugin = <TValue extends object>(
 		}
 
 		async function pushData(data: Map<string, EncodedObject>) {
-			// Convert Map to ArrayKV for push callback
-			const arrayData: ArrayKV<EncodedObject> = Array.from(data.entries()).map(([key, value]) => ({
-				key,
-				value,
-			}));
+			// Convert Map to tuple array for push callback
+			const arrayData = Array.from(data.entries());
 			const processed = preprocess ? await preprocess("push", arrayData) : arrayData;
 			await push(processed);
 		}

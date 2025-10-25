@@ -24,9 +24,9 @@ const createUpdateMany = <TValue extends object>(
 	clock: { now: () => string },
 	emitter: Emitter<StoreEvents<TValue>>,
 ) => {
-	return (data: ArrayKV<Partial<TValue>>) => {
+	return (data: [string, Partial<TValue>][]) => {
 		// Filter to only include keys that exist
-		const validData = data.filter((d) => map.has(d.key));
+		const validData = data.filter(([key]) => map.has(key));
 
 		if (validData.length === 0) return;
 
@@ -34,7 +34,7 @@ const createUpdateMany = <TValue extends object>(
 		const updateEvents = new Map<string, TValue>();
 		let anyChanged = false;
 
-		for (const { key, value } of validData) {
+		for (const [key, value] of validData) {
 			const current = map.get(key);
 			if (!current) continue;
 
@@ -66,7 +66,7 @@ const createDeleteMany = <TValue extends object>(
 		if (validKeys.length === 0) return;
 
 		const deletionMarkers = encodeMany(
-			validKeys.map((key) => ({ key, value: { __deleted: true } as TValue })),
+			validKeys.map((key) => [key, { __deleted: true } as TValue]),
 			() => clock.now(),
 		);
 		const merged = mergeItems(map, deletionMarkers);
@@ -75,7 +75,7 @@ const createDeleteMany = <TValue extends object>(
 
 		// Update map and collect delete events in single pass
 		const deleteEvents: { key: string }[] = [];
-		merged.forEach(({ key, value }) => {
+		merged.forEach(([key, value]) => {
 			map.set(key, value);
 			deleteEvents.push({ key });
 		});
@@ -89,7 +89,7 @@ const createMerge = <TValue extends object>(
 	emitter: Emitter<StoreEvents<TValue>>,
 ) => {
 	return (
-		snapshot: ArrayKV<EncodedObject>,
+		snapshot: [string, EncodedObject][],
 		opts: { silent: boolean } = { silent: false },
 	) => {
 		const putEvents = new Map<string, TValue>();
@@ -97,7 +97,7 @@ const createMerge = <TValue extends object>(
 		const deleteEvents: { key: string }[] = [];
 
 		// Process new and updated items from snapshot - iterate directly without intermediate map
-		for (const { key, value: snapshotValue } of snapshot) {
+		for (const [key, snapshotValue] of snapshot) {
 			const currentValue = map.get(key);
 
 			if (!currentValue) {

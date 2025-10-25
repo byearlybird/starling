@@ -1,7 +1,6 @@
 import { createClock } from "@core/crdt/clock";
 import { decode } from "@core/crdt/operations";
 import type {
-	ArrayKV,
 	DeepPartial,
 	EncodedObject,
 	StoreEvents,
@@ -25,10 +24,10 @@ type Plugin<TValue extends object> = (store: Store<TValue>) => PluginHandle;
 
 type Store<T extends object> = {
 	collectionKey: string;
-	putMany: (data: ArrayKV<T>) => void;
-	updateMany: (data: ArrayKV<Partial<T>>) => void;
+	putMany: (data: [string, T][]) => void;
+	updateMany: (data: [string, Partial<T>][]) => void;
 	deleteMany: (keys: string[]) => void;
-	merge: (snapshot: ArrayKV<EncodedObject>, opts?: { silent: boolean }) => void;
+	merge: (snapshot: [string, EncodedObject][], opts?: { silent: boolean }) => void;
 	put: (key: string, value: T) => void;
 	update: (key: string, value: DeepPartial<T>) => void;
 	delete: (key: string) => void;
@@ -134,10 +133,10 @@ const createStore = <T extends object>(collectionKey: string): Store<T> => {
 		deleteMany,
 		merge,
 		put(key: string, value: T) {
-			this.putMany([{ key, value }]);
+			this.putMany([[key, value]]);
 		},
 		update(key: string, value: DeepPartial<T>) {
-			this.updateMany([{ key, value }]);
+			this.updateMany([[key, value]]);
 		},
 		delete(key: string) {
 			this.deleteMany([key]);

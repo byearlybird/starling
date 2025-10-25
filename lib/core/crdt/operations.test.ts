@@ -297,57 +297,57 @@ test("merge returns changed=false when obj2 only has older values", () => {
 });
 
 test("mergeArray combines two arrays with different keys", () => {
-	const current = [
-		{
-			key: "user1",
-			value: {
+	const current: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
-	const updates = [
-		{
-			key: "user2",
-			value: {
+	const updates: [string, EncodedObject][] = [
+		[
+			"user2",
+			{
 				name: {
 					__value: "Bob",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
 
 	const [merged, changed] = mergeArray(current, updates);
 
-	expect(merged).toContainEqual({
-		key: "user1",
-		value: {
+	expect(merged).toContainEqual([
+		"user1",
+		{
 			name: {
 				__value: "Alice",
 				__eventstamp: "2024-01-01T00:00:00Z",
 			},
 		},
-	});
-	expect(merged).toContainEqual({
-		key: "user2",
-		value: {
+	]);
+	expect(merged).toContainEqual([
+		"user2",
+		{
 			name: {
 				__value: "Bob",
 				__eventstamp: "2024-01-01T00:00:00Z",
 			},
 		},
-	});
+	]);
 	expect(changed).toBe(true); // New record added
 });
 
 test("mergeArray merges objects with same key based on eventstamp", () => {
-	const current = [
-		{
-			key: "user1",
-			value: {
+	const current: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2024-01-01T00:00:00Z",
@@ -357,12 +357,12 @@ test("mergeArray merges objects with same key based on eventstamp", () => {
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
-	const updates = [
-		{
-			key: "user1",
-			value: {
+	const updates: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				age: {
 					__value: 30,
 					__eventstamp: "2024-01-02T00:00:00Z",
@@ -372,14 +372,14 @@ test("mergeArray merges objects with same key based on eventstamp", () => {
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
 
 	const [merged, changed] = mergeArray(current, updates);
 
 	expect(merged).toHaveLength(1);
-	expect(merged[0]?.key).toBe("user1");
-	expect(merged[0]?.value).toEqual({
+	expect(merged[0]?.[0]).toBe("user1");
+	expect(merged[0]?.[1]).toEqual({
 		name: {
 			__value: "Alice",
 			__eventstamp: "2024-01-01T00:00:00Z",
@@ -397,82 +397,82 @@ test("mergeArray merges objects with same key based on eventstamp", () => {
 });
 
 test("mergeArray returns changed=false when arrays are identical", () => {
-	const current = [
-		{
-			key: "user1",
-			value: {
+	const current: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
-	const updates = [
-		{
-			key: "user1",
-			value: {
+	const updates: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
 
 	const [merged, changed] = mergeArray(current, updates);
 
 	expect(merged).toHaveLength(1);
-	expect(merged[0]?.key).toBe("user1");
+	expect(merged[0]?.[0]).toBe("user1");
 	expect(changed).toBe(false); // No change
 });
 
 test("mergeArray handles multiple arrays with mixed changes", () => {
-	const current = [
-		{
-			key: "user1",
-			value: {
+	const current: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2024-01-03T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
-		{
-			key: "user2",
-			value: {
+		],
+		[
+			"user2",
+			{
 				name: {
 					__value: "Bob",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
-	const updates = [
-		{
-			key: "user1",
-			value: {
+	const updates: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice Updated",
 					__eventstamp: "2024-01-02T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
-		{
-			key: "user3",
-			value: {
+		],
+		[
+			"user3",
+			{
 				name: {
 					__value: "Charlie",
 					__eventstamp: "2024-01-01T00:00:00Z",
 				},
 			} as EncodedObject,
-		},
+		],
 	];
 
 	const [merged, changed] = mergeArray(current, updates);
 
 	expect(merged).toHaveLength(3);
-	const mergedMap = new Map(merged.map((item) => [item.key, item.value]));
+	const mergedMap = new Map(merged);
 
 	expect(mergedMap.get("user1")?.name?.__value).toBe("Alice"); // Kept newer timestamp
 	expect(mergedMap.get("user2")?.name?.__value).toBe("Bob");

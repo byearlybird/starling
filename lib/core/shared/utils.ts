@@ -1,29 +1,29 @@
 import { merge } from "@core/crdt/operations";
-import type { ArrayKV, EncodedObject } from "@core/shared/types";
+import type { EncodedObject } from "@core/shared/types";
 
-export function mapToArray<TValue>(map: Map<string, TValue>): ArrayKV<TValue> {
-	return Array.from(map.entries()).map(([key, value]) => ({ key, value }));
+export function mapToArray<TValue>(map: Map<string, TValue>): [string, TValue][] {
+	return Array.from(map.entries());
 }
 
 export function arrayToMap<TValue>(
-	array: ArrayKV<TValue>,
+	array: [string, TValue][],
 ): Map<string, TValue> {
-	return new Map(array.map(({ key, value }) => [key, value]));
+	return new Map(array);
 }
 
 export const mergeItems = (
 	map: Map<string, EncodedObject>,
-	items: ArrayKV<EncodedObject>,
-): ArrayKV<EncodedObject> => {
-	const merged: ArrayKV<EncodedObject> = [];
+	items: [string, EncodedObject][],
+): [string, EncodedObject][] => {
+	const merged: [string, EncodedObject][] = [];
 
-	for (const { key, value } of items) {
+	for (const [key, value] of items) {
 		const current = map.get(key);
 		if (!current) continue;
 
 		const [mergedValue, changed] = merge(current, value);
 		if (changed) {
-			merged.push({ key, value: mergedValue });
+			merged.push([key, mergedValue]);
 		}
 	}
 

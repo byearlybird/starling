@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import type { EncodedObject } from "@core/shared/types";
 import { createStore } from "./store";
 
 test("put() adds a new item and emits put event", () => {
@@ -35,8 +36,8 @@ test("putMany() adds multiple items and emits put event", () => {
 	store.on("put", putHandler);
 
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
@@ -54,8 +55,8 @@ test("putMany() replaces existing items and emits put event", () => {
 	store.on("put", putHandler);
 
 	store.putMany([
-		{ key: "user1", value: { name: "Updated" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Updated" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	expect(putHandler).toHaveBeenCalledTimes(1);
@@ -101,16 +102,16 @@ test("updateMany() modifies multiple items and emits update event", () => {
 	const store = createStore<{ name: string; age?: number }>("users");
 
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	const updateHandler = mock();
 	store.on("update", updateHandler);
 
 	store.updateMany([
-		{ key: "user1", value: { age: 30 } },
-		{ key: "user2", value: { age: 25 } },
+		["user1", { age: 30 }],
+		["user2", { age: 25 }],
 	]);
 
 	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
@@ -129,8 +130,8 @@ test("updateMany() gracefully skips nonexistent keys", () => {
 
 	// Should update only user1, silently ignore nonexistent
 	store.updateMany([
-		{ key: "user1", value: { name: "Updated" } },
-		{ key: "nonexistent", value: { name: "Bob" } },
+		["user1", { name: "Updated" }],
+		["nonexistent", { name: "Bob" }],
 	]);
 
 	expect(updateHandler).toHaveBeenCalledTimes(1);
@@ -170,8 +171,8 @@ test("deleteMany() soft-deletes multiple items and emits delete event", () => {
 	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	const deleteHandler = mock();
@@ -205,8 +206,8 @@ test("values() returns decoded non-deleted items", () => {
 	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	store.delete("user2");
@@ -220,9 +221,9 @@ test("values() excludes deleted items", () => {
 	const store = createStore<{ name: string }>("users");
 
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
-		{ key: "user3", value: { name: "Charlie" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
+		["user3", { name: "Charlie" }],
 	]);
 
 	store.deleteMany(["user2"]);
@@ -350,16 +351,16 @@ test("merge() adds new items and emits put event", () => {
 	const putHandler = mock();
 	store.on("put", putHandler);
 
-	const snapshot = [
-		{
-			key: "user1",
-			value: {
+	const snapshot: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
 				},
 			},
-		},
+		],
 	];
 
 	store.merge(snapshot);
@@ -379,16 +380,16 @@ test("merge() updates existing items and emits update event", () => {
 	store.on("update", updateHandler);
 
 	// Merge with newer version
-	const snapshot = [
-		{
-			key: "user1",
-			value: {
+	const snapshot: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Bob",
 					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
-		},
+		],
 	];
 
 	store.merge(snapshot);
@@ -408,10 +409,10 @@ test("merge() deletes items when __deleted is introduced and emits delete event"
 	store.on("delete", deleteHandler);
 
 	// Merge with deletion marker
-	const snapshot = [
-		{
-			key: "user1",
-			value: {
+	const snapshot: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice",
 					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
@@ -421,7 +422,7 @@ test("merge() deletes items when __deleted is introduced and emits delete event"
 					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
-		},
+		],
 	];
 
 	store.merge(snapshot);
@@ -436,8 +437,8 @@ test("merge() handles multiple items with mixed operations", () => {
 
 	// Add initial items
 	store.putMany([
-		{ key: "user1", value: { name: "Alice" } },
-		{ key: "user2", value: { name: "Bob" } },
+		["user1", { name: "Alice" }],
+		["user2", { name: "Bob" }],
 	]);
 
 	const putHandler = mock();
@@ -449,35 +450,35 @@ test("merge() handles multiple items with mixed operations", () => {
 	store.on("delete", deleteHandler);
 
 	// Merge with: new item (user3), updated item (user1), deleted item (user2)
-	const snapshot = [
-		{
-			key: "user1",
-			value: {
+	const snapshot: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Alice Updated",
 					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
-		},
-		{
-			key: "user2",
-			value: {
+		],
+		[
+			"user2",
+			{
 				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001" },
 				__deleted: {
 					__value: true,
 					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
-		},
-		{
-			key: "user3",
-			value: {
+		],
+		[
+			"user3",
+			{
 				name: {
 					__value: "Charlie",
 					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
 				},
 			},
-		},
+		],
 	];
 
 	store.merge(snapshot);
@@ -507,16 +508,16 @@ test("merge() ignores items with older eventstamps", () => {
 	store.on("update", updateHandler);
 
 	// Try to merge with older version
-	const snapshot = [
-		{
-			key: "user1",
-			value: {
+	const snapshot: [string, EncodedObject][] = [
+		[
+			"user1",
+			{
 				name: {
 					__value: "Older",
 					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
 				},
 			},
-		},
+		],
 	];
 
 	store.merge(snapshot);

@@ -25,13 +25,9 @@ Starling uses a **three-layer architecture**:
    - `lib/react/` - React hooks (`useData`, `useQuery`)
    - `lib/solid/` - Solid.js hooks (equivalent to React hooks)
 
-3. **Sync & Persistence Layer**
-   - `lib/sync/` - HTTP synchronizer for client-server sync
-   - `lib/persist/` - Storage abstraction via `unstorage`
-
-4. **Demo Applications**
-   - `demo-react/` & `demo-solid/` - Full-stack client examples (Vite-based)
-   - `demo-server/` - Backend example (Hono + Bun)
+3. **Plugins Layer** (`lib/plugins/`)
+   - `push-pull-plugin.ts` - Bidirectional sync with pull-interval and push-on-change semantics
+   - `unstorage-plugin.ts` - Persistence abstraction via `unstorage` (localStorage, filesystem, Redis, etc.)
 
 ## Key Architecture Concepts
 
@@ -69,6 +65,27 @@ Starling uses a **three-layer architecture**:
 - **Solid**: Equivalent hooks using Solid's reactive system
 - Thin wrappers around core store; same store instance can serve multiple frameworks
 
+### Plugins
+Stores are extensible via a plugin system. Plugins are functions that receive a store and return lifecycle hooks (`init` and `dispose`).
+
+**Available Plugins:**
+- **`pushPullPlugin`** - Bidirectional synchronization with pull-interval and push-on-change semantics
+  - Configured with `pullInterval` (milliseconds between pulls) and `push`/`pull` async functions
+  - Automatically syncs mutations to remote and periodically fetches updates
+- **`unstoragePlugin`** - Persistence layer using `unstorage` abstraction
+  - Supports multiple backends: localStorage, filesystem, Redis, memory, etc.
+  - Automatically persists mutations and restores state on initialization
+
+**Usage Pattern:**
+```typescript
+const store = createStore<T>("collection")
+  .use(plugin1(config1))
+  .use(plugin2(config2));
+
+await store.init();  // Initialize all plugins
+await store.dispose(); // Cleanup all plugins
+```
+
 ## Development Commands
 
 ### Testing & Quality
@@ -86,7 +103,8 @@ bun test --test-name-pattern "merge"
 bun test --watch
 
 # Run benchmarks
-bun run lib/core/store.bench.ts
+bun lib/core/store/store.bench.ts
+bun lib/core/crdt/operations.bench.ts
 ```
 
 ### Linting & Formatting
@@ -105,25 +123,10 @@ bun biome lint .
 ```bash
 # Build JavaScript bundles + TypeScript declarations
 bun run build
-
-# Build only JS bundles
-bun run build:js
-
-# Build only TypeScript declarations
-bun run build:types
 ```
 
-### Running Demo Applications
-```bash
-# Start demo server (REST API, default port 3000)
-cd demo-server && bun run dev
+Note: `tsdown` handles bundling all entry points (`lib/core/`, `lib/react/`, `lib/solid/`, `lib/plugins/`) and generating TypeScript declarations automatically. The build output is written to `dist/`.
 
-# Start React demo (Vite dev server, separate terminal)
-cd demo-react && bun run dev
-
-# Start Solid demo (Vite dev server, separate terminal)
-cd demo-solid && bun run dev
-```
 
 ## Code Style
 
@@ -151,7 +154,7 @@ store.update("user1", { email: "alice@newdomain.com" });
 store.delete("user1");
 
 // Get all values
-const users = store.values(); // { key: string, value: T }[]
+const users = store.values(); // Map<string, T>
 ```
 
 ### Using Queries in React
@@ -176,30 +179,32 @@ function TodoList() {
 }
 ```
 
-### Setting Up HTTP Synchronization
+### Setting Up Bidirectional Synchronization
 ```typescript
-import { createHttpSynchronizer } from "@byearlybird/starling/sync";
+import { pushPullPlugin } from "@byearlybird/starling/plugins";
 
-const sync = createHttpSynchronizer(store, {
-  pullInterval: 5000, // Poll server every 5 seconds
+// Create and initialize store with sync plugin
+const store = createStore<{ text: string; completed: boolean }>("todos")
+  .use(pushPullPlugin({
+    pullInterval: 5000, // Poll server every 5 seconds
 
-  push: async (encoded) => {
-    // Send local changes to server
-    await fetch("/api/todos", {
-      method: "PUT",
-      body: JSON.stringify({ todos: encoded }),
-    });
-  },
+    push: async (encoded) => {
+      // Send local changes to server
+      await fetch("/api/todos", {
+        method: "PUT",
+        body: JSON.stringify({ todos: encoded }),
+      });
+    },
 
-  pull: async () => {
-    // Fetch remote state from server
-    const res = await fetch("/api/todos");
-    return res.json(); // Should be encoded state with __eventstamps
-  },
-});
+    pull: async () => {
+      // Fetch remote state from server
+      const res = await fetch("/api/todos");
+      return res.json(); // Should be encoded state with __eventstamps
+    },
+  }));
 
-await sync.start(); // Begin polling and syncing
-sync.stop();        // Stop polling
+await store.init(); // Initialize store and start syncing
+await store.dispose(); // Clean up and stop syncing
 ```
 
 ### Server-Side Merge
@@ -239,10 +244,10 @@ unsubscribe();
 
 The package provides multiple entry points for tree-shaking and bundling efficiency:
 
-- `@byearlybird/starling` - Core store, query, and operations
-- `@byearlybird/starling/react` - React hooks
-- `@byearlybird/starling/solid` - Solid.js hooks
-- `@byearlybird/starling/sync` - HTTP synchronizer
+- `@byearlybird/starling` (or `@byearlybird/starling/core`) - Core store, query, and CRDT operations
+- `@byearlybird/starling/plugins` - Sync and persistence plugins (`pushPullPlugin`, `unstoragePlugin`)
+- `@byearlybird/starling/react` - React hooks (`useData`, `useQuery`)
+- `@byearlybird/starling/solid` - Solid.js hooks (`useData`, `useQuery`)
 
 ## Dependencies
 
@@ -250,9 +255,9 @@ The package provides multiple entry points for tree-shaking and bundling efficie
 - `mitt@^3.0.1` - Lightweight event emitter (2KB). Used for store's pub/sub event system.
 
 **Peer Dependencies** (optional):
-- `unstorage@^1.17.1` - Storage abstraction supporting localStorage, filesystem, Redis, etc.
 - `react@^19`, `react-dom@^19` - Required only for React bindings
 - `solid-js@^1.9.9` - Required only for Solid.js bindings
+- `unstorage@^1.17.1` - Required only for persistence via `unstoragePlugin`; supports localStorage, filesystem, Redis, memory, etc.
 - `typescript@^5` - Required for development; declarations exported for consumers
 
 **Dev Dependencies**:
@@ -265,7 +270,6 @@ The package provides multiple entry points for tree-shaking and bundling efficie
 - **Lazy Query Decoding**: Query results are cached until a change occurs; decoding only happens on access
 - **Single-Pass Merge**: Update operations encode, merge, and collect results in one iteration (no intermediate allocations)
 - **Efficient Event Tracking**: Queries maintain a `Set<string>` of matching keys, avoiding predicate re-evaluation on non-matching items
-- **ArrayKV Format**: Intermediate key-value array format used internally to avoid Map iteration overhead
 - **In-Memory Storage**: All data stays in-memory; optional persistence is asynchronous via `unstorage`
 
 ## Testing Strategy

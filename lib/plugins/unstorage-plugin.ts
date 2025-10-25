@@ -1,4 +1,4 @@
-import type { ArrayKV, EncodedObject } from "@core/shared/types";
+import type { EncodedObject } from "@core/shared/types";
 import type { Plugin } from "@core/store/store";
 import { prefixStorage, type Storage } from "unstorage";
 
@@ -13,17 +13,12 @@ const unstoragePlugin = <T extends object>(
 			storage = prefixStorage(baseStorage, store.collectionKey);
 			unwatch = store.on("change", async () => {
 				const snapshot = store.snapshot();
-				// Convert Map to ArrayKV for storage
-				const arrayData: ArrayKV<EncodedObject> = Array.from(
-					snapshot.entries(),
-				).map(([key, value]) => ({
-					key,
-					value,
-				}));
+				// Convert Map to tuple array for storage
+				const arrayData = Array.from(snapshot.entries());
 				await storage?.set(store.collectionKey, arrayData);
 			});
 
-			const persisted = await storage?.get<ArrayKV<EncodedObject>>(
+			const persisted = await storage?.get<[string, EncodedObject][]>(
 				store.collectionKey,
 			);
 
