@@ -48,4 +48,5 @@ const del = (doc: EncodedDocument, eventstamp: string): EncodedDocument => ({
 	__deletedAt: eventstamp,
 });
 
+export type { EncodedDocument };
 export { encode, decode, merge, del };
