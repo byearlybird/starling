@@ -1,8 +1,8 @@
-import { decode, encode, encodeMany, merge } from "@byearlybird/crdt";
-import type { EncodedObject } from "@byearlybird/crdt";
-import type { StoreEvents } from "../types.ts";
-import { mergeItems } from "../shared/utils.ts";
+import type { EncodedObject } from "@byearlybird/starling-crdt";
+import { decode, encode, encodeMany, merge } from "@byearlybird/starling-crdt";
 import type { Emitter } from "mitt";
+import { mergeItems } from "../shared/utils.ts";
+import type { StoreEvents } from "../types.ts";
 
 const createPutMany = <TValue extends object>(
 	map: Map<string, EncodedObject>,

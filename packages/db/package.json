@@ -1,5 +1,5 @@
 {
-	"name": "@byearlybird/store",
+	"name": "@byearlybird/starling-db",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -7,9 +7,6 @@
 	"files": [
 		"dist"
 	],
-	"scripts": {
-		"build": "tsdown"
-	},
 	"peerDependencies": {
 		"typescript": "^5"
 	},
@@ -17,10 +14,6 @@
 		"typescript": {
 			"optional": true
 		}
-	},
-	"dependencies": {
-		"@byearlybird/starling-crdt": "workspace:*",
-		"mitt": "^3.0.1"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

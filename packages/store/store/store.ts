@@ -1,7 +1,7 @@
-import { createClock, decode } from "@byearlybird/crdt";
-import type { EncodedObject } from "@byearlybird/crdt";
-import type { DeepPartial, StoreEvents } from "../types.ts";
+import type { EncodedObject } from "@byearlybird/starling-crdt";
+import { createClock, decode } from "@byearlybird/starling-crdt";
 import mitt from "mitt";
+import type { DeepPartial, StoreEvents } from "../types.ts";
 import {
 	createDeleteMany,
 	createMerge,
@@ -23,7 +23,10 @@ type Store<T extends object> = {
 	putMany: (data: [string, T][]) => void;
 	updateMany: (data: [string, Partial<T>][]) => void;
 	deleteMany: (keys: string[]) => void;
-	merge: (snapshot: [string, EncodedObject][], opts?: { silent: boolean }) => void;
+	merge: (
+		snapshot: [string, EncodedObject][],
+		opts?: { silent: boolean },
+	) => void;
 	put: (key: string, value: T) => void;
 	update: (key: string, value: DeepPartial<T>) => void;
 	delete: (key: string) => void;

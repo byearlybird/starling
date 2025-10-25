@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import type { EncodedObject } from "@byearlybird/crdt";
+import type { EncodedObject } from "@byearlybird/starling-crdt";
 import { createStore } from "./store.ts";
 
 test("put() adds a new item and emits put event", () => {

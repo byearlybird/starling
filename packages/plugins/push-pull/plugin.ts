@@ -1,4 +1,4 @@
-import type { EncodedObject } from "@byearlybird/crdt";
+import type { EncodedObject } from "@byearlybird/starling-crdt";
 import type { Plugin } from "@byearlybird/store";
 
 type PushPullConfig = {
@@ -36,7 +36,9 @@ const pushPullPlugin = <TValue extends object>(
 		async function pushData(data: Map<string, EncodedObject>) {
 			// Convert Map to tuple array for push callback
 			const arrayData = Array.from(data.entries());
-			const processed = preprocess ? await preprocess("push", arrayData) : arrayData;
+			const processed = preprocess
+				? await preprocess("push", arrayData)
+				: arrayData;
 			await push(processed);
 		}
 
