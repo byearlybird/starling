@@ -1,5 +1,5 @@
-import { merge } from "@core/crdt/operations";
-import type { EncodedObject } from "@core/shared/types";
+import { merge } from "@byearlybird/crdt";
+import type { EncodedObject } from "@byearlybird/crdt";
 
 export function mapToArray<TValue>(map: Map<string, TValue>): [string, TValue][] {
 	return Array.from(map.entries());

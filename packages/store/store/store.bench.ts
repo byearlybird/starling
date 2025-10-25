@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { createStore } from "./store";
+import { createStore } from "./store.ts";
 
 interface TestItem {
 	id: string;
@@ -54,73 +54,73 @@ const keys100000 = items100000.map(({ key }) => key);
 group("putMany", () => {
 	bench("putMany 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
+		store.putMany(items100.map(({ key, value }) => [key, value]));
 	});
 
 	bench("putMany 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
 	});
 
 	bench("putMany 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
 	});
 
 	bench("putMany 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
 	});
 });
 
 group("updateMany", () => {
 	bench("updateMany 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
-		store.updateMany(updates100);
+		store.putMany(items100.map(({ key, value }) => [key, value]));
+		store.updateMany(updates100.map(({ key, value }) => [key, value]));
 	});
 
 	bench("updateMany 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
-		store.updateMany(updates5000);
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
+		store.updateMany(updates5000.map(({ key, value }) => [key, value]));
 	});
 
 	bench("updateMany 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
-		store.updateMany(updates25000);
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
+		store.updateMany(updates25000.map(({ key, value }) => [key, value]));
 	});
 
 	bench("updateMany 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
-		store.updateMany(updates100000);
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
+		store.updateMany(updates100000.map(({ key, value }) => [key, value]));
 	});
 });
 
 group("deleteMany", () => {
 	bench("deleteMany 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
+		store.putMany(items100.map(({ key, value }) => [key, value]));
 		store.deleteMany(keys100);
 	});
 
 	bench("deleteMany 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
 		store.deleteMany(keys5000);
 	});
 
 	bench("deleteMany 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
 		store.deleteMany(keys25000);
 	});
 
 	bench("deleteMany 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
 		store.deleteMany(keys100000);
 	});
 });
@@ -128,25 +128,25 @@ group("deleteMany", () => {
 group("values()", () => {
 	bench("values() 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
+		store.putMany(items100.map(({ key, value }) => [key, value]));
 		store.values();
 	});
 
 	bench("values() 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
 		store.values();
 	});
 
 	bench("values() 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
 		store.values();
 	});
 
 	bench("values() 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
 		store.values();
 	});
 });
@@ -154,25 +154,25 @@ group("values()", () => {
 group("snapshot()", () => {
 	bench("snapshot() 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
+		store.putMany(items100.map(({ key, value }) => [key, value]));
 		store.snapshot();
 	});
 
 	bench("snapshot() 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
 		store.snapshot();
 	});
 
 	bench("snapshot() 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
 		store.snapshot();
 	});
 
 	bench("snapshot() 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
 		store.snapshot();
 	});
 });
@@ -180,26 +180,34 @@ group("snapshot()", () => {
 group("merge()", () => {
 	bench("merge() 100 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100);
-		store.merge(store.snapshot());
+		store.putMany(items100.map(({ key, value }) => [key, value]));
+		store.merge(
+			Array.from(store.snapshot().entries()),
+		);
 	});
 
 	bench("merge() 5000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items5000);
-		store.merge(store.snapshot());
+		store.putMany(items5000.map(({ key, value }) => [key, value]));
+		store.merge(
+			Array.from(store.snapshot().entries()),
+		);
 	});
 
 	bench("merge() 25000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items25000);
-		store.merge(store.snapshot());
+		store.putMany(items25000.map(({ key, value }) => [key, value]));
+		store.merge(
+			Array.from(store.snapshot().entries()),
+		);
 	});
 
 	bench("merge() 100000 items", () => {
 		const store = createStore<TestItem>("items");
-		store.putMany(items100000);
-		store.merge(store.snapshot());
+		store.putMany(items100000.map(({ key, value }) => [key, value]));
+		store.merge(
+			Array.from(store.snapshot().entries()),
+		);
 	});
 });
 

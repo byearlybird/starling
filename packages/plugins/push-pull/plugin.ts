@@ -1,5 +1,5 @@
-import type { EncodedObject } from "@byearlybird/starling";
-import type { Plugin } from "@byearlybird/starling";
+import type { EncodedObject } from "@byearlybird/crdt";
+import type { Plugin } from "@byearlybird/store";
 
 type PushPullConfig = {
 	push: (data: [string, EncodedObject][]) => Promise<void>;

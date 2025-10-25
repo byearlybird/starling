@@ -1,10 +1,7 @@
 {
 	"compilerOptions": {
 		// Environment setup & latest features
-		"lib": [
-			"ESNext",
-			"DOM"
-		],
+		"lib": ["ESNext", "DOM"],
 		"target": "ESNext",
 		"module": "Preserve",
 		"moduleDetection": "force",
@@ -28,16 +25,6 @@
 		"noUncheckedSideEffectImports": true,
 		"allowUnusedLabels": false,
 		"allowUnreachableCode": false,
-		"noPropertyAccessFromIndexSignature": false,
-		// Path aliases
-		"baseUrl": ".",
-		"paths": {
-			"@byearlybird/starling": [
-				"packages/core/src/index.ts"
-			],
-			"@byearlybird/starling-plugins": [
-				"packages/plugins/src/index.ts"
-			]
-		}
+		"noPropertyAccessFromIndexSignature": false
 	}
 }

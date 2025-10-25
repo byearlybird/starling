@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { EncodedObject } from "@core/shared/types";
-import { decode, encode, merge, mergeArray } from "./operations";
+import type { EncodedObject } from "./types.ts";
+import { decode, encode, merge, mergeArray } from "./operations.ts";
 
 test("encode converts a flat object to encoded format", () => {
 	const obj = { name: "Alice", age: 30 };

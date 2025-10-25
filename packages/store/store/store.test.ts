@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
-import type { EncodedObject } from "@core/shared/types";
-import { createStore } from "./store";
+import type { EncodedObject } from "@byearlybird/crdt";
+import { createStore } from "./store.ts";
 
 test("put() adds a new item and emits put event", () => {
 	const store = createStore<{ name: string }>("users");

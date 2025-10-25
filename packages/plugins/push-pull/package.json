@@ -1,0 +1,27 @@
+{
+	"name": "@byearlybird/plugins-push-pull",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsdown"
+	},
+	"peerDependencies": {
+		"@byearlybird/store": "workspace:*",
+		"typescript": "^5"
+	},
+	"peerDependenciesMeta": {
+		"typescript": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@byearlybird/store": "workspace:*",
+		"typescript": "^5"
+	}
+}

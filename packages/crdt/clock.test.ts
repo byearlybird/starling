@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createClock, formatEventstamp, parseEventstamp } from "./clock";
+import { createClock, formatEventstamp, parseEventstamp } from "./clock.ts";
 
 test("now() returns ISO string with counter suffix", () => {
 	const clock = createClock();

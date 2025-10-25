@@ -1,19 +1,15 @@
-import { createClock } from "@core/crdt/clock";
-import { decode } from "@core/crdt/operations";
-import type {
-	DeepPartial,
-	EncodedObject,
-	StoreEvents,
-} from "@core/shared/types";
+import { createClock, decode } from "@byearlybird/crdt";
+import type { EncodedObject } from "@byearlybird/crdt";
+import type { DeepPartial, StoreEvents } from "../types.ts";
 import mitt from "mitt";
 import {
 	createDeleteMany,
 	createMerge,
 	createPutMany,
 	createUpdateMany,
-} from "./mutations";
-import type { QueryInternal } from "./query";
-import { createQuery } from "./query";
+} from "./mutations.ts";
+import type { QueryInternal } from "./query.ts";
+import { createQuery } from "./query.ts";
 
 type PluginHandle = {
 	init: () => Promise<void> | void;

@@ -1,4 +1,4 @@
-import type { EncodedObject, EventstampFn } from "@core/shared/types";
+import type { EncodedObject, EventstampFn } from "./types.ts";
 
 export function encode<T extends object>(
 	obj: T,

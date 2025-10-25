@@ -1,1 +1,1 @@
-export {unstoragePlugin} from './plugin';
+export { unstoragePlugin } from "./plugin.ts";
