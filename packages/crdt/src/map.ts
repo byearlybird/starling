@@ -17,6 +17,12 @@ const create = (
 		has(key: string) {
 			return readMap.has(key);
 		},
+		values() {
+			return readMap.values();
+		},
+		entries() {
+			return readMap.entries();
+		},
 		get size() {
 			return readMap.size;
 		},
