@@ -1,4 +1,4 @@
-import * as $eventsamp from "./eventstamp";
+import * as Eventstamp from "./eventstamp";
 
 type Clock = {
 	now: () => string;
@@ -21,15 +21,15 @@ const create = (): Clock => {
 				counter = 0;
 			}
 
-			return $eventsamp.encode(nowMs, counter);
+			return Eventstamp.encode(nowMs, counter);
 		},
 		latest() {
-			return $eventsamp.encode(lastMs, counter);
+			return Eventstamp.encode(lastMs, counter);
 		},
 		forward(eventstamp: string): void {
 			const latest = this.latest();
 			if (eventstamp > latest) {
-				const newer = $eventsamp.decode(eventstamp);
+				const newer = Eventstamp.decode(eventstamp);
 				lastMs = newer.timestampMs;
 				counter = newer.counter;
 			}

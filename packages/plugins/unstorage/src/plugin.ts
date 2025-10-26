@@ -1,4 +1,4 @@
-import type { $document, $store } from "@byearlybird/starling";
+import type { Document, Store } from "@byearlybird/starling";
 import type { Storage } from "unstorage";
 
 type UnstorageConfig = {
@@ -7,10 +7,10 @@ type UnstorageConfig = {
 
 const unstoragePlugin = <T extends Record<string, unknown>>(
 	key: string,
-	storage: Storage<$document.EncodedDocument[]>,
+	storage: Storage<Document.EncodedDocument[]>,
 	config: UnstorageConfig = {},
-): $store.Plugin<T> => {
-	const plugin: $store.Plugin<T> = (store) => {
+): Store.Plugin<T> => {
+	const plugin: Store.Plugin<T> = (store) => {
 		const { debounceMs = 0 } = config;
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,7 +34,7 @@ const unstoragePlugin = <T extends Record<string, unknown>>(
 
 		return {
 			init: async () => {
-				const persisted = await storage.get<$document.EncodedDocument[]>(key);
+				const persisted = await storage.get<Document.EncodedDocument[]>(key);
 
 				if (persisted) {
 					const tx = store.begin();

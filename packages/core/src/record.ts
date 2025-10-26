@@ -1,7 +1,7 @@
-import * as $value from "./value";
+import * as Value from "./value";
 
 export type EncodedRecord = {
-	[key: string]: $value.EncodedValue<unknown> | EncodedRecord;
+	[key: string]: Value.EncodedValue<unknown> | EncodedRecord;
 };
 
 const isObject = (value: unknown): boolean =>
@@ -30,7 +30,7 @@ const encode = <T extends Record<string, unknown>>(
 				step(value as T, output[key] as EncodedRecord);
 			} else {
 				// Leaf value - wrap with eventstamp
-				output[key] = $value.encode(value, eventstamp);
+				output[key] = Value.encode(value, eventstamp);
 			}
 		}
 	};
@@ -48,8 +48,8 @@ const decode = <T extends Record<string, unknown>>(obj: EncodedRecord): T => {
 			if (!Object.hasOwn(source, key)) continue;
 			const value = source[key];
 
-			if ($value.isEncoded(value)) {
-				output[key] = $value.decode(value as $value.EncodedValue<unknown>);
+			if (Value.isEncoded(value)) {
+				output[key] = Value.decode(value as Value.EncodedValue<unknown>);
 			} else if (isObject(value)) {
 				// This is a nested EncodedObject - recurse
 				output[key] = {};
@@ -76,15 +76,15 @@ const merge = (into: EncodedRecord, from: EncodedRecord): EncodedRecord => {
 			const value1 = v1[key];
 			const value2 = v2[key];
 
-			if ($value.isEncoded(value1) && $value.isEncoded(value2)) {
+			if (Value.isEncoded(value1) && Value.isEncoded(value2)) {
 				// Both are EncodedValues - merge using value merge
-				output[key] = $value.merge(
-					value1 as $value.EncodedValue<unknown>,
-					value2 as $value.EncodedValue<unknown>,
+				output[key] = Value.merge(
+					value1 as Value.EncodedValue<unknown>,
+					value2 as Value.EncodedValue<unknown>,
 				);
-			} else if ($value.isEncoded(value1)) {
+			} else if (Value.isEncoded(value1)) {
 				// Only v1 is encoded
-				output[key] = value1 as $value.EncodedValue<unknown>;
+				output[key] = value1 as Value.EncodedValue<unknown>;
 			} else if (isObject(value1) && isObject(value2)) {
 				// Both are nested objects - recurse
 				output[key] = {};

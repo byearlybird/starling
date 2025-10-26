@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
-import { type $document, $store } from "@byearlybird/starling";
+import { type Document, Store } from "@byearlybird/starling";
 import { createStorage } from "unstorage";
 import { unstoragePlugin } from "./plugin";
 
@@ -8,12 +8,12 @@ type Todo = {
 	completed: boolean;
 };
 
-let storage: ReturnType<typeof createStorage<$document.EncodedDocument[]>>;
-let store: Awaited<ReturnType<typeof $store.create<Todo>>>;
+let storage: ReturnType<typeof createStorage<Document.EncodedDocument[]>>;
+let store: Awaited<ReturnType<typeof Store.create<Todo>>>;
 
 beforeEach(async () => {
-	storage = createStorage<$document.EncodedDocument[]>();
-	store = await $store
+	storage = createStorage<Document.EncodedDocument[]>();
+	store = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
@@ -26,7 +26,7 @@ test("initializes empty store when no data in storage", () => {
 
 test("initializes store with persisted data", async () => {
 	// Create a store with data
-	const store1 = await $store
+	const store1 = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
@@ -34,7 +34,7 @@ test("initializes store with persisted data", async () => {
 	store1.put("todo1", { label: "Test", completed: false });
 
 	// Create a new store with same storage
-	const store2 = await $store
+	const store2 = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
@@ -47,7 +47,7 @@ test("persists put operation to storage", async () => {
 	store.put("todo1", { label: "Buy milk", completed: false });
 
 	const persisted = (await storage.getItem("todos")) as
-		| $document.EncodedDocument[]
+		| Document.EncodedDocument[]
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
@@ -59,7 +59,7 @@ test("persists patch operation to storage", async () => {
 	store.patch("todo1", { completed: true });
 
 	const persisted = (await storage.getItem("todos")) as
-		| $document.EncodedDocument[]
+		| Document.EncodedDocument[]
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
@@ -72,7 +72,7 @@ test("persists delete operation to storage", async () => {
 	store.del("todo1");
 
 	const persisted = (await storage.getItem("todos")) as
-		| $document.EncodedDocument[]
+		| Document.EncodedDocument[]
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
@@ -87,7 +87,7 @@ test("persists multiple items to storage", async () => {
 	store.put("todo3", { label: "Task 3", completed: false });
 
 	const persisted = (await storage.getItem("todos")) as
-		| $document.EncodedDocument[]
+		| Document.EncodedDocument[]
 		| null;
 	expect(persisted?.length).toBe(3);
 
@@ -96,20 +96,20 @@ test("persists multiple items to storage", async () => {
 });
 
 test("debounces storage writes when debounceMs is set", async () => {
-	const debounceStorage = createStorage<$document.EncodedDocument[]>();
+	const debounceStorage = createStorage<Document.EncodedDocument[]>();
 	let writeCount = 0;
 
 	// Spy on storage.set to count writes
 	const originalSet = debounceStorage.set;
 	debounceStorage.set = async (
 		key: string,
-		value: $document.EncodedDocument[],
+		value: Document.EncodedDocument[],
 	) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};
 
-	const debounceStore = await $store
+	const debounceStore = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();
@@ -130,25 +130,25 @@ test("debounces storage writes when debounceMs is set", async () => {
 
 	// Verify all data was persisted
 	const persisted = (await debounceStorage.getItem("todos")) as
-		| $document.EncodedDocument[]
+		| Document.EncodedDocument[]
 		| null;
 	expect(persisted?.length).toBe(3);
 });
 
 test("writes immediately when debounceMs is 0 (default)", async () => {
-	const defaultStorage = createStorage<$document.EncodedDocument[]>();
+	const defaultStorage = createStorage<Document.EncodedDocument[]>();
 	let writeCount = 0;
 
 	const originalSet = defaultStorage.set;
 	defaultStorage.set = async (
 		key: string,
-		value: $document.EncodedDocument[],
+		value: Document.EncodedDocument[],
 	) => {
 		writeCount++;
 		return originalSet.call(defaultStorage, key, value);
 	};
 
-	const defaultStore = await $store
+	const defaultStore = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", defaultStorage))
 		.init();
@@ -161,19 +161,19 @@ test("writes immediately when debounceMs is 0 (default)", async () => {
 });
 
 test("clears pending timer on dispose", async () => {
-	const debounceStorage = createStorage<$document.EncodedDocument[]>();
+	const debounceStorage = createStorage<Document.EncodedDocument[]>();
 	let writeCount = 0;
 
 	const originalSet = debounceStorage.set;
 	debounceStorage.set = async (
 		key: string,
-		value: $document.EncodedDocument[],
+		value: Document.EncodedDocument[],
 	) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};
 
-	const debounceStore = await $store
+	const debounceStore = await Store
 		.create<Todo>()
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();

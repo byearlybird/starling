@@ -1,5 +1,5 @@
 import type { EncodedDocument } from "./document";
-import * as $document from "./document";
+import * as Document from "./document";
 
 const create = (
 	iterable?: Iterable<readonly [string, EncodedDocument]> | null,
@@ -37,14 +37,14 @@ const create = (
 		patch(key: string, value: EncodedDocument) {
 			const next = cloneMap(readMap);
 			const prev = next.get(key);
-			next.set(key, prev ? $document.merge(prev, value) : value);
+			next.set(key, prev ? Document.merge(prev, value) : value);
 			readMap = next;
 		},
 
 		del(key: string, eventstamp: string) {
 			const next = cloneMap(readMap);
 			const prev = next.get(key);
-			if (prev) next.set(key, $document.del(prev, eventstamp));
+			if (prev) next.set(key, Document.del(prev, eventstamp));
 			readMap = next;
 		},
 
@@ -59,11 +59,11 @@ const create = (
 				},
 				patch(key: string, value: EncodedDocument) {
 					const prev = staging.get(key);
-					staging.set(key, prev ? $document.merge(prev, value) : value);
+					staging.set(key, prev ? Document.merge(prev, value) : value);
 				},
 				del(key: string, eventstamp: string) {
 					const prev = staging.get(key);
-					if (prev) staging.set(key, $document.del(prev, eventstamp));
+					if (prev) staging.set(key, Document.del(prev, eventstamp));
 				},
 				has(key: string) {
 					const doc = staging.get(key);

@@ -22,7 +22,7 @@ Starling is a **monorepo** organized with four packages:
    - `src/map.ts` - Internal key-value map with CRDT merge
    - `src/clock.ts` - Monotonic clock with forward() support
    - `src/eventstamp.ts` - Eventstamp encoding (ISO8601 + hex counter)
-   - Exports: `@byearlybird/starling` with namespace pattern (`$store`, `$document`, etc.)
+   - Exports: `@byearlybird/starling` with namespace pattern (`Store`, `Document`, etc.)
 
 2. **Query Plugin** (`packages/plugins/query/`) - Reactive filtered views
    - `src/plugin.ts` - Query manager with predicate-based filtering
@@ -97,7 +97,7 @@ type PluginHandle<T> = {
 
 **Usage Pattern:**
 ```typescript
-const store = $store.create<T>()
+const store = Store.create<T>()
   .use(plugin1)
   .use(plugin2);
 
@@ -162,9 +162,9 @@ Note: `tsdown` handles bundling each package's entry point and generating TypeSc
 
 ### Creating a Store
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
-const store = $store.create<{ name: string; email: string }>();
+const store = Store.create<{ name: string; email: string }>();
 
 // Insert new items
 store.put("user1", { name: "Alice", email: "alice@example.com" });
@@ -220,10 +220,10 @@ tx.rollback();
 Hooks are provided via plugins. Here's how to create a custom plugin with hooks:
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
 // Create a custom plugin with hooks
-const loggingPlugin = <T extends Record<string, unknown>>(): $store.Plugin<T> => {
+const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => {
   return (store) => ({
     init: () => {
       console.log("Plugin initialized");
@@ -262,7 +262,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): $store.Plugin<T> =>
 };
 
 // Use the plugin
-const store = $store.create<{ name: string }>()
+const store = Store.create<{ name: string }>()
   .use(loggingPlugin());
 
 await store.init();
@@ -270,11 +270,11 @@ await store.init();
 
 ### Setting Up Queries
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { createQueryManager } from "@byearlybird/starling-plugins-query";
 
 // Create store and query manager
-const store = $store.create<{ text: string; completed: boolean }>();
+const store = Store.create<{ text: string; completed: boolean }>();
 const queries = createQueryManager<{ text: string; completed: boolean }>();
 
 // Attach query plugin to store
@@ -302,11 +302,11 @@ activeTodos.dispose();
 
 ### Setting Up Bidirectional Synchronization
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { pollSyncPlugin } from "@byearlybird/plugins-poll-sync";
 
 // Create and initialize store with sync plugin
-const store = $store
+const store = Store
   .create<{ text: string; completed: boolean }>()
   .use(pollSyncPlugin({
     pullInterval: 5000, // Poll server every 5 seconds (default: 5 minutes)
@@ -346,7 +346,7 @@ await store.dispose(); // Clean up and push any pending changes
 
 ### Setting Up Persistence
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -357,7 +357,7 @@ const storage = createStorage({
 });
 
 // Create store with persistence
-const store = $store
+const store = Store
   .create<{ text: string }>()
   .use(unstoragePlugin("todos", storage, {
     debounceMs: 300, // Debounce persistence by 300ms (default: 0)
@@ -371,14 +371,14 @@ await store.dispose(); // Clean up
 
 ### Server-Side Merge
 ```typescript
-import { $store, $document } from "@byearlybird/starling";
+import { Store, Document } from "@byearlybird/starling";
 
 // On server, create store
-const serverStore = $store.create<{ text: string; completed: boolean }>();
+const serverStore = Store.create<{ text: string; completed: boolean }>();
 
 // Merge incoming client updates
 app.put("/api/todos", async (c) => {
-  const { todos } = await c.req.json<{ todos: $document.EncodedDocument[] }>();
+  const { todos } = await c.req.json<{ todos: Document.EncodedDocument[] }>();
 
   // Merge using CRDT semantics (Last-Write-Wins by eventstamp)
   const tx = serverStore.begin();
@@ -402,7 +402,7 @@ app.get("/api/todos", async (c) => {
 This is a monorepo with four independent packages:
 
 - **`@byearlybird/starling`** - Core store, CRDT operations, and types (in `packages/core/`)
-  - Exports: `$store`, `$document`, `$record`, `$value`, `$map`, `$clock`, `$eventsamp`
+  - Exports: `Store`, `Document`, `Record`, `Value`, `Map`, `Clock`, `Eventstamp`
   - Zero production dependencies (custom listener system)
 
 - **`@byearlybird/starling-plugins-query`** - Query plugin for reactive filtered views (in `packages/plugins/query/`)
@@ -451,11 +451,11 @@ This is a monorepo with four independent packages:
 All packages export types alongside implementations. The core uses namespace exports:
 
 ```typescript
-import { $store, $document } from "@byearlybird/starling";
+import { Store, Document } from "@byearlybird/starling";
 
 // Access types via namespace
-type Store<T> = ReturnType<typeof $store.create<T>>;
-type EncodedDoc = $document.EncodedDocument;
+type Store<T> = ReturnType<typeof Store.create<T>>;
+type EncodedDoc = Document.EncodedDocument;
 ```
 
 ## Important Implementation Details

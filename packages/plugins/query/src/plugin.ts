@@ -1,4 +1,4 @@
-import type { $store } from "@byearlybird/starling";
+import type { Store } from "@byearlybird/starling";
 
 type Query<T extends Record<string, unknown>> = {
 	results: () => Map<string, T>;
@@ -49,7 +49,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 	};
 
 	const plugin = () => {
-		const onPut: $store.StoreOnPut<T> = (entries) => {
+		const onPut: Store.StoreOnPut<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
@@ -68,7 +68,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onPatch: $store.StoreOnPatch<T> = (entries) => {
+		const onPatch: Store.StoreOnPatch<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
@@ -94,7 +94,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onDelete: $store.StoreOnDelete = (keys) => {
+		const onDelete: Store.StoreOnDelete = (keys) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const key of keys) {

@@ -28,10 +28,10 @@ bun add @byearlybird/starling-plugins-unstorage unstorage
 ## Quick Start
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
 // Create a store
-const todoStore = $store.create<{ text: string; completed: boolean }>();
+const todoStore = Store.create<{ text: string; completed: boolean }>();
 
 // Insert items
 todoStore.put("todo-1", {
@@ -52,10 +52,10 @@ console.log(todo); // { text: "Learn Starling", completed: true }
 ### Creating a Store
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
 // Create a basic store
-const store = $store.create<YourType>();
+const store = Store.create<YourType>();
 
 // To listen to store mutations, use plugins (see "Custom Plugin with Hooks" below)
 ```
@@ -161,10 +161,10 @@ tx.rollback();
 Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
 // Create a custom plugin with hooks
-const loggingPlugin = <T extends Record<string, unknown>>(): $store.Plugin<T> => {
+const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => {
   return (store) => ({
     init: () => {
       console.log("Logging plugin initialized");
@@ -202,7 +202,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): $store.Plugin<T> =>
 };
 
 // Use the plugin
-const store = $store.create<{ name: string }>()
+const store = Store.create<{ name: string }>()
   .use(loggingPlugin());
 
 await store.init();
@@ -213,11 +213,11 @@ await store.init();
 Queries provide reactive, filtered views of store data.
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { createQueryManager } from "@byearlybird/starling-plugins-query";
 
 // Create store and query manager
-const store = $store.create<{ text: string; completed: boolean }>();
+const store = Store.create<{ text: string; completed: boolean }>();
 const queries = createQueryManager<{ text: string; completed: boolean }>();
 
 // Attach query plugin
@@ -247,7 +247,7 @@ activeTodos.dispose();
 Starling provides a poll-based sync plugin for bidirectional client-server sync.
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { pollSyncPlugin } from "@byearlybird/plugins-poll-sync";
 
 const store = $store
@@ -290,14 +290,14 @@ await store.dispose();
 On the server, use transactions to merge incoming updates:
 
 ```typescript
-import { $store, $document } from "@byearlybird/starling";
+import { Store, Document } from "@byearlybird/starling";
 
 // Server store
-const serverStore = $store.create<{ text: string; completed: boolean }>();
+const serverStore = Store.create<{ text: string; completed: boolean }>();
 
 // Merge endpoint
 app.put("/api/todos", async (c) => {
-  const { todos } = await c.req.json<{ todos: $document.EncodedDocument[] }>();
+  const { todos } = await c.req.json<{ todos: Document.EncodedDocument[] }>();
 
   // Merge client state into server store
   const tx = serverStore.begin();
@@ -321,7 +321,7 @@ app.get("/api/todos", async (c) => {
 Store data persistently using the unstorage plugin:
 
 ```typescript
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -388,7 +388,7 @@ type PluginHandle<T> = {
 };
 
 // Usage
-const store = $store.create<T>()
+const store = Store.create<T>()
   .use(plugin1)
   .use(plugin2);
 

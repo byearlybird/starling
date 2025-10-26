@@ -1,8 +1,8 @@
-import * as $record from "./record";
+import * as Record from "./record";
 
 type EncodedDocument = {
 	__id: string;
-	__data: $record.EncodedRecord;
+	__data: Record.EncodedRecord;
 	__deletedAt: string | null;
 };
 
@@ -13,7 +13,7 @@ const encode = <T extends Record<string, unknown>>(
 	deletedAt: string | null = null,
 ): EncodedDocument => ({
 	__id: id,
-	__data: $record.encode(obj, eventstamp),
+	__data: Record.encode(obj, eventstamp),
 	__deletedAt: deletedAt,
 });
 
@@ -25,7 +25,7 @@ const decode = <T extends Record<string, unknown>>(
 	__deletedAt: string | null;
 } => ({
 	__id: doc.__id,
-	__data: $record.decode(doc.__data),
+	__data: Record.decode(doc.__data),
 	__deletedAt: doc.__deletedAt,
 });
 
@@ -34,7 +34,7 @@ const merge = (
 	from: EncodedDocument,
 ): EncodedDocument => ({
 	__id: into.__id,
-	__data: $record.merge(into.__data, from.__data),
+	__data: Record.merge(into.__data, from.__data),
 	__deletedAt:
 		into.__deletedAt && from.__deletedAt
 			? into.__deletedAt > from.__deletedAt

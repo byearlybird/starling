@@ -1,9 +1,9 @@
-import * as $clock from "./clock";
-import * as $document from "./document";
-import * as $eventsamp from "./eventstamp";
-import * as $map from "./map";
-import * as $record from "./record";
-import * as $store from "./store";
-import * as $value from "./value";
+import * as Clock from "./clock";
+import * as Document from "./document";
+import * as Eventstamp from "./eventstamp";
+import * as Map from "./map";
+import * as Record from "./record";
+import * as Store from "./store";
+import * as Value from "./value";
 
-export { $clock, $document, $eventsamp, $map, $record, $store, $value };
+export { Clock, Document, Eventstamp, Map, Record, Store, Value };

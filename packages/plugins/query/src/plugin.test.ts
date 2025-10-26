@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { $store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { createQueryManager } from "./plugin";
 
 type User = {
@@ -9,11 +9,11 @@ type User = {
 };
 
 describe("QueryManager", () => {
-	let store: ReturnType<typeof $store.create<User>>;
+	let store: ReturnType<typeof Store.create<User>>;
 	let queries: ReturnType<typeof createQueryManager<User>>;
 
 	beforeEach(() => {
-		store = $store.create<User>();
+		store = Store.create<User>();
 		queries = createQueryManager<User>();
 		store.use(() => queries.plugin());
 	});

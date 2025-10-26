@@ -1,7 +1,7 @@
 import { create as createClock } from "./clock";
 import type { EncodedDocument } from "./document";
 import { decode, encode } from "./document";
-import * as $map from "./map";
+import * as KvMap from "./map";
 
 type DeepPartial<T> = T extends object
 	? { [P in keyof T]?: DeepPartial<T[P]> }
@@ -117,7 +117,7 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 	const encodeValue = (key: string, value: T) =>
 		encode(key, value, clock.now());
 
-	const kv = $map.create();
+	const kv = KvMap.create();
 
 	// Plugin management
 	const listeners: ListenerMap<T> = {

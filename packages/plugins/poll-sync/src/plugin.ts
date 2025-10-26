@@ -1,19 +1,19 @@
-import type { $document, $store } from "@byearlybird/starling";
+import type { Document, Store } from "@byearlybird/starling";
 
 type PollSyncConfig = {
-	push: (data: $document.EncodedDocument[]) => Promise<void>;
-	pull: () => Promise<$document.EncodedDocument[]>;
+	push: (data: Document.EncodedDocument[]) => Promise<void>;
+	pull: () => Promise<Document.EncodedDocument[]>;
 	pullInterval?: number;
 	preprocess?: (
 		event: "pull" | "push",
-		data: $document.EncodedDocument[],
-	) => Promise<$document.EncodedDocument[]>;
+		data: Document.EncodedDocument[],
+	) => Promise<Document.EncodedDocument[]>;
 	immediate?: boolean;
 };
 
 const pollSyncPlugin = <TValue extends Record<string, unknown>>(
 	config: PollSyncConfig,
-): $store.Plugin<TValue> => {
+): Store.Plugin<TValue> => {
 	const {
 		push,
 		pull,
@@ -22,7 +22,7 @@ const pollSyncPlugin = <TValue extends Record<string, unknown>>(
 		immediate = true,
 	} = config;
 
-	return (store): $store.PluginHandle<TValue> => {
+	return (store): Store.PluginHandle<TValue> => {
 		let intervalId: Timer | null = null;
 		let hasChanges = false;
 
