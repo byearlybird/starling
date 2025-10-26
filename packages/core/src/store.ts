@@ -78,7 +78,9 @@ type StoreOptions<T extends Record<string, unknown>> = {
 type StoreTransaction<T extends Record<string, unknown>> = {
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
+	merge: (doc: EncodedDocument) => void;
 	del: (key: string) => void;
+	has: (key: string) => boolean;
 	commit: (opts?: { silent: boolean }) => void;
 	rollback: () => void;
 };
@@ -238,6 +240,27 @@ const create = <T extends Record<string, unknown>>({
 						patchKeyValues.push([key, merged as T] as const);
 					}
 				},
+				merge(doc: EncodedDocument) {
+					if (doc.__deletedAt) {
+						this.del(doc.__id);
+						return;
+					}
+
+					if (tx.has(doc.__id)) {
+						tx.patch(doc.__id, doc);
+					} else {
+						tx.put(doc.__id, doc);
+					}
+
+					// For hooks, we need to decode to get the final merged value
+					// Get the current value after the patch operation
+					const currentDoc = kv.get(doc.__id);
+					if (currentDoc && !currentDoc.__deletedAt) {
+						const merged = decode<T>(currentDoc).__data;
+						txState.set(doc.__id, merged);
+						patchKeyValues.push([doc.__id, merged] as const);
+					}
+				},
 				del(key: string) {
 					hooks?.onBeforeDelete?.(key);
 					for (const fn of listeners.beforeDel) {
@@ -248,6 +271,9 @@ const create = <T extends Record<string, unknown>>({
 
 					tx.del(key, clock.now());
 					deleteKeys.push(key);
+				},
+				has(key: string) {
+					return tx.has(key);
 				},
 				commit(opts: { silent: boolean } = { silent: false }) {
 					tx.commit();

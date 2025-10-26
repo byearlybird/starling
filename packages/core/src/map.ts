@@ -65,6 +65,10 @@ const create = (
 					const prev = staging.get(key);
 					if (prev) staging.set(key, $document.del(prev, eventstamp));
 				},
+				has(key: string) {
+					const doc = staging.get(key);
+					return doc !== undefined && !doc.__deletedAt;
+				},
 				// Atomically publish everything
 				commit() {
 					if (committed) return;
