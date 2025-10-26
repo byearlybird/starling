@@ -13,8 +13,7 @@ let store: Awaited<ReturnType<typeof Store.create<Todo>>>;
 
 beforeEach(async () => {
 	storage = createStorage<Document.EncodedDocument[]>();
-	store = await Store
-		.create<Todo>()
+	store = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
 });
@@ -26,16 +25,14 @@ test("initializes empty store when no data in storage", () => {
 
 test("initializes store with persisted data", async () => {
 	// Create a store with data
-	const store1 = await Store
-		.create<Todo>()
+	const store1 = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
 	store1.put("todo1", { label: "Test", completed: false });
 
 	// Create a new store with same storage
-	const store2 = await Store
-		.create<Todo>()
+	const store2 = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
@@ -109,8 +106,7 @@ test("debounces storage writes when debounceMs is set", async () => {
 		return originalSet.call(debounceStorage, key, value);
 	};
 
-	const debounceStore = await Store
-		.create<Todo>()
+	const debounceStore = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();
 
@@ -148,8 +144,7 @@ test("writes immediately when debounceMs is 0 (default)", async () => {
 		return originalSet.call(defaultStorage, key, value);
 	};
 
-	const defaultStore = await Store
-		.create<Todo>()
+	const defaultStore = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", defaultStorage))
 		.init();
 
@@ -173,8 +168,7 @@ test("clears pending timer on dispose", async () => {
 		return originalSet.call(debounceStorage, key, value);
 	};
 
-	const debounceStore = await Store
-		.create<Todo>()
+	const debounceStore = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();
 

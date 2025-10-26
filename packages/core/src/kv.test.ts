@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { decode, encode } from "./document";
-import { create } from "./map";
+import { create } from "./kv";
 
 const eventstamp = (counter: number) =>
 	`2025-01-01T00:00:00.000Z|${counter.toString(16).padStart(4, "0")}`;
