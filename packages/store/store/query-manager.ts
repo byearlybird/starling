@@ -1,4 +1,8 @@
-import type { StoreOnDelete, StoreOnPatch, StoreOnPut } from "./store";
+import type {
+	StoreOnDelete,
+	StoreOnPatch,
+	StoreOnPut,
+} from "@byearlybird/starling-crdt/src/store";
 
 type Query<T extends Record<string, unknown>> = {
 	results: () => Map<string, T>;

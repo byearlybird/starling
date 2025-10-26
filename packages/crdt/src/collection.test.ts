@@ -1,12 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-	del,
-	from,
-	insert,
-	insertFrom,
-	update,
-	updateFrom,
-} from "./collection";
+import { del, from, insert, update } from "./collection";
 import type { EncodedDocument } from "./document";
 
 // Helper to create test documents
@@ -86,46 +79,4 @@ test("from: throws on duplicate keys", () => {
 	const docs = [createDoc("1"), createDoc("1")];
 
 	expect(() => from(docs)).toThrow("Duplicate key found: 1");
-});
-
-test("insertFrom: adds new document from plain object", () => {
-	const collection = new Map<string, EncodedDocument>();
-	const data = { name: "Alice", age: 30 };
-
-	const result = insertFrom(collection, "user1", data, "2024-01-01T00:00:00Z");
-
-	expect(result.has("user1")).toBe(true);
-	expect(result.get("user1")?.__id).toBe("user1");
-});
-
-test("insertFrom: throws when key already exists", () => {
-	const collection = new Map<string, EncodedDocument>();
-	const data = { name: "Alice" };
-
-	const col1 = insertFrom(collection, "user1", data, "2024-01-01T00:00:00Z");
-
-	expect(() => insertFrom(col1, "user1", data, "2024-01-01T00:00:00Z")).toThrow(
-		"Key already exists: user1",
-	);
-});
-
-test("updateFrom: updates document from plain object", () => {
-	const collection = new Map<string, EncodedDocument>();
-	const data1 = { name: "Alice" };
-	const data2 = { name: "Bob" };
-
-	const col1 = insertFrom(collection, "user1", data1, "2024-01-01T00:00:00Z");
-	const col2 = updateFrom(col1, "user1", data2, "2024-01-02T00:00:00Z");
-
-	expect(col2.has("user1")).toBe(true);
-	expect(col2.get("user1")?.__id).toBe("user1");
-});
-
-test("updateFrom: throws when document doesn't exist", () => {
-	const collection = new Map<string, EncodedDocument>();
-	const data = { name: "Alice" };
-
-	expect(() =>
-		updateFrom(collection, "user1", data, "2024-01-01T00:00:00Z"),
-	).toThrow("Key not found: user1");
 });

@@ -1,5 +1,5 @@
-import { $document } from ".";
 import type { EncodedDocument } from "./document";
+import * as $document from "./document";
 
 const create = (
 	iterable?: Iterable<readonly [string, EncodedDocument]> | null,

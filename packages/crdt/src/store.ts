@@ -1,8 +1,8 @@
-import { create as createClock } from "../../crdt/src/clock";
-import type { EncodedDocument } from "../../crdt/src/document";
-import { decode, encode } from "../../crdt/src/document";
-import * as $map from "../../crdt/src/map";
-import type { DeepPartial } from "../types";
+import type { DeepPartial } from "../../store/types";
+import { create as createClock } from "./clock";
+import type { EncodedDocument } from "./document";
+import { decode, encode } from "./document";
+import * as $map from "./map";
 
 /**
  * Called once per commit with all put operations accumulated as decoded entries.

@@ -1,4 +1,4 @@
-import { type EncodedDocument, encode, merge } from "./document";
+import { type EncodedDocument, merge } from "./document";
 
 type Collection = Map<string, EncodedDocument>;
 
@@ -48,33 +48,5 @@ const from = (docs: EncodedDocument[]): Collection => {
 	return final;
 };
 
-/**
- * @deprecated i don't think i need this actually
- */
-const insertFrom = <T extends Record<string, unknown>>(
-	collection: Collection,
-	id: string,
-	obj: T,
-	eventstamp: string,
-	deletedAt: string | null = null,
-) => {
-	const doc = encode(id, obj, eventstamp, deletedAt);
-	return insert(collection, doc);
-};
-
-/**
- * @deprecated i don't think i need this actually
- */
-const updateFrom = <T extends Record<string, unknown>>(
-	collection: Collection,
-	id: string,
-	obj: T,
-	eventstamp: string,
-	deletedAt: string | null = null,
-) => {
-	const doc = encode(id, obj, eventstamp, deletedAt);
-	return update(collection, doc);
-};
-
 export type { Collection };
-export { insert, update, del, from, insertFrom, updateFrom };
+export { insert, update, del, from };
