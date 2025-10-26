@@ -1,8 +1,11 @@
-import type { DeepPartial } from "../../store/types";
 import { create as createClock } from "./clock";
 import type { EncodedDocument } from "./document";
 import { decode, encode } from "./document";
 import * as $map from "./map";
+
+type DeepPartial<T> = T extends object
+	? { [P in keyof T]?: DeepPartial<T[P]> }
+	: T;
 
 /**
  * Called once per commit with all put operations accumulated as decoded entries.
