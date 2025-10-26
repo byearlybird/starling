@@ -5,26 +5,36 @@ import * as $map from "../../crdt/src/map";
 import type { DeepPartial } from "../types";
 
 /**
+ * Called once per commit with all put operations accumulated as decoded entries.
+ * Only fires if at least one put occurred.
+ */
+type StoreLiteOnPut<T extends Record<string, unknown>> = (
+	entries: ReadonlyArray<readonly [string, T]>,
+) => void;
+
+/**
+ * Called once per commit with all patch operations accumulated as decoded entries.
+ * Only fires if at least one patch occurred.
+ */
+type StoreLiteOnPatch<T extends Record<string, unknown>> = (
+	entries: ReadonlyArray<readonly [string, T]>,
+) => void;
+
+/**
+ * Called once per commit with all deleted keys (IDs).
+ * Only fires if at least one delete occurred.
+ */
+type StoreLiteOnDelete = (keys: ReadonlyArray<string>) => void;
+
+/**
  * Hook callbacks that receive batches of decoded entries.
  * Hooks fire on commit only, never during staged operations.
  * Arrays are readonly to prevent external mutation.
  */
 type StoreLiteHooks<T extends Record<string, unknown>> = {
-	/**
-	 * Called once per commit with all put operations accumulated as decoded entries.
-	 * Only fires if at least one put occurred.
-	 */
-	onPut?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-	/**
-	 * Called once per commit with all patch operations accumulated as decoded entries.
-	 * Only fires if at least one patch occurred.
-	 */
-	onPatch?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-	/**
-	 * Called once per commit with all deleted keys (IDs).
-	 * Only fires if at least one delete occurred.
-	 */
-	onDelete?: (keys: ReadonlyArray<string>) => void;
+	onPut?: StoreLiteOnPut<T>;
+	onPatch?: StoreLiteOnPatch<T>;
+	onDelete?: StoreLiteOnDelete;
 };
 
 /**
@@ -184,6 +194,9 @@ const create = <T extends Record<string, unknown>>({
 export type {
 	StoreLite,
 	StoreLiteHooks,
+	StoreLiteOnDelete,
+	StoreLiteOnPatch,
+	StoreLiteOnPut,
 	StoreLiteOptions,
 	StoreLiteTransaction,
 };
