@@ -27,11 +27,38 @@ type StoreLiteOnPatch<T extends Record<string, unknown>> = (
 type StoreLiteOnDelete = (keys: ReadonlyArray<string>) => void;
 
 /**
+ * Called before a put operation is applied.
+ * Throws to reject the operation.
+ */
+type StoreLiteOnBeforePut<T extends Record<string, unknown>> = (
+	key: string,
+	value: T,
+) => void;
+
+/**
+ * Called before a patch operation is applied.
+ * Throws to reject the operation.
+ */
+type StoreLiteOnBeforePatch<T extends Record<string, unknown>> = (
+	key: string,
+	value: DeepPartial<T>,
+) => void;
+
+/**
+ * Called before a delete operation is applied.
+ * Throws to reject the operation.
+ */
+type StoreLiteOnBeforeDelete = (key: string) => void;
+
+/**
  * Hook callbacks that receive batches of decoded entries.
  * Hooks fire on commit only, never during staged operations.
  * Arrays are readonly to prevent external mutation.
  */
 type StoreLiteHooks<T extends Record<string, unknown>> = {
+	onBeforePut?: StoreLiteOnBeforePut<T>;
+	onBeforePatch?: StoreLiteOnBeforePatch<T>;
+	onBeforeDelete?: StoreLiteOnBeforeDelete;
 	onPut?: StoreLiteOnPut<T>;
 	onPatch?: StoreLiteOnPatch<T>;
 	onDelete?: StoreLiteOnDelete;
@@ -141,11 +168,13 @@ const create = <T extends Record<string, unknown>>({
 
 			return {
 				put(key: string, value: T) {
+					hooks?.onBeforePut?.(key, value);
 					tx.put(key, encodeValue(key, value));
 					txState.set(key, value);
 					putKeyValues.push([key, value] as const);
 				},
 				patch(key: string, value: DeepPartial<T>) {
+					hooks?.onBeforePatch?.(key, value);
 					tx.patch(key, encode(key, value as T, clock.now()));
 					// Get the base value: either from txState (if put/patched in this tx) or from kv
 					let baseValue: T | null;
@@ -163,6 +192,7 @@ const create = <T extends Record<string, unknown>>({
 					}
 				},
 				del(key: string) {
+					hooks?.onBeforeDelete?.(key);
 					const current = txState.get(key) ?? kv.get(key);
 					if (!current) return;
 
@@ -194,6 +224,9 @@ const create = <T extends Record<string, unknown>>({
 export type {
 	StoreLite,
 	StoreLiteHooks,
+	StoreLiteOnBeforeDelete,
+	StoreLiteOnBeforePatch,
+	StoreLiteOnBeforePut,
 	StoreLiteOnDelete,
 	StoreLiteOnPatch,
 	StoreLiteOnPut,

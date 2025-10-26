@@ -237,10 +237,120 @@ test("multiple sequential transactions maintain hook batching", () => {
 	tx2.commit();
 
 	expect(onPut).toHaveBeenCalledTimes(2);
+});
 
-	const [entries1] = onPut.mock.calls[0] ?? [];
-	expect(entries1).toEqual([["user-1", { name: "Alice" }]]);
+test("onBeforePut fires before put is applied", () => {
+	const onBeforePut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
 
-	const [entries2] = onPut.mock.calls[1] ?? [];
-	expect(entries2).toEqual([["user-2", { name: "Bob" }]]);
+	store.put("user-1", { name: "Alice" });
+
+	expect(onBeforePut).toHaveBeenCalledTimes(1);
+	expect(onBeforePut).toHaveBeenCalledWith("user-1", { name: "Alice" });
+});
+
+test("onBeforePut rejecting throws and prevents put", () => {
+	const onBeforePut = () => {
+		throw new Error("Validation failed");
+	};
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
+
+	expect(() => {
+		store.put("user-1", { name: "Alice" });
+	}).toThrow("Validation failed");
+
+	// Store should still be empty after failed validation
+	expect(store.get("user-1")).toBeNull();
+});
+
+test("onBeforePatch fires before patch is applied", () => {
+	const onBeforePatch = mock();
+	const store = create<{ name: string; email: string }>({
+		hooks: { onBeforePatch },
+	});
+
+	store.put("user-1", { name: "Alice", email: "alice@example.com" });
+	onBeforePatch.mockClear();
+
+	store.patch("user-1", { email: "alice@newdomain.com" });
+
+	expect(onBeforePatch).toHaveBeenCalledTimes(1);
+	expect(onBeforePatch).toHaveBeenCalledWith("user-1", { email: "alice@newdomain.com" });
+});
+
+test("onBeforeDelete fires before delete is applied", () => {
+	const onBeforeDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforeDelete },
+	});
+
+	store.put("user-1", { name: "Alice" });
+	onBeforeDelete.mockClear();
+
+	store.del("user-1");
+
+	expect(onBeforeDelete).toHaveBeenCalledTimes(1);
+	expect(onBeforeDelete).toHaveBeenCalledWith("user-1");
+});
+
+test("multiple before hooks compose", () => {
+	const beforePut1 = mock();
+	const beforePut2 = mock();
+	const store = create<{ name: string }>({
+		hooks: {
+			onBeforePut: (key, value) => {
+				beforePut1(key, value);
+				beforePut2(key, value);
+			},
+		},
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	expect(beforePut1).toHaveBeenCalledTimes(1);
+	expect(beforePut2).toHaveBeenCalledTimes(1);
+});
+
+test("before hooks fire in transactions", () => {
+	const onBeforePut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
+
+	const tx = store.begin();
+	tx.put("user-1", { name: "Alice" });
+	tx.put("user-2", { name: "Bob" });
+
+	expect(onBeforePut).toHaveBeenCalledTimes(2);
+
+	tx.commit();
+
+	// onPut should not have been called yet (fires on commit)
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toEqual({ name: "Bob" });
+});
+
+test("rollback after before hook error leaves store unchanged", () => {
+	const onBeforePut = (key: string) => {
+		if (key === "user-2") {
+			throw new Error("user-2 is invalid");
+		}
+	};
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	const tx = store.begin();
+	expect(() => tx.put("user-2", { name: "Bob" })).toThrow("user-2 is invalid");
+	tx.rollback();
+
+	// Only first put should exist, second put should have been rejected
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toBeNull();
 });

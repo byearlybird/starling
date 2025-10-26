@@ -2,6 +2,9 @@ import {
 	create as createBaseStore,
 	type StoreLite,
 	type StoreLiteHooks,
+	type StoreLiteOnBeforeDelete,
+	type StoreLiteOnBeforePatch,
+	type StoreLiteOnBeforePut,
 	type StoreLiteOnDelete,
 	type StoreLiteOnPatch,
 	type StoreLiteOnPut,
@@ -18,6 +21,9 @@ type Plugin<T extends Record<string, unknown>> = (
 ) => PluginHandle<T>;
 
 type ListenerMap<T extends Record<string, unknown>> = {
+	beforePut: Set<StoreLiteOnBeforePut<T>>;
+	beforePatch: Set<StoreLiteOnBeforePatch<T>>;
+	beforeDel: Set<StoreLiteOnBeforeDelete>;
 	put: Set<StoreLiteOnPut<T>>;
 	patch: Set<StoreLiteOnPatch<T>>;
 	del: Set<StoreLiteOnDelete>;
@@ -25,6 +31,9 @@ type ListenerMap<T extends Record<string, unknown>> = {
 
 const create = <T extends Record<string, unknown>>() => {
 	const listeners: ListenerMap<T> = {
+		beforePut: new Set(),
+		beforePatch: new Set(),
+		beforeDel: new Set(),
 		put: new Set(),
 		patch: new Set(),
 		del: new Set(),
@@ -34,6 +43,21 @@ const create = <T extends Record<string, unknown>>() => {
 
 	const core = createBaseStore<T>({
 		hooks: {
+			onBeforePut: (key, value) => {
+				for (const fn of listeners.beforePut) {
+					fn(key, value);
+				}
+			},
+			onBeforePatch: (key, value) => {
+				for (const fn of listeners.beforePatch) {
+					fn(key, value);
+				}
+			},
+			onBeforeDelete: (key) => {
+				for (const fn of listeners.beforeDel) {
+					fn(key);
+				}
+			},
 			onPut: (data) => {
 				for (const fn of listeners.put) {
 					fn(data);
@@ -58,6 +82,27 @@ const create = <T extends Record<string, unknown>>() => {
 			const { hooks, init, dispose } = plugin(this);
 
 			if (hooks) {
+			if (hooks.onBeforePut) {
+				const callback = hooks.onBeforePut;
+				listeners.beforePut.add(callback);
+				disposers.add(() => {
+					listeners.beforePut.delete(callback);
+				});
+			}
+			if (hooks.onBeforePatch) {
+				const callback = hooks.onBeforePatch;
+				listeners.beforePatch.add(callback);
+				disposers.add(() => {
+					listeners.beforePatch.delete(callback);
+				});
+			}
+			if (hooks.onBeforeDelete) {
+				const callback = hooks.onBeforeDelete;
+				listeners.beforeDel.add(callback);
+				disposers.add(() => {
+					listeners.beforeDel.delete(callback);
+				});
+			}
 				if (hooks.onPut) {
 					const callback = hooks.onPut;
 					listeners.put.add(callback);
