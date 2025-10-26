@@ -183,3 +183,52 @@ test("clears pending timer on dispose", async () => {
 	// No write should have happened because we disposed
 	expect(writeCount).toBe(0);
 });
+
+test("onBeforeSet hook filters documents before persisting", async () => {
+	const idsCaptured: Array<ReadonlyArray<string>> = [];
+
+	const hookStore = await Store.create<Todo>()
+		.use(
+			unstoragePlugin("todos", storage, {
+				onBeforeSet: async (docs) => {
+					idsCaptured.push(docs.map((doc) => doc["~id"]));
+					return docs.filter((doc) => doc["~id"] !== "skip-me");
+				},
+			}),
+		)
+		.init();
+
+	hookStore.put("todo1", { label: "Keep", completed: false });
+	hookStore.put("skip-me", { label: "Drop", completed: false });
+
+	// allow async hook + storage write to settle
+	await new Promise((resolve) => setTimeout(resolve, 0));
+
+	const persisted = (await storage.getItem("todos")) as
+		| Document.EncodedDocument[]
+		| null;
+
+	expect(idsCaptured.length).toBeGreaterThan(0);
+	expect(persisted?.some((doc) => doc["~id"] === "skip-me")).toBe(false);
+});
+
+test("onAfterGet hook can mutate hydration payload", async () => {
+	const writerStore = await Store.create<Todo>()
+		.use(unstoragePlugin("todos", storage))
+		.init();
+
+	writerStore.put("todo1", { label: "Keep", completed: false });
+	writerStore.put("todo2", { label: "Filter", completed: false });
+
+	const filteredStore = await Store.create<Todo>()
+		.use(
+			unstoragePlugin("todos", storage, {
+				onAfterGet: async (docs) =>
+					docs.filter((doc) => doc["~id"] !== "todo2"),
+			}),
+		)
+		.init();
+
+	expect(filteredStore.has("todo1")).toBe(true);
+	expect(filteredStore.has("todo2")).toBe(false);
+});
