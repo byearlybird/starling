@@ -67,14 +67,6 @@ type StoreHooks<T extends Record<string, unknown>> = {
 	onDelete?: StoreOnDelete;
 };
 
-/**
- * Configuration for Store instance.
- * Hooks receive batches of decoded entries on commit.
- */
-type StoreOptions<T extends Record<string, unknown>> = {
-	hooks?: StoreHooks<T>;
-};
-
 type StoreTransaction<T extends Record<string, unknown>> = {
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
@@ -120,9 +112,7 @@ type Store<T extends Record<string, unknown>> = {
 	dispose: () => Promise<void>;
 };
 
-const create = <T extends Record<string, unknown>>({
-	hooks,
-}: StoreOptions<T> = {}): Store<T> => {
+const create = <T extends Record<string, unknown>>(): Store<T> => {
 	const clock = createClock();
 	const encodeValue = (key: string, value: T) =>
 		encode(key, value, clock.now());
@@ -211,7 +201,6 @@ const create = <T extends Record<string, unknown>>({
 
 			return {
 				put(key: string, value: T) {
-					hooks?.onBeforePut?.(key, value);
 					for (const fn of listeners.beforePut) {
 						fn(key, value);
 					}
@@ -220,7 +209,6 @@ const create = <T extends Record<string, unknown>>({
 					putKeyValues.push([key, value] as const);
 				},
 				patch(key: string, value: DeepPartial<T>) {
-					hooks?.onBeforePatch?.(key, value);
 					for (const fn of listeners.beforePatch) {
 						fn(key, value);
 					}
@@ -262,7 +250,6 @@ const create = <T extends Record<string, unknown>>({
 					}
 				},
 				del(key: string) {
-					hooks?.onBeforeDelete?.(key);
 					for (const fn of listeners.beforeDel) {
 						fn(key);
 					}
@@ -279,17 +266,6 @@ const create = <T extends Record<string, unknown>>({
 					tx.commit();
 
 					if (opts.silent) return;
-
-					// Emit original hooks first if provided
-					if (putKeyValues.length > 0 && hooks?.onPut) {
-						hooks.onPut(Object.freeze([...putKeyValues]));
-					}
-					if (patchKeyValues.length > 0 && hooks?.onPatch) {
-						hooks.onPatch(Object.freeze([...patchKeyValues]));
-					}
-					if (deleteKeys.length > 0 && hooks?.onDelete) {
-						hooks.onDelete(Object.freeze([...deleteKeys]));
-					}
 
 					// Emit plugin hooks
 					if (putKeyValues.length > 0) {
@@ -394,7 +370,6 @@ export type {
 	StoreOnDelete,
 	StoreOnPatch,
 	StoreOnPut,
-	StoreOptions,
 	StoreTransaction,
 	Plugin,
 	PluginHandle,

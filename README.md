@@ -4,54 +4,47 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 
 ## Features
 
-- **Reactive Stores**: Event-driven data stores with automatic change notifications
-- **Query System**: Predicate-based filtering with reactive updates
-- **CRDT-like Merging**: Conflict-free state synchronization using eventstamps (ULID-based monotonic timestamps)
-- **HTTP Synchronization**: Bidirectional client-server sync with customizable push/pull strategies
-- **Storage Abstraction**: Powered by `unstorage` for flexible persistence (localStorage, filesystem, Redis, etc.)
+- **Reactive Stores**: Event-driven data stores with hook-based notifications
+- **Query System**: Predicate-based filtering with reactive updates (via plugin)
+- **CRDT-like Merging**: Conflict-free state synchronization using eventstamps (ISO8601 + hex counter)
+- **HTTP Synchronization**: Bidirectional client-server sync with customizable push/pull strategies (via plugin)
+- **Storage Abstraction**: Powered by `unstorage` for flexible persistence (via plugin)
+- **Transaction Support**: Stage operations and commit/rollback atomically
 - **TypeScript First**: Full type safety with strict TypeScript support
+- **Zero Dependencies**: Core package has no external dependencies
 
 ## Installation
 
 ```bash
-# npm
-npm install @byearlybird/starling @byearlybird/starling-plugins unstorage
+# Core package
+bun add @byearlybird/starling
 
-# bun
-bun add @byearlybird/starling @byearlybird/starling-plugins unstorage
-
-# yarn
-yarn add @byearlybird/starling @byearlybird/starling-plugins unstorage
+# Optional plugins
+bun add @byearlybird/starling-plugins-query
+bun add @byearlybird/plugins-poll-sync
+bun add @byearlybird/starling-plugins-unstorage unstorage
 ```
 
 ## Quick Start
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
-import { createStorage } from "unstorage";
+import { $store } from "@byearlybird/starling";
 
 // Create a store
-const todoStore = createStore<{ text: string; completed: boolean }>("todos", {
-  storage: createStorage(),
-});
+const todoStore = $store.create<{ text: string; completed: boolean }>();
 
 // Insert items
-await todoStore.insert("todo-1", {
+todoStore.put("todo-1", {
   text: "Learn Starling",
   completed: false,
 });
 
 // Update items (supports partial updates)
-await todoStore.update("todo-1", { completed: true });
+todoStore.patch("todo-1", { completed: true });
 
-// Get all values
-const todos = await todoStore.values();
-console.log(todos); // { "todo-1": { text: "Learn Starling", completed: true, __eventstamp: "..." } }
-
-// Listen to changes
-const unsubscribe = todoStore.on("update", (updates) => {
-  console.log("Updated:", updates);
-});
+// Get values
+const todo = todoStore.get("todo-1");
+console.log(todo); // { text: "Learn Starling", completed: true }
 ```
 
 ## Core API
@@ -59,77 +52,160 @@ const unsubscribe = todoStore.on("update", (updates) => {
 ### Creating a Store
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
-import { createStorage } from "unstorage";
-import localStorageDriver from "unstorage/drivers/localstorage";
+import { $store } from "@byearlybird/starling";
 
-const store = createStore<YourType>("collectionName", {
-  storage: createStorage({
-    driver: localStorageDriver({ base: "app:" }),
-  }),
-});
+// Create a basic store
+const store = $store.create<YourType>();
+
+// To listen to store mutations, use plugins (see "Custom Plugin with Hooks" below)
 ```
 
 ### Store Methods
 
-#### `insert(key: string, value: T): Promise<void>`
-Insert a new item into the store. Each value is automatically encoded with an `__eventstamp` for conflict resolution.
+#### `put(key: string, value: T): void`
+Insert a new item into the store. Each value is automatically encoded with eventstamps for conflict resolution.
 
 ```typescript
-await store.insert("user-1", { name: "Alice", email: "alice@example.com" });
+store.put("user-1", { name: "Alice", email: "alice@example.com" });
 ```
 
-#### `update(key: string, value: DeepPartial<T>): Promise<void>`
-Update an existing item with partial data. Supports nested updates via dot notation.
+#### `patch(key: string, value: DeepPartial<T>): void`
+Update an existing item with partial data.
 
 ```typescript
-await store.update("user-1", { email: "alice@newdomain.com" });
+store.patch("user-1", { email: "alice@newdomain.com" });
 ```
 
-#### `values(): Promise<Record<string, T>>`
-Get all decoded values from the store.
+#### `del(key: string): void`
+Delete an item (adds `__deletedAt` timestamp).
 
 ```typescript
-const allUsers = await store.values();
+store.del("user-1");
 ```
 
-#### `state(): Promise<EncodedRecord>`
-Get the raw encoded state with eventstamps (useful for synchronization).
+#### `get(key: string): T | null`
+Get a single item by key.
 
 ```typescript
-const encodedState = await store.state();
+const user = store.get("user-1");
 ```
 
-#### `mergeState(data: EncodedRecord): Promise<void>`
-Merge external state into the store. Conflicts are resolved using eventstamp comparison (Last-Write-Wins).
+#### `has(key: string): boolean`
+Check if an item exists (and is not deleted).
 
 ```typescript
-await store.mergeState(incomingState);
+if (store.has("user-1")) {
+  // user exists
+}
 ```
 
-### Store Events
-
-Subscribe to store changes using the event emitter:
+#### `values(): IterableIterator<T>`
+Get all decoded values from the store (excluding deleted items).
 
 ```typescript
-// Listen for new insertions
-store.on("insert", (items) => {
-  items.forEach(({ key, value }) => console.log(`Inserted: ${key}`, value));
-});
+for (const user of store.values()) {
+  console.log(user);
+}
+```
 
-// Listen for updates
-store.on("update", (items) => {
-  items.forEach(({ key, value }) => console.log(`Updated: ${key}`, value));
-});
+#### `entries(): IterableIterator<[string, T]>`
+Get all key-value pairs (excluding deleted items).
 
-// Listen for any mutation (insert or update)
-store.on("mutate", () => {
-  console.log("Store has changed");
-});
+```typescript
+for (const [key, value] of store.entries()) {
+  console.log(key, value);
+}
+```
 
-// Unsubscribe
-const unsubscribe = store.on("update", callback);
-unsubscribe();
+#### `snapshot(): EncodedDocument[]`
+Get the raw encoded state with eventstamps (includes deleted items with `__deletedAt`).
+
+```typescript
+const encodedState = store.snapshot();
+```
+
+#### `begin(): Transaction`
+Start a transaction to batch operations.
+
+```typescript
+const tx = store.begin();
+tx.put("user-1", { name: "Alice" });
+tx.patch("user-1", { email: "alice@example.com" });
+tx.commit(); // Or tx.rollback()
+```
+
+### Transactions
+
+Transactions allow you to stage multiple operations and commit them atomically:
+
+```typescript
+const tx = store.begin();
+
+// Stage operations
+tx.put("user-1", { name: "Alice", email: "alice@example.com" });
+tx.patch("user-1", { email: "alice@newdomain.com" });
+tx.del("user-2");
+
+// Commit all operations atomically
+tx.commit();
+
+// Or commit silently (no hooks fire - useful during sync)
+tx.commit({ silent: true });
+
+// Or rollback (discard all staged operations)
+tx.rollback();
+```
+
+### Custom Plugin with Hooks
+
+Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
+
+```typescript
+import { $store } from "@byearlybird/starling";
+
+// Create a custom plugin with hooks
+const loggingPlugin = <T extends Record<string, unknown>>(): $store.Plugin<T> => {
+  return (store) => ({
+    init: () => {
+      console.log("Logging plugin initialized");
+    },
+    dispose: () => {
+      console.log("Logging plugin disposed");
+    },
+    hooks: {
+      // Before hooks (throw to reject operation)
+      onBeforePut: (key, value) => {
+        console.log(`Before put: ${key}`);
+        // Throw to reject: if (invalid) throw new Error("Invalid");
+      },
+
+      // After hooks (receive batched entries)
+      onPut: (entries) => {
+        for (const [key, value] of entries) {
+          console.log(`Put ${key}:`, value);
+        }
+      },
+
+      onPatch: (entries) => {
+        for (const [key, value] of entries) {
+          console.log(`Patched ${key}:`, value); // Full merged value
+        }
+      },
+
+      onDelete: (keys) => {
+        for (const key of keys) {
+          console.log(`Deleted ${key}`);
+        }
+      },
+    },
+  });
+};
+
+// Use the plugin
+const store = $store.create<{ name: string }>()
+  .use(loggingPlugin());
+
+await store.init();
 ```
 
 ## Queries
@@ -137,93 +213,148 @@ unsubscribe();
 Queries provide reactive, filtered views of store data.
 
 ```typescript
-import { createQuery } from "@byearlybird/starling";
+import { $store } from "@byearlybird/starling";
+import { createQueryManager } from "@byearlybird/starling-plugins-query";
 
-const query = createQuery(
-  todoStore,
-  (todo) => !todo.completed // Predicate function
-);
+// Create store and query manager
+const store = $store.create<{ text: string; completed: boolean }>();
+const queries = createQueryManager<{ text: string; completed: boolean }>();
 
-// Listen for initial data load
-query.on("init", (todos) => {
-  console.log("Initial todos:", todos);
-});
+// Attach query plugin
+store.use(() => queries.plugin());
+await store.init();
+
+// Create query with predicate
+const activeTodos = queries.query((todo) => !todo.completed);
+
+// Get results (returns Map<string, T>)
+const results = activeTodos.results();
+for (const [key, todo] of results) {
+  console.log(key, todo);
+}
 
 // Listen for changes
-query.on("change", (todos) => {
-  console.log("Todos updated:", todos);
+activeTodos.onChange(() => {
+  console.log("Active todos changed:", activeTodos.results());
 });
 
 // Clean up
-query.dispose();
+activeTodos.dispose();
 ```
 
 ## Synchronization
 
-Starling provides an HTTP synchronizer for bidirectional client-server sync.
+Starling provides a poll-based sync plugin for bidirectional client-server sync.
 
 ```typescript
-import { pushPullPlugin } from "@byearlybird/starling-plugins";
+import { $store } from "@byearlybird/starling";
+import { pollSyncPlugin } from "@byearlybird/plugins-poll-sync";
 
-const sync = createHttpSynchronizer(todoStore, {
-  pullInterval: 5000, // Pull from server every 5 seconds
+const store = $store
+  .create<{ text: string; completed: boolean }>()
+  .use(pollSyncPlugin({
+    pullInterval: 5000, // Pull from server every 5 seconds
 
-  // Push local changes to server
-  push: async (data) => {
-    await fetch("/api/todos", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ todos: data }),
-    });
-  },
+    // Push local changes to server
+    push: async (data) => {
+      await fetch("/api/todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ todos: data }),
+      });
+    },
 
-  // Pull remote changes from server
-  pull: async () => {
-    const response = await fetch("/api/todos");
-    const { todos } = await response.json();
-    return todos;
-  },
+    // Pull remote changes from server
+    pull: async () => {
+      const response = await fetch("/api/todos");
+      const { todos } = await response.json();
+      return todos;
+    },
 
-  // Optional: preprocess data before merging (e.g., encryption)
-  preprocess: (data) => {
-    // Transform or decrypt data before merging
-    return data;
-  },
-});
+    // Optional: preprocess data before merging (e.g., encryption)
+    preprocess: async (event, data) => {
+      // Transform or decrypt data before merging
+      return data;
+    },
+  }));
 
 // Start synchronization
-await sync.start();
+await store.init();
 
 // Stop synchronization
-sync.stop();
+await store.dispose();
 ```
 
 ### Server-Side Merging
 
-On the server, use `mergeState` to handle incoming updates:
+On the server, use transactions to merge incoming updates:
 
 ```typescript
-// Server endpoint (e.g., using Hono, Express, etc.)
+import { $store, $document } from "@byearlybird/starling";
+
+// Server store
+const serverStore = $store.create<{ text: string; completed: boolean }>();
+
+// Merge endpoint
 app.put("/api/todos", async (c) => {
-  const { todos } = await c.req.json();
+  const { todos } = await c.req.json<{ todos: $document.EncodedDocument[] }>();
 
   // Merge client state into server store
-  await serverTodoStore.mergeState(todos);
+  const tx = serverStore.begin();
+  for (const doc of todos) {
+    tx.merge(doc);
+  }
+  tx.commit();
 
   return c.json({ success: true });
 });
 
+// Pull endpoint
 app.get("/api/todos", async (c) => {
-  const state = await serverTodoStore.state();
-  return c.json({ todos: state });
+  const snapshot = serverStore.snapshot();
+  return c.json({ todos: snapshot });
 });
+```
+
+## Persistence
+
+Store data persistently using the unstorage plugin:
+
+```typescript
+import { $store } from "@byearlybird/starling";
+import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
+import { createStorage } from "unstorage";
+import localStorageDriver from "unstorage/drivers/localstorage";
+
+// Create storage
+const storage = createStorage({
+  driver: localStorageDriver({ base: "app:" }),
+});
+
+// Create store with persistence
+const store = $store
+  .create<{ text: string }>()
+  .use(unstoragePlugin("todos", storage, {
+    debounceMs: 300, // Debounce persistence by 300ms
+  }));
+
+await store.init(); // Restores state from storage
+store.put("todo1", { text: "Buy milk" }); // Automatically persisted
 ```
 
 ## Architecture
 
 ### Eventstamps
 
-Every value in Starling is encoded with an `__eventstamp` field containing a ULID (Universally Unique Lexicographically Sortable Identifier). This enables:
+Every value in Starling is encoded with eventstamps for conflict resolution. The eventstamp format is:
+
+```
+YYYY-MM-DDTHH:mm:ss.SSSZ|hexCounter
+```
+
+Example: `2025-10-26T10:00:00.000Z|00000001`
+
+This enables:
 
 - **Monotonic timestamps**: Later events always have higher eventstamps
 - **Conflict resolution**: When two clients update the same field, the update with the higher eventstamp wins (Last-Write-Wins)
@@ -235,24 +366,52 @@ When merging states, Starling compares eventstamps at the field level:
 
 ```typescript
 // Client A updates
-{ name: "Alice", email: "alice@old.com", __eventstamp: "01H..." }
+{ name: "Alice", email: "alice@old.com" }
 
 // Client B updates (newer eventstamp for email only)
-{
-  name: { value: "Alice", __eventstamp: "01H..." },
-  email: { value: "alice@new.com", __eventstamp: "01J..." }
-}
+{ email: "alice@new.com" }
 
 // Merged result: email takes precedence due to higher eventstamp
 { name: "Alice", email: "alice@new.com" }
 ```
 
+### Plugin System
+
+Stores are extensible via plugins that provide lifecycle hooks:
+
+```typescript
+type Plugin<T> = (store: Store<T>) => PluginHandle<T>;
+type PluginHandle<T> = {
+  init: () => Promise<void> | void;
+  dispose: () => Promise<void> | void;
+  hooks?: StoreHooks<T>;
+};
+
+// Usage
+const store = $store.create<T>()
+  .use(plugin1)
+  .use(plugin2);
+
+await store.init();
+```
+
 ## Package Exports
 
-Starling is organized as a monorepo with two packages:
+Starling is organized as a monorepo with four packages:
 
-- `@byearlybird/starling` - Core library (stores, queries, CRDT operations)
-- `@byearlybird/starling-plugins` - Optional sync and persistence plugins
+- **`@byearlybird/starling`** - Core library (stores, CRDT operations, transactions)
+  - Exports: `$store`, `$document`, `$record`, `$value`, `$map`, `$clock`, `$eventsamp`
+  - Zero dependencies
+
+- **`@byearlybird/starling-plugins-query`** - Query plugin for reactive filtered views
+  - Exports: `createQueryManager`
+
+- **`@byearlybird/plugins-poll-sync`** - Sync plugin for bidirectional HTTP sync
+  - Exports: `pollSyncPlugin`, `PollSyncConfig`
+
+- **`@byearlybird/starling-plugins-unstorage`** - Persistence plugin
+  - Exports: `unstoragePlugin`
+  - Peer dependency: `unstorage@^1.17.1`
 
 ## Development
 
@@ -265,7 +424,7 @@ bun test
 bun test --watch
 
 # Specific test file
-bun test packages/core/src/store/store.test.ts
+bun test packages/core/src/store.test.ts
 ```
 
 ### Linting and Formatting
@@ -281,17 +440,16 @@ bun biome format --write .
 bun biome lint .
 ```
 
-### Running Demo Apps
+### Building
 
 ```bash
-# Start demo server (port 3000)
-cd demo-server && bun run index.ts
+# Build core package
+bun run build:core
 
-# Start React demo (separate terminal)
-cd demo-react && bun run dev
-
-# Start Solid demo (separate terminal)
-cd demo-solid && bun run dev
+# Build plugin packages
+cd packages/plugins/poll-sync && bun run build.ts
+cd packages/plugins/query && bun run build.ts
+cd packages/plugins/unstorage && bun run build.ts
 ```
 
 ## License

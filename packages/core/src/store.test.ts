@@ -279,7 +279,9 @@ test("onBeforePatch fires before patch is applied", () => {
 	store.patch("user-1", { email: "alice@newdomain.com" });
 
 	expect(onBeforePatch).toHaveBeenCalledTimes(1);
-	expect(onBeforePatch).toHaveBeenCalledWith("user-1", { email: "alice@newdomain.com" });
+	expect(onBeforePatch).toHaveBeenCalledWith("user-1", {
+		email: "alice@newdomain.com",
+	});
 });
 
 test("onBeforeDelete fires before delete is applied", () => {

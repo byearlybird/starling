@@ -101,7 +101,10 @@ test("debounces storage writes when debounceMs is set", async () => {
 
 	// Spy on storage.set to count writes
 	const originalSet = debounceStorage.set;
-	debounceStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+	debounceStorage.set = async (
+		key: string,
+		value: $document.EncodedDocument[],
+	) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};
@@ -137,7 +140,10 @@ test("writes immediately when debounceMs is 0 (default)", async () => {
 	let writeCount = 0;
 
 	const originalSet = defaultStorage.set;
-	defaultStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+	defaultStorage.set = async (
+		key: string,
+		value: $document.EncodedDocument[],
+	) => {
 		writeCount++;
 		return originalSet.call(defaultStorage, key, value);
 	};
@@ -159,7 +165,10 @@ test("clears pending timer on dispose", async () => {
 	let writeCount = 0;
 
 	const originalSet = debounceStorage.set;
-	debounceStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+	debounceStorage.set = async (
+		key: string,
+		value: $document.EncodedDocument[],
+	) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};
