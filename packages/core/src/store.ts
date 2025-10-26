@@ -79,7 +79,7 @@ type StoreTransaction<T extends Record<string, unknown>> = {
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
-	commit: (opts?: { silent: false }) => void;
+	commit: (opts?: { silent: boolean }) => void;
 	rollback: () => void;
 };
 
