@@ -94,3 +94,89 @@ test("persists multiple items to storage", async () => {
 	expect(store.size).toBe(3);
 	expect(Array.from(store.values())).toHaveLength(3);
 });
+
+test("debounces storage writes when debounceMs is set", async () => {
+	const debounceStorage = createStorage<$document.EncodedDocument[]>();
+	let writeCount = 0;
+
+	// Spy on storage.set to count writes
+	const originalSet = debounceStorage.set;
+	debounceStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+		writeCount++;
+		return originalSet.call(debounceStorage, key, value);
+	};
+
+	const debounceStore = await $store
+		.create<Todo>()
+		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
+		.init();
+
+	// Rapid writes should be batched
+	debounceStore.put("todo1", { label: "Task 1", completed: false });
+	debounceStore.put("todo2", { label: "Task 2", completed: false });
+	debounceStore.put("todo3", { label: "Task 3", completed: false });
+
+	// No writes should have happened yet
+	expect(writeCount).toBe(0);
+
+	// Wait for debounce to complete
+	await new Promise((resolve) => setTimeout(resolve, 150));
+
+	// Should only have 1 write despite 3 mutations
+	expect(writeCount).toBe(1);
+
+	// Verify all data was persisted
+	const persisted = (await debounceStorage.getItem("todos")) as
+		| $document.EncodedDocument[]
+		| null;
+	expect(persisted?.length).toBe(3);
+});
+
+test("writes immediately when debounceMs is 0 (default)", async () => {
+	const defaultStorage = createStorage<$document.EncodedDocument[]>();
+	let writeCount = 0;
+
+	const originalSet = defaultStorage.set;
+	defaultStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+		writeCount++;
+		return originalSet.call(defaultStorage, key, value);
+	};
+
+	const defaultStore = await $store
+		.create<Todo>()
+		.use(unstoragePlugin("todos", defaultStorage))
+		.init();
+
+	defaultStore.put("todo1", { label: "Task 1", completed: false });
+	defaultStore.put("todo2", { label: "Task 2", completed: false });
+
+	// Should have immediate writes with debounceMs=0
+	expect(writeCount).toBe(2);
+});
+
+test("clears pending timer on dispose", async () => {
+	const debounceStorage = createStorage<$document.EncodedDocument[]>();
+	let writeCount = 0;
+
+	const originalSet = debounceStorage.set;
+	debounceStorage.set = async (key: string, value: $document.EncodedDocument[]) => {
+		writeCount++;
+		return originalSet.call(debounceStorage, key, value);
+	};
+
+	const debounceStore = await $store
+		.create<Todo>()
+		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
+		.init();
+
+	debounceStore.put("todo1", { label: "Task 1", completed: false });
+
+	// Dispose before debounce completes
+	await debounceStore.dispose();
+
+	// Wait longer than debounce period
+	await new Promise((resolve) => setTimeout(resolve, 200));
+
+	// No write should have happened because we disposed
+	expect(writeCount).toBe(0);
+});
