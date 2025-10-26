@@ -1,4 +1,4 @@
-import type { EncodedObject } from "@byearlybird/starling-crdt";
+import type { EncodedObject } from "@byearlybird/starling";
 
 export type DeepPartial<T> = T extends object
 	? { [P in keyof T]?: DeepPartial<T[P]> }

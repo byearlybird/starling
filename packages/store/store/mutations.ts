@@ -1,5 +1,5 @@
-import type { EncodedObject } from "@byearlybird/starling-crdt";
-import { decode, encode, encodeMany, merge } from "@byearlybird/starling-crdt";
+import type { EncodedObject } from "@byearlybird/starling";
+import { decode, encode, encodeMany, merge } from "@byearlybird/starling";
 import type { Emitter } from "mitt";
 import { mergeItems } from "../shared/utils.ts";
 import type { StoreEvents } from "../types.ts";

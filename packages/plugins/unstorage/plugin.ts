@@ -1,4 +1,4 @@
-import type { EncodedObject } from "@byearlybird/starling-crdt";
+import type { EncodedObject } from "@byearlybird/starling";
 import type { Plugin } from "@byearlybird/store";
 import { prefixStorage, type Storage } from "unstorage";
 

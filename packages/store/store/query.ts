@@ -1,5 +1,5 @@
-import type { EncodedObject } from "@byearlybird/starling-crdt";
-import { decode } from "@byearlybird/starling-crdt";
+import type { EncodedObject } from "@byearlybird/starling";
+import { decode } from "@byearlybird/starling";
 
 type Predicate<T> = (data: T) => boolean;
 type Callback = () => void;

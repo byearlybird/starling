@@ -1,5 +1,5 @@
-import type { EncodedObject } from "@byearlybird/starling-crdt";
-import { merge } from "@byearlybird/starling-crdt";
+import type { EncodedObject } from "@byearlybird/starling";
+import { merge } from "@byearlybird/starling";
 
 export function mapToArray<TValue>(
 	map: Map<string, TValue>,

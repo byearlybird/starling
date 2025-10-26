@@ -19,7 +19,7 @@
 		}
 	},
 	"dependencies": {
-		"@byearlybird/starling-crdt": "workspace:*",
+		"@byearlybird/starling": "workspace:*",
 		"mitt": "^3.0.1"
 	},
 	"devDependencies": {

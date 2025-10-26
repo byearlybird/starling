@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { create as createStore } from "@byearlybird/starling-crdt/src/store";
+import { create as createStore } from "@byearlybird/starling/src/store";
 import { createQueryManager } from "./query-manager";
 
 type User = {
