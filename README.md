@@ -13,6 +13,16 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 - **TypeScript First**: Full type safety with strict TypeScript support
 - **Zero Dependencies**: Core package has no external dependencies
 
+## Repository Layout
+
+| Path | Notes |
+| --- | --- |
+| `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
+| `packages/plugins/query` | Reactive query manager (`createQueryManager`) that listens to store hooks to keep filtered `Map`s in sync. |
+| `packages/plugins/poll` | Bidirectional HTTP poller (`pollSyncPlugin`) with push/pull/preprocess hooks. |
+| `packages/plugins/unstorage` | Persistence bridge (`unstoragePlugin`) that replays snapshots on boot and debounces writes. |
+| `index.ts` | Convenience export surface if you want to consume packages from the monorepo during local development. |
+
 ## Installation
 
 ```bash
@@ -21,7 +31,7 @@ bun add @byearlybird/starling
 
 # Optional plugins
 bun add @byearlybird/starling-plugins-query
-bun add @byearlybird/plugins-poll-sync
+bun add @byearlybird/starling-plugins-poll
 bun add @byearlybird/starling-plugins-unstorage unstorage
 ```
 
@@ -59,6 +69,12 @@ const store = Store.create<YourType>();
 
 // To listen to store mutations, use plugins (see "Custom Plugin with Hooks" below)
 ```
+
+### Store Lifecycle
+
+- `store.use(plugin)` chains plugins and returns the same store so calls can be composed.
+- `await store.init()` runs the store once and awaits each plugin's `init` hook (start pollers, hydrate snapshots, warm caches, etc).
+- `await store.dispose()` tears down plugins (each `dispose` hook runs) and lets plugins flush pending work before you drop the store.
 
 ### Store Methods
 
@@ -156,6 +172,18 @@ tx.commit({ silent: true });
 tx.rollback();
 ```
 
+#### Transaction Methods
+
+Once you call `const tx = store.begin()`, you get access to the staged helpers implemented in [`packages/core/src/store.ts`](packages/core/src/store.ts):
+
+- `tx.put(key, value)` – stage a brand-new encoded document using the current clock.
+- `tx.patch(key, partial)` – merge a partial update into the staged (or persisted) record.
+- `tx.merge(document)` – apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
+- `tx.del(key)` – tombstone a record by stamping `~deletedAt`.
+- `tx.has(key)` – check whether the staged view currently exposes the record (ignores soft-deleted docs).
+- `tx.commit({ silent })` – atomically publish the staged map. Pass `{ silent: true }` when you are hydrating state and do not want hooks to fire.
+- `tx.rollback()` – drop the staging map so the store remains untouched.
+
 ### Custom Plugin with Hooks
 
 Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
@@ -208,139 +236,21 @@ const store = Store.create<{ name: string }>()
 await store.init();
 ```
 
-## Queries
+## Official Plugins
 
-Queries provide reactive, filtered views of store data.
+Starling ships with optional packages that extend the core store. Each plugin has its own README inside `packages/plugins/*` with in-depth examples.
 
-```typescript
-import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "@byearlybird/starling-plugins-query";
+### Query (`@byearlybird/starling-plugins-query`)
 
-// Create store and query manager
-const store = Store.create<{ text: string; completed: boolean }>();
-const queries = createQueryManager<{ text: string; completed: boolean }>();
+Attach predicate-based, reactive views that stay synchronized with store mutations. The manager exposes a `query()` helper and a store plugin. See [`packages/plugins/query/README.md`](packages/plugins/query/README.md) for usage patterns and API notes.
 
-// Attach query plugin
-store.use(() => queries.plugin());
-await store.init();
+### Poll Sync (`@byearlybird/starling-plugins-poll`)
 
-// Create query with predicate
-const activeTodos = queries.query((todo) => !todo.completed);
+Bidirectional HTTP polling that batches push/pull operations and merges remote documents via transactions. Configuration details, networking tips, and server-merging guidance live in [`packages/plugins/poll/README.md`](packages/plugins/poll/README.md).
 
-// Get results (returns Map<string, T>)
-const results = activeTodos.results();
-for (const [key, todo] of results) {
-  console.log(key, todo);
-}
+### Unstorage (`@byearlybird/starling-plugins-unstorage`)
 
-// Listen for changes
-activeTodos.onChange(() => {
-  console.log("Active todos changed:", activeTodos.results());
-});
-
-// Clean up
-activeTodos.dispose();
-```
-
-## Synchronization
-
-Starling provides a poll-based sync plugin for bidirectional client-server sync.
-
-```typescript
-import { Store } from "@byearlybird/starling";
-import { pollSyncPlugin } from "@byearlybird/plugins-poll-sync";
-
-const store = $store
-  .create<{ text: string; completed: boolean }>()
-  .use(pollSyncPlugin({
-    pullInterval: 5000, // Pull from server every 5 seconds
-
-    // Push local changes to server
-    push: async (data) => {
-      await fetch("/api/todos", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ todos: data }),
-      });
-    },
-
-    // Pull remote changes from server
-    pull: async () => {
-      const response = await fetch("/api/todos");
-      const { todos } = await response.json();
-      return todos;
-    },
-
-    // Optional: preprocess data before merging (e.g., encryption)
-    preprocess: async (event, data) => {
-      // Transform or decrypt data before merging
-      return data;
-    },
-  }));
-
-// Start synchronization
-await store.init();
-
-// Stop synchronization
-await store.dispose();
-```
-
-### Server-Side Merging
-
-On the server, use transactions to merge incoming updates:
-
-```typescript
-import { Store, Document } from "@byearlybird/starling";
-
-// Server store
-const serverStore = Store.create<{ text: string; completed: boolean }>();
-
-// Merge endpoint
-app.put("/api/todos", async (c) => {
-  const { todos } = await c.req.json<{ todos: Document.EncodedDocument[] }>();
-
-  // Merge client state into server store
-  const tx = serverStore.begin();
-  for (const doc of todos) {
-    tx.merge(doc);
-  }
-  tx.commit();
-
-  return c.json({ success: true });
-});
-
-// Pull endpoint
-app.get("/api/todos", async (c) => {
-  const snapshot = serverStore.snapshot();
-  return c.json({ todos: snapshot });
-});
-```
-
-## Persistence
-
-Store data persistently using the unstorage plugin:
-
-```typescript
-import { Store } from "@byearlybird/starling";
-import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
-import { createStorage } from "unstorage";
-import localStorageDriver from "unstorage/drivers/localstorage";
-
-// Create storage
-const storage = createStorage({
-  driver: localStorageDriver({ base: "app:" }),
-});
-
-// Create store with persistence
-const store = $store
-  .create<{ text: string }>()
-  .use(unstoragePlugin("todos", storage, {
-    debounceMs: 300, // Debounce persistence by 300ms
-  }));
-
-await store.init(); // Restores state from storage
-store.put("todo1", { text: "Buy milk" }); // Automatically persisted
-```
+Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
 
 ## Architecture
 
@@ -395,18 +305,28 @@ const store = Store.create<T>()
 await store.init();
 ```
 
+### Modules at a Glance
+
+- [`clock.ts`](packages/core/src/clock.ts) – monotonic logical clock that increments a hex counter whenever the OS clock stalls and can `forward` itself when it sees newer remote stamps.
+- [`eventstamp.ts`](packages/core/src/eventstamp.ts) – encoder/decoder for the sortable `YYYY-MM-DDTHH:mm:ss.sssZ|counter` strings.
+- [`value.ts`](packages/core/src/value.ts) – wraps primitives with their eventstamp and merges values by comparing stamps.
+- [`record.ts`](packages/core/src/record.ts) – walks nested objects, encoding/decoding each field and recursively merging sub-records.
+- [`document.ts`](packages/core/src/document.ts) – attaches metadata (`~id`, `~deletedAt`) and knows how to tombstone or merge entire documents.
+- [`kv.ts`](packages/core/src/kv.ts) – immutable map plus transactional staging used by the store to guarantee atomic commits.
+- [`store.ts`](packages/core/src/store.ts) – user-facing API layer plus plugin orchestration and hook batching.
+
 ## Package Exports
 
 Starling is organized as a monorepo with four packages:
 
 - **`@byearlybird/starling`** - Core library (stores, CRDT operations, transactions)
-  - Exports: `$store`, `$document`, `$record`, `$value`, `$map`, `$clock`, `$eventsamp`
+  - Exports: `Store`, `Document`, `Eventstamp`, `Clock`, `KV`, `Record`, `Value`
   - Zero dependencies
 
 - **`@byearlybird/starling-plugins-query`** - Query plugin for reactive filtered views
   - Exports: `createQueryManager`
 
-- **`@byearlybird/plugins-poll-sync`** - Sync plugin for bidirectional HTTP sync
+- **`@byearlybird/starling-plugins-poll`** - Poll-based plugin for bidirectional HTTP sync
   - Exports: `pollSyncPlugin`, `PollSyncConfig`
 
 - **`@byearlybird/starling-plugins-unstorage`** - Persistence plugin
@@ -426,6 +346,9 @@ bun test --watch
 # Specific test file
 bun test packages/core/src/store.test.ts
 ```
+
+- The suite under `packages/core/src/*.test.ts` exercises every CRDT building block (values, records, documents, clocks, store hooks). Run it before publishing plugin updates to avoid subtle merge regressions.
+- Plugin packages currently rely on focused integration tests; adapt the usage snippets above into your own harnesses when extending sync/persistence flows.
 
 ### Linting and Formatting
 
@@ -447,7 +370,7 @@ bun biome lint .
 bun run build:core
 
 # Build plugin packages
-cd packages/plugins/poll-sync && bun run build.ts
+cd packages/plugins/poll && bun run build.ts
 cd packages/plugins/query && bun run build.ts
 cd packages/plugins/unstorage && bun run build.ts
 ```

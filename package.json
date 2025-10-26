@@ -7,9 +7,9 @@
 		"packages/**"
 	],
 	"scripts": {
-		"build": "bun run build:core && bun run build:plugins-poll-sync && bun run build:plugins-query && bun run build:plugins-unstorage",
+		"build": "bun run build:core && bun run build:plugins-poll && bun run build:plugins-query && bun run build:plugins-unstorage",
 		"build:core": "cd packages/core && bun run build.ts",
-		"build:plugins-poll-sync": "cd packages/plugins/poll-sync && bun run build.ts",
+		"build:plugins-poll": "cd packages/plugins/poll && bun run build.ts",
 		"build:plugins-query": "cd packages/plugins/query && bun run build.ts",
 		"build:plugins-unstorage": "cd packages/plugins/unstorage && bun run build.ts"
 	},
