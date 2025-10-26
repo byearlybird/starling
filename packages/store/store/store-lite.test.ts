@@ -57,108 +57,85 @@ test("transactions rollback without mutating store", () => {
 	expect(store.size).toBe(0);
 });
 
-test("change event includes puts", () => {
-	const store = create<{ name: string }>();
-	const changeHandler = mock();
-	store.on("change", changeHandler);
+test("onPut hook receives encoded document", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
 
 	store.put("user-1", { name: "Alice" });
 
-	const payload = changeHandler.mock.calls[0]?.[0];
-	expect(payload).toEqual({
-		puts: [["user-1", { name: "Alice" }]],
-		updates: [],
-		deletes: [],
+	expect(onPut).toHaveBeenCalledTimes(1);
+	const [, doc] = onPut.mock.calls[0] ?? [];
+	expect(doc?.__id).toBe("user-1");
+	expect(doc?.__deletedAt).toBeNull();
+	expect(doc?.__data.name).toMatchObject({
+		__value: "Alice",
 	});
-	expect(changeHandler).toHaveBeenCalledTimes(1);
 });
 
-test("change event includes updates for existing data", () => {
-	const store = create<{ name: string; title?: string }>();
+test("onMerge hook fires after merge completes", () => {
+	const onMerge = mock();
+	const store = create<{ name: string; title?: string }>({
+		hooks: { onMerge },
+	});
+
 	store.put("user-1", { name: "Alice" });
-
-	const changeHandler = mock();
-	store.on("change", changeHandler);
-
 	store.merge("user-1", { title: "admin" });
 
-	const payload = changeHandler.mock.calls[0]?.[0];
-	expect(payload).toEqual({
-		puts: [],
-		updates: [["user-1", { name: "Alice", title: "admin" }]],
-		deletes: [],
-	});
-	expect(changeHandler).toHaveBeenCalledTimes(1);
+	expect(onMerge).toHaveBeenCalledTimes(1);
+	const [, doc] = onMerge.mock.calls[0] ?? [];
+	expect(doc?.__data.name.__value).toBe("Alice");
+	expect(doc?.__data.title?.__value).toBe("admin");
 });
 
-test("change event includes deletes", () => {
-	const store = create<{ name: string }>();
+test("onDelete hook includes tombstone document", () => {
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onDelete },
+	});
 	store.put("user-1", { name: "Alice" });
-
-	const changeHandler = mock();
-	store.on("change", changeHandler);
 
 	store.del("user-1");
 
-	expect(changeHandler).toHaveBeenCalledTimes(1);
-	expect(changeHandler.mock.calls[0]?.[0]).toEqual({
-		puts: [],
-		updates: [],
-		deletes: ["user-1"],
-	});
+	expect(onDelete).toHaveBeenCalledTimes(1);
+	const [, doc] = onDelete.mock.calls[0] ?? [];
+	expect(doc?.__deletedAt).not.toBeNull();
 });
 
-test("transactions emit change only after commit", () => {
-	const store = create<{ status: string }>();
-	const changeHandler = mock();
-	store.on("change", changeHandler);
+test("transaction hooks fire only after commit", () => {
+	const onPut = mock();
+	const onMerge = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onMerge, onDelete },
+	});
 
 	const tx = store.begin();
-	tx.put("doc-1", { status: "draft" });
+	tx.put("user-1", { name: "Alpha" });
+	tx.merge("user-1", { title: "admin" });
+	tx.del("user-1");
 
-	expect(changeHandler).toHaveBeenCalledTimes(0);
+	expect(onPut).toHaveBeenCalledTimes(0);
+	expect(onMerge).toHaveBeenCalledTimes(0);
+	expect(onDelete).toHaveBeenCalledTimes(0);
 
 	tx.commit();
 
-	expect(changeHandler).toHaveBeenCalledTimes(1);
-	expect(changeHandler.mock.calls[0]?.[0]).toEqual({
-		puts: [["doc-1", { status: "draft" }]],
-		updates: [],
-		deletes: [],
-	});
+	expect(onPut).toHaveBeenCalledTimes(1);
+	expect(onMerge).toHaveBeenCalledTimes(1);
+	expect(onDelete).toHaveBeenCalledTimes(1);
 });
 
-test("transactions batch multiple operations into single change payload", () => {
-	const store = create<{ name: string }>();
-	const changeHandler = mock();
-	store.on("change", changeHandler);
+test("transaction rollback does not fire hooks", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
 
 	const tx = store.begin();
 	tx.put("user-1", { name: "Alice" });
-	tx.put("user-2", { name: "Bob" });
-	tx.commit();
+	tx.rollback();
 
-	expect(changeHandler).toHaveBeenCalledTimes(1);
-	expect(changeHandler.mock.calls[0]?.[0]).toEqual({
-		puts: [
-			["user-1", { name: "Alice" }],
-			["user-2", { name: "Bob" }],
-		],
-		updates: [],
-		deletes: [],
-	});
-
-	changeHandler.mockReset();
-
-	const tx2 = store.begin();
-	tx2.del("user-1");
-	tx2.del("user-2");
-	tx2.commit();
-
-	expect(changeHandler).toHaveBeenCalledTimes(1);
-	expect(changeHandler.mock.calls[0]?.[0]).toEqual({
-		puts: [],
-		updates: [],
-		deletes: ["user-1", "user-2"],
-	});
+	expect(onPut).not.toHaveBeenCalled();
 });
