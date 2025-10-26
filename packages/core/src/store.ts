@@ -362,7 +362,7 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 };
 
 export type {
-	Store,
+	Store as StarlingStore, // avoid namespace collision
 	StoreHooks,
 	StoreOnBeforeDelete,
 	StoreOnBeforePatch,
