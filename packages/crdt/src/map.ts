@@ -4,38 +4,75 @@ import type { EncodedDocument } from "./document";
 const create = (
 	iterable?: Iterable<readonly [string, EncodedDocument]> | null,
 ) => {
-	const map = new Map<string, EncodedDocument>(iterable);
+	let readMap = new Map<string, EncodedDocument>(iterable); // published state
 
-	const wrapper = {
-		set(id: string, doc: EncodedDocument) {
-			const current = map.get(id);
-			if (current) {
-				const merged = $document.merge(current, doc);
-				map.set(id, merged);
-			} else {
-				map.set(id, doc);
-			}
-			return wrapper;
+	function cloneMap(src: Map<string, EncodedDocument>) {
+		return new Map(src);
+	}
+
+	const kv = {
+		get(key: string) {
+			return readMap.get(key) ?? null;
 		},
-		del(id: string, eventstamp: string) {
-			const current = map.get(id);
-			if (current) {
-				const deleted = $document.del(current, eventstamp);
-				map.set(id, deleted);
-				return true;
-			} else {
-				return false;
-			}
+		has(key: string) {
+			return readMap.has(key);
 		},
-		has: map.has.bind(map),
-		get: map.get.bind(map),
-		values: map.values.bind(map),
-		entries: map.entries.bind(map),
-		keys: map.keys.bind(map),
-		size: map.size,
+		get size() {
+			return readMap.size;
+		},
+
+		// Non-transactional write (direct)
+		put(key: string, value: EncodedDocument) {
+			const next = cloneMap(readMap);
+			next.set(key, value);
+			readMap = next;
+		},
+
+		merge(key: string, value: EncodedDocument) {
+			const next = cloneMap(readMap);
+			const prev = next.get(key);
+			next.set(key, prev ? $document.merge(prev, value) : value);
+			readMap = next;
+		},
+
+		del(key: string, eventstamp: string) {
+			const next = cloneMap(readMap);
+			const prev = next.get(key);
+			if (prev) next.set(key, $document.del(prev, eventstamp));
+			readMap = next;
+		},
+
+		// Begin an atomic batch
+		begin() {
+			const staging = cloneMap(readMap);
+			let committed = false;
+
+			const tx = {
+				put(key: string, value: EncodedDocument) {
+					staging.set(key, value);
+				},
+				merge(key: string, value: EncodedDocument) {
+					const prev = staging.get(key);
+					staging.set(key, prev ? $document.merge(prev, value) : value);
+				},
+				del(key: string, eventstamp: string) {
+					const prev = staging.get(key);
+					if (prev) staging.set(key, $document.del(prev, eventstamp));
+				},
+				// Atomically publish everything
+				commit() {
+					if (committed) return;
+					committed = true;
+					readMap = staging; // single atomic swap
+				},
+				rollback() {
+					committed = true; /* drop staging */
+				},
+			};
+			return tx;
+		},
 	};
 
-	return wrapper;
+	return kv;
 };
-
 export { create };
