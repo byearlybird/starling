@@ -1,4 +1,4 @@
-import { $document, type $store } from "@byearlybird/starling";
+import type { $document, $store } from "@byearlybird/starling";
 import type { Storage } from "unstorage";
 
 type UnstorageConfig = {
@@ -39,7 +39,7 @@ const unstoragePlugin = <T extends Record<string, unknown>>(
 				if (persisted) {
 					const tx = store.begin();
 					for (const doc of persisted) {
-						tx.put(doc.__id, $document.decode(doc).__data as T);
+						tx.merge(doc);
 					}
 					tx.commit({ silent: true });
 				}
