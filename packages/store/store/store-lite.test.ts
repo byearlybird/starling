@@ -32,7 +32,7 @@ test("transactions apply staged mutations on commit", () => {
 	store.put("doc-1", { status: "active" });
 	const tx = store.begin();
 
-	tx.merge("doc-1", { status: "pending" });
+	tx.patch("doc-1", { status: "pending" });
 	tx.put("doc-2", { status: "draft" });
 	tx.del("doc-1");
 
@@ -57,7 +57,7 @@ test("transactions rollback without mutating store", () => {
 	expect(store.size).toBe(0);
 });
 
-test("onPut hook receives encoded document", () => {
+test("direct put calls onPut hook once with array payload", () => {
 	const onPut = mock();
 	const store = create<{ name: string }>({
 		hooks: { onPut },
@@ -66,30 +66,25 @@ test("onPut hook receives encoded document", () => {
 	store.put("user-1", { name: "Alice" });
 
 	expect(onPut).toHaveBeenCalledTimes(1);
-	const [, doc] = onPut.mock.calls[0] ?? [];
-	expect(doc?.__id).toBe("user-1");
-	expect(doc?.__deletedAt).toBeNull();
-	expect(doc?.__data.name).toMatchObject({
-		__value: "Alice",
-	});
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(entries).toEqual([["user-1", { name: "Alice" }]]);
 });
 
-test("onMerge hook fires after merge completes", () => {
-	const onMerge = mock();
+test("direct patch calls onPatch hook once with array payload", () => {
+	const onPatch = mock();
 	const store = create<{ name: string; title?: string }>({
-		hooks: { onMerge },
+		hooks: { onPatch },
 	});
 
 	store.put("user-1", { name: "Alice" });
-	store.merge("user-1", { title: "admin" });
+	store.patch("user-1", { title: "admin" });
 
-	expect(onMerge).toHaveBeenCalledTimes(1);
-	const [, doc] = onMerge.mock.calls[0] ?? [];
-	expect(doc?.__data.name.__value).toBe("Alice");
-	expect(doc?.__data.title?.__value).toBe("admin");
+	expect(onPatch).toHaveBeenCalledTimes(1);
+	const [entries] = onPatch.mock.calls[0] ?? [];
+	expect(entries).toEqual([["user-1", { name: "Alice", title: "admin" }]]);
 });
 
-test("onDelete hook includes tombstone document", () => {
+test("direct del calls onDelete hook once with array of keys", () => {
 	const onDelete = mock();
 	const store = create<{ name: string }>({
 		hooks: { onDelete },
@@ -99,35 +94,11 @@ test("onDelete hook includes tombstone document", () => {
 	store.del("user-1");
 
 	expect(onDelete).toHaveBeenCalledTimes(1);
-	const [, doc] = onDelete.mock.calls[0] ?? [];
-	expect(doc?.__deletedAt).not.toBeNull();
+	const [keys] = onDelete.mock.calls[0] ?? [];
+	expect(keys).toEqual(["user-1"]);
 });
 
-test("transaction hooks fire only after commit", () => {
-	const onPut = mock();
-	const onMerge = mock();
-	const onDelete = mock();
-	const store = create<{ name: string }>({
-		hooks: { onPut, onMerge, onDelete },
-	});
-
-	const tx = store.begin();
-	tx.put("user-1", { name: "Alpha" });
-	tx.merge("user-1", { title: "admin" });
-	tx.del("user-1");
-
-	expect(onPut).toHaveBeenCalledTimes(0);
-	expect(onMerge).toHaveBeenCalledTimes(0);
-	expect(onDelete).toHaveBeenCalledTimes(0);
-
-	tx.commit();
-
-	expect(onPut).toHaveBeenCalledTimes(1);
-	expect(onMerge).toHaveBeenCalledTimes(1);
-	expect(onDelete).toHaveBeenCalledTimes(1);
-});
-
-test("transaction rollback does not fire hooks", () => {
+test("transaction batches multiple puts into single onPut call", () => {
 	const onPut = mock();
 	const store = create<{ name: string }>({
 		hooks: { onPut },
@@ -135,7 +106,141 @@ test("transaction rollback does not fire hooks", () => {
 
 	const tx = store.begin();
 	tx.put("user-1", { name: "Alice" });
+	tx.put("user-2", { name: "Bob" });
+
+	tx.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(1);
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(entries).toEqual([
+		["user-1", { name: "Alice" }],
+		["user-2", { name: "Bob" }],
+	]);
+});
+
+test("transaction batches mixed operations into separate hook calls", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	const tx = store.begin();
+	tx.put("user-2", { name: "Bob" });
+	tx.patch("user-1", { name: "Alicia" });
+	tx.del("user-1");
+
+	expect(onPut).toHaveBeenCalledTimes(1);
+	expect(onPatch).toHaveBeenCalledTimes(0);
+	expect(onDelete).toHaveBeenCalledTimes(0);
+
+	tx.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(2);
+	expect(onPatch).toHaveBeenCalledTimes(1);
+	expect(onDelete).toHaveBeenCalledTimes(1);
+
+	// First onPut from direct put before transaction
+	const [firstPutEntries] = onPut.mock.calls[0] ?? [];
+	expect(firstPutEntries).toEqual([["user-1", { name: "Alice" }]]);
+
+	// Second onPut from transaction
+	const [secondPutEntries] = onPut.mock.calls[1] ?? [];
+	expect(secondPutEntries).toEqual([["user-2", { name: "Bob" }]]);
+
+	// onPatch from transaction
+	const [patchEntries] = onPatch.mock.calls[0] ?? [];
+	expect(patchEntries).toEqual([["user-1", { name: "Alicia" }]]);
+
+	// onDelete from transaction
+	const [deleteKeys] = onDelete.mock.calls[0] ?? [];
+	expect(deleteKeys).toEqual(["user-1"]);
+});
+
+test("transaction rollback does not fire hooks", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
+
+	const tx = store.begin();
+	tx.put("user-1", { name: "Alice" });
+	tx.patch("user-1", { name: "Alicia" });
+	tx.del("user-1");
+
 	tx.rollback();
 
 	expect(onPut).not.toHaveBeenCalled();
+	expect(onPatch).not.toHaveBeenCalled();
+	expect(onDelete).not.toHaveBeenCalled();
+});
+
+test("hooks receive readonly frozen arrays", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(Object.isFrozen(entries)).toBe(true);
+});
+
+test("empty transaction does not fire hooks", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
+
+	const tx = store.begin();
+	tx.commit();
+
+	expect(onPut).not.toHaveBeenCalled();
+	expect(onPatch).not.toHaveBeenCalled();
+	expect(onDelete).not.toHaveBeenCalled();
+});
+
+test("hooks not called when no hooks configured", () => {
+	const store = create<{ name: string }>();
+
+	// Should not throw
+	store.put("user-1", { name: "Alice" });
+
+	const tx = store.begin();
+	tx.put("user-2", { name: "Bob" });
+	tx.commit();
+
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toEqual({ name: "Bob" });
+});
+
+test("multiple sequential transactions maintain hook batching", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
+
+	const tx1 = store.begin();
+	tx1.put("user-1", { name: "Alice" });
+	tx1.commit();
+
+	const tx2 = store.begin();
+	tx2.put("user-2", { name: "Bob" });
+	tx2.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(2);
+
+	const [entries1] = onPut.mock.calls[0] ?? [];
+	expect(entries1).toEqual([["user-1", { name: "Alice" }]]);
+
+	const [entries2] = onPut.mock.calls[1] ?? [];
+	expect(entries2).toEqual([["user-2", { name: "Bob" }]]);
 });

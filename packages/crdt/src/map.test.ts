@@ -20,7 +20,7 @@ test("put stores values that can be read back", () => {
 	expect(kv.get("missing")).toBeNull();
 });
 
-test("merge combines document state when a key already exists", () => {
+test("patch combines document state when a key already exists", () => {
 	const kv = create();
 	const current = buildDoc("doc-1", { name: "Alice", age: 30 }, 1);
 	const incoming = buildDoc(
@@ -30,7 +30,7 @@ test("merge combines document state when a key already exists", () => {
 	);
 
 	kv.put("user-1", current);
-	kv.merge("user-1", incoming);
+	kv.patch("user-1", incoming);
 
 	const merged = kv.get("user-1");
 	expect(merged).not.toBeNull();

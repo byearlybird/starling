@@ -34,7 +34,7 @@ const create = (
 			readMap = next;
 		},
 
-		merge(key: string, value: EncodedDocument) {
+		patch(key: string, value: EncodedDocument) {
 			const next = cloneMap(readMap);
 			const prev = next.get(key);
 			next.set(key, prev ? $document.merge(prev, value) : value);
@@ -57,7 +57,7 @@ const create = (
 				put(key: string, value: EncodedDocument) {
 					staging.set(key, value);
 				},
-				merge(key: string, value: EncodedDocument) {
+				patch(key: string, value: EncodedDocument) {
 					const prev = staging.get(key);
 					staging.set(key, prev ? $document.merge(prev, value) : value);
 				},
