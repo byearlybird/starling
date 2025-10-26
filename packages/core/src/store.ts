@@ -79,7 +79,7 @@ type StoreTransaction<T extends Record<string, unknown>> = {
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
-	commit: () => void;
+	commit: (opts?: { silent: false }) => void;
 	rollback: () => void;
 };
 
@@ -108,12 +108,13 @@ type Store<T extends Record<string, unknown>> = {
 	readonly size: number;
 	values: () => IterableIterator<T>;
 	entries: () => IterableIterator<readonly [string, T]>;
+	snapshot: () => EncodedDocument[];
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	begin: () => StoreTransaction<T>;
 	use: (plugin: Plugin<T>) => Store<T>;
-	init: () => Promise<void>;
+	init: () => Promise<Store<T>>;
 	dispose: () => Promise<void>;
 };
 
@@ -169,6 +170,9 @@ const create = <T extends Record<string, unknown>>({
 			}
 
 			return iterator();
+		},
+		snapshot() {
+			return Array.from(kv.values());
 		},
 		get size() {
 			let count = 0;
@@ -245,8 +249,10 @@ const create = <T extends Record<string, unknown>>({
 					tx.del(key, clock.now());
 					deleteKeys.push(key);
 				},
-				commit() {
+				commit(opts: { silent: boolean } = { silent: false }) {
 					tx.commit();
+
+					if (opts.silent) return;
 
 					// Emit original hooks first if provided
 					if (putKeyValues.length > 0 && hooks?.onPut) {
@@ -339,6 +345,8 @@ const create = <T extends Record<string, unknown>>({
 				// Await sequentially to honor the order plugins are registered (FIFO)
 				await fn();
 			}
+
+			return this;
 		},
 		async dispose() {
 			for (const fn of Array.from(disposers).toReversed()) {

@@ -4,15 +4,12 @@
 	"type": "module",
 	"private": true,
 	"workspaces": [
-		"packages/*"
+		"packages/**"
 	],
 	"scripts": {
-		"build": "bun run build:core && bun run build:store && bun run build:plugins-push-pull && bun run build:plugins-unstorage",
-		"build:core": "cd packages/core && bunx tsdown",
-		"build:store": "cd packages/store && bunx tsdown",
+		"build:core": "cd packages/core && bun run build.ts",
 		"build:plugins-push-pull": "cd packages/plugins/push-pull && bunx tsdown",
-		"build:plugins-unstorage": "cd packages/plugins/unstorage && bunx tsdown",
-		"prepublishOnly": "bun run build"
+		"build:plugins-unstorage": "cd packages/plugins/unstorage && bunx tsdown"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
