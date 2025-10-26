@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": "."
+  },
+  "include": ["app/**/*", "vite-env.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}
