@@ -1,0 +1,19 @@
+{
+	"name": "@byearlybird/starling-plugins-query",
+	"version": "0.2.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run ./build.ts"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "^0.2.0"
+	},
+	"devDependencies": {
+		"@byearlybird/starling": "workspace:*"
+	}
+}
