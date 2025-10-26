@@ -16,7 +16,7 @@ Starling is a **monorepo** organized with four packages:
 
 1. **Core Package** (`packages/core/`) - Framework-agnostic data management
    - `src/store.ts` - Main store with transaction support and plugin system
-   - `src/document.ts` - Document encoding/decoding with `__id`, `__data`, `__deletedAt`
+   - `src/document.ts` - Document encoding/decoding with `~id`, `~data`, `~deletedAt`
    - `src/record.ts` - Record-level CRDT operations
    - `src/value.ts` - Value-level encoding with eventstamps
    - `src/map.ts` - Internal key-value map with CRDT merge
@@ -172,7 +172,7 @@ store.put("user1", { name: "Alice", email: "alice@example.com" });
 // Update with partial data
 store.patch("user1", { email: "alice@newdomain.com" });
 
-// Delete (adds __deletedAt marker)
+// Delete (adds ~deletedAt marker)
 store.del("user1");
 
 // Get values
@@ -189,7 +189,7 @@ for (const [key, value] of store.entries()) {
   console.log(key, value); // string, { name: string; email: string }
 }
 
-// Get snapshot (includes deleted items with __deletedAt)
+// Get snapshot (includes deleted items with ~deletedAt)
 const snapshot = store.snapshot(); // EncodedDocument[]
 ```
 
@@ -463,9 +463,9 @@ type EncodedDoc = Document.EncodedDocument;
 ### EncodedDocument Structure
 ```typescript
 type EncodedDocument = {
-  __id: string;              // Document key
-  __data: EncodedRecord;     // Encoded fields with eventstamps
-  __deletedAt: string | null; // Deletion timestamp (null if active)
+  "~id": string;              // Document key
+  "~data": EncodedRecord;     // Encoded fields with eventstamps
+  "~deletedAt": string | null; // Deletion timestamp (null if active)
 };
 ```
 

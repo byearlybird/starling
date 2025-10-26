@@ -36,8 +36,8 @@ test("patch combines document state when a key already exists", () => {
 	expect(merged).not.toBeNull();
 
 	const decoded = decode(merged!);
-	expect(decoded.__id).toBe("doc-1");
-	expect(decoded.__data).toEqual({
+	expect(decoded["~id"]).toBe("doc-1");
+	expect(decoded["~data"]).toEqual({
 		name: "Alice Updated",
 		age: 30,
 		email: "alice@example.com",
@@ -53,7 +53,7 @@ test("del marks stored documents as deleted", () => {
 	kv.del("doc-1", deleteStamp);
 
 	const deleted = kv.get("doc-1");
-	expect(deleted?.__deletedAt).toBe(deleteStamp);
+	expect(deleted?.["~deletedAt"]).toBe(deleteStamp);
 });
 
 test("transactions isolate staged writes until commit applies them", () => {
@@ -69,10 +69,10 @@ test("transactions isolate staged writes until commit applies them", () => {
 	tx.del("doc-1", deleteStamp);
 
 	expect(kv.get("doc-2")).toBeNull();
-	expect(kv.get("doc-1")?.__deletedAt).toBeNull();
+	expect(kv.get("doc-1")?.["~deletedAt"]).toBeNull();
 
 	tx.commit();
 
 	expect(kv.get("doc-2")).toEqual(staged);
-	expect(kv.get("doc-1")?.__deletedAt).toBe(deleteStamp);
+	expect(kv.get("doc-1")?.["~deletedAt"]).toBe(deleteStamp);
 });

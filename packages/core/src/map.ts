@@ -67,7 +67,7 @@ const create = (
 				},
 				has(key: string) {
 					const doc = staging.get(key);
-					return doc !== undefined && !doc.__deletedAt;
+					return doc !== undefined && !doc["~deletedAt"];
 				},
 				// Atomically publish everything
 				commit() {

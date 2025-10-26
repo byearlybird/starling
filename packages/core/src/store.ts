@@ -132,8 +132,8 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 	const disposers = new Set<PluginHandle<T>["dispose"]>();
 
 	const decodeActive = (doc: EncodedDocument | null): T | null => {
-		if (!doc || doc.__deletedAt) return null;
-		return decode<T>(doc).__data;
+		if (!doc || doc["~deletedAt"]) return null;
+		return decode<T>(doc)["~data"];
 	};
 
 	const store: Store<T> = {
@@ -169,7 +169,7 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 		get size() {
 			let count = 0;
 			for (const doc of kv.values()) {
-				if (doc && !doc.__deletedAt) count++;
+				if (doc && !doc["~deletedAt"]) count++;
 			}
 			return count;
 		},
@@ -229,24 +229,24 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 					}
 				},
 				merge(doc: EncodedDocument) {
-					if (doc.__deletedAt) {
-						this.del(doc.__id);
+					if (doc["~deletedAt"]) {
+						this.del(doc["~id"]);
 						return;
 					}
 
-					if (tx.has(doc.__id)) {
-						tx.patch(doc.__id, doc);
+					if (tx.has(doc["~id"])) {
+						tx.patch(doc["~id"], doc);
 					} else {
-						tx.put(doc.__id, doc);
+						tx.put(doc["~id"], doc);
 					}
 
 					// For hooks, we need to decode to get the final merged value
 					// Get the current value after the patch operation
-					const currentDoc = kv.get(doc.__id);
-					if (currentDoc && !currentDoc.__deletedAt) {
-						const merged = decode<T>(currentDoc).__data;
-						txState.set(doc.__id, merged);
-						patchKeyValues.push([doc.__id, merged] as const);
+					const currentDoc = kv.get(doc["~id"]);
+					if (currentDoc && !currentDoc["~deletedAt"]) {
+						const merged = decode<T>(currentDoc)["~data"];
+						txState.set(doc["~id"], merged);
+						patchKeyValues.push([doc["~id"], merged] as const);
 					}
 				},
 				del(key: string) {
