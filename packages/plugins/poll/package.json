@@ -1,5 +1,5 @@
 {
-	"name": "@byearlybird/plugins-poll-sync",
+	"name": "@byearlybird/starling-plugins-poll",
 	"version": "0.2.0",
 	"type": "module",
 	"main": "./dist/index.js",

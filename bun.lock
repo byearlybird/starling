@@ -16,41 +16,35 @@
       "name": "@byearlybird/starling",
       "version": "0.2.0",
     },
-    "packages/plugins/push-pull": {
-      "name": "@byearlybird/plugins-push-pull",
-      "version": "0.1.0",
+    "packages/plugins/poll": {
+      "name": "@byearlybird/starling-plugins-poll",
+      "version": "0.2.0",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
-        "@types/bun": "latest",
-        "typescript": "^5",
       },
       "peerDependencies": {
-        "@byearlybird/starling": "workspace:*",
-        "typescript": "^5",
+        "@byearlybird/starling": "^0.2.0",
       },
-      "optionalPeers": [
-        "typescript",
-      ],
     },
     "packages/plugins/query": {
       "name": "@byearlybird/starling-plugins-query",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
       },
       "peerDependencies": {
-        "@byearlybird/starling": "0.2.0",
+        "@byearlybird/starling": "^0.2.0",
       },
     },
     "packages/plugins/unstorage": {
       "name": "@byearlybird/starling-plugins-unstorage",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
         "unstorage": "^1.17.1",
       },
       "peerDependencies": {
-        "@byearlybird/starling": "0.2.0",
+        "@byearlybird/starling": "^0.2.0",
         "unstorage": "^1.17.1",
       },
     },
@@ -84,9 +78,9 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.2.5", "", { "os": "win32", "cpu": "x64" }, "sha512-F/jhuXCssPFAuciMhHKk00xnCAxJRS/pUzVfXYmOMUp//XW7mO6QeCjsjvnm8L4AO/dG2VOB0O+fJPiJ2uXtIw=="],
 
-    "@byearlybird/plugins-push-pull": ["@byearlybird/plugins-push-pull@workspace:packages/plugins/push-pull"],
-
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/core"],
+
+    "@byearlybird/starling-plugins-poll": ["@byearlybird/starling-plugins-poll@workspace:packages/plugins/poll"],
 
     "@byearlybird/starling-plugins-query": ["@byearlybird/starling-plugins-query@workspace:packages/plugins/query"],
 
@@ -254,10 +248,6 @@
 
     "unstorage": ["unstorage@1.17.1", "", { "dependencies": { "anymatch": "^3.1.3", "chokidar": "^4.0.3", "destr": "^2.0.5", "h3": "^1.15.4", "lru-cache": "^10.4.3", "node-fetch-native": "^1.6.7", "ofetch": "^1.4.1", "ufo": "^1.6.1" }, "peerDependencies": { "@azure/app-configuration": "^1.8.0", "@azure/cosmos": "^4.2.0", "@azure/data-tables": "^13.3.0", "@azure/identity": "^4.6.0", "@azure/keyvault-secrets": "^4.9.0", "@azure/storage-blob": "^12.26.0", "@capacitor/preferences": "^6.0.3 || ^7.0.0", "@deno/kv": ">=0.9.0", "@netlify/blobs": "^6.5.0 || ^7.0.0 || ^8.1.0 || ^9.0.0 || ^10.0.0", "@planetscale/database": "^1.19.0", "@upstash/redis": "^1.34.3", "@vercel/blob": ">=0.27.1", "@vercel/functions": "^2.2.12 || ^3.0.0", "@vercel/kv": "^1.0.1", "aws4fetch": "^1.0.20", "db0": ">=0.2.1", "idb-keyval": "^6.2.1", "ioredis": "^5.4.2", "uploadthing": "^7.4.4" }, "optionalPeers": ["@azure/app-configuration", "@azure/cosmos", "@azure/data-tables", "@azure/identity", "@azure/keyvault-secrets", "@azure/storage-blob", "@capacitor/preferences", "@deno/kv", "@netlify/blobs", "@planetscale/database", "@upstash/redis", "@vercel/blob", "@vercel/functions", "@vercel/kv", "aws4fetch", "db0", "idb-keyval", "ioredis", "uploadthing"] }, "sha512-KKGwRTT0iVBCErKemkJCLs7JdxNVfqTPc/85ae1XES0+bsHbc/sFBfVi5kJp156cc51BHinIH2l3k0EZ24vOBQ=="],
 
-    "@byearlybird/plugins-push-pull/@types/bun": ["@types/bun@1.3.1", "", { "dependencies": { "bun-types": "1.3.1" } }, "sha512-4jNMk2/K9YJtfqwoAa28c8wK+T7nvJFOjxI4h/7sORWcypRNxBpr+TPNaCfVWq70tLCJsqoFwcf0oI0JU/fvMQ=="],
-
     "anymatch/picomatch": ["picomatch@2.3.1", "", {}, "sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA=="],
-
-    "@byearlybird/plugins-push-pull/@types/bun/bun-types": ["bun-types@1.3.1", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-NMrcy7smratanWJ2mMXdpatalovtxVggkj11bScuWuiOoXTiKIu2eVS1/7qbyI/4yHedtsn175n4Sm4JcdHLXw=="],
   }
 }
