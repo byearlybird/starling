@@ -51,7 +51,7 @@ test("persists put operation to storage", async () => {
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
-	expect(persisted?.[0]?.__id).toBe("todo1");
+	expect(persisted?.[0]?.["~id"]).toBe("todo1");
 });
 
 test("persists patch operation to storage", async () => {

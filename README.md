@@ -77,7 +77,7 @@ store.patch("user-1", { email: "alice@newdomain.com" });
 ```
 
 #### `del(key: string): void`
-Delete an item (adds `__deletedAt` timestamp).
+Delete an item (adds `~deletedAt` timestamp).
 
 ```typescript
 store.del("user-1");
@@ -118,7 +118,7 @@ for (const [key, value] of store.entries()) {
 ```
 
 #### `snapshot(): EncodedDocument[]`
-Get the raw encoded state with eventstamps (includes deleted items with `__deletedAt`).
+Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
 
 ```typescript
 const encodedState = store.snapshot();
