@@ -13,16 +13,6 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 - **TypeScript First**: Full type safety with strict TypeScript support
 - **Zero Dependencies**: Core package has no external dependencies
 
-## Repository Layout
-
-| Path | Notes |
-| --- | --- |
-| `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
-| `packages/plugins/query` | Reactive query manager (`createQueryManager`) that listens to store hooks to keep filtered `Map`s in sync. |
-| `packages/plugins/poll` | Bidirectional HTTP poller (`pollSyncPlugin`) with push/pull/preprocess hooks. |
-| `packages/plugins/unstorage` | Persistence bridge (`unstoragePlugin`) that replays snapshots on boot and debounces writes. |
-| `index.ts` | Convenience export surface if you want to consume packages from the monorepo during local development. |
-
 ## Installation
 
 ```bash
@@ -252,6 +242,16 @@ Bidirectional HTTP polling that batches push/pull operations and merges remote d
 
 Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
 
+## Repository Layout
+
+| Path | Notes |
+| --- | --- |
+| `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
+| `packages/plugins/query` | Reactive query manager (`createQueryManager`) that listens to store hooks to keep filtered `Map`s in sync. |
+| `packages/plugins/poll` | Bidirectional HTTP poller (`pollSyncPlugin`) with push/pull/preprocess hooks. |
+| `packages/plugins/unstorage` | Persistence bridge (`unstoragePlugin`) that replays snapshots on boot and debounces writes. |
+| `index.ts` | Convenience export surface if you want to consume packages from the monorepo during local development. |
+
 ## Architecture
 
 ### Eventstamps
@@ -335,50 +335,12 @@ Starling is organized as a monorepo with four packages:
 
 ## Development
 
-### Running Tests
-
-```bash
-bun test
-
-# Watch mode
-bun test --watch
-
-# Specific test file
-bun test packages/core/src/store.test.ts
-```
-
-- The suite under `packages/core/src/*.test.ts` exercises every CRDT building block (values, records, documents, clocks, store hooks). Run it before publishing plugin updates to avoid subtle merge regressions.
-- Plugin packages currently rely on focused integration tests; adapt the usage snippets above into your own harnesses when extending sync/persistence flows.
-
-### Linting and Formatting
-
-```bash
-# Check code
-bun biome check .
-
-# Format code
-bun biome format --write .
-
-# Lint code
-bun biome lint .
-```
-
-### Building
-
-```bash
-# Build core package
-bun run build:core
-
-# Build plugin packages
-cd packages/plugins/poll && bun run build.ts
-cd packages/plugins/query && bun run build.ts
-cd packages/plugins/unstorage && bun run build.ts
-```
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT (see [`LICENSE`](LICENSE))
 
 ## Credits
 
-Built with [Bun](https://bun.sh) by [@byearlybird](https://github.com/byearlybird)
+💖  Made [@byearlybird](https://github.com/byearlybird)
