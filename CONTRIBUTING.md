@@ -63,6 +63,17 @@ cd packages/plugins/unstorage && bun run build.ts
 
 Use `bun run build` at the workspace root to build every package in sequence.
 
+## Publishing to npm
+
+Each package exposes `build`/`prepublishOnly` scripts plus `publishConfig.access = "public"` so `bun publish` rebuilds automatically. From the repo root you can run:
+
+- `bun run publish:core`
+- `bun run publish:plugins:query`
+- `bun run publish:plugins:poll`
+- `bun run publish:plugins:unstorage`
+
+Those commands publish individual packages after you bump their versions (e.g., `bun pm version patch` or `bun pm version minor` inside the package you are releasing). To ship everything together, run `bun run release`—it builds the workspace and then publishes each package in dependency order. Make sure you are authenticated via `bun login` and have your npm OTP ready before running these scripts.
+
 ## Documentation
 
 - Keep README sections focused on user-facing workflows. Implementation details, changelogs, and contributor tips belong here or in package-specific docs.

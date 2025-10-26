@@ -1,11 +1,18 @@
 {
 	"name": "@byearlybird/starling",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"type": "module",
 	"license": "MIT",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"files": [
 		"dist"
-	]
+	],
+	"scripts": {
+		"build": "bun run build.ts",
+		"prepublishOnly": "bun run build.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
 }

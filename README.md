@@ -343,4 +343,6 @@ MIT (see [`LICENSE`](LICENSE))
 
 ## Credits
 
-💖  Made [@byearlybird](https://github.com/byearlybird)
+💖 Made [@byearlybird](https://github.com/byearlybird)
+
+Thanks for checking out Starling! 
