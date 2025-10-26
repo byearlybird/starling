@@ -1,9 +1,4 @@
-import type {
-	StoreLite,
-	StoreLiteOnDelete,
-	StoreLiteOnPatch,
-	StoreLiteOnPut,
-} from "./store-lite";
+import type { StoreOnDelete, StoreOnPatch, StoreOnPut } from "./store";
 
 type Query<T extends Record<string, unknown>> = {
 	results: () => Map<string, T>;
@@ -54,7 +49,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 	};
 
 	const plugin = () => {
-		const onPut: StoreLiteOnPut<T> = (entries) => {
+		const onPut: StoreOnPut<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
@@ -73,7 +68,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onPatch: StoreLiteOnPatch<T> = (entries) => {
+		const onPatch: StoreOnPatch<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
@@ -99,7 +94,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onDelete: StoreLiteOnDelete = (keys) => {
+		const onDelete: StoreOnDelete = (keys) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const key of keys) {

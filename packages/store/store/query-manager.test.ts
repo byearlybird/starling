@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { createQueryManager } from "./query-manager";
-import { create as createStore } from "./store-2";
+import { create as createStore } from "./store";
 
 type User = {
 	name: string;

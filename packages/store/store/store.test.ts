@@ -1,551 +1,356 @@
 import { expect, mock, test } from "bun:test";
-import type { EncodedObject } from "@byearlybird/starling-crdt";
-import { createStore } from "./store.ts";
+import { create } from "./store.ts";
 
-test("put() adds a new item and emits put event", () => {
-	const store = createStore<{ name: string }>("users");
+test("put/get expose only plain data", () => {
+	const store = create<{ name: string }>();
 
-	const putHandler = mock();
-	store.on("put", putHandler);
+	store.put("user-1", { name: "Alice" });
 
-	store.put("user1", { name: "Alice" });
-
-	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({ name: "Alice" });
-	expect(putHandler).toHaveBeenCalledTimes(1);
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.has("user-1")).toBe(true);
+	expect(Array.from(store.values())).toEqual([{ name: "Alice" }]);
+	expect(Array.from(store.entries())).toEqual([["user-1", { name: "Alice" }]]);
 });
 
-test("put() replaces existing item and emits put event", () => {
-	const store = createStore<{ name: string }>("users");
+test("del hides records from reads and counts", () => {
+	const store = create<{ name: string }>();
 
-	const putHandler = mock();
-	store.on("put", putHandler);
+	store.put("user-1", { name: "Alice" });
+	store.put("user-2", { name: "Bob" });
 
-	store.put("user1", { name: "Alice" });
-	store.put("user1", { name: "Bob" });
+	store.del("user-1");
 
-	expect(putHandler).toHaveBeenCalledTimes(2);
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([["user1", { name: "Bob" }]]);
+	expect(store.get("user-1")).toBeNull();
+	expect(store.has("user-1")).toBe(false);
+	expect(store.size).toBe(1);
+	expect(Array.from(store.entries())).toEqual([["user-2", { name: "Bob" }]]);
 });
 
-test("putMany() adds multiple items and emits put event", () => {
-	const store = createStore<{ name: string }>("users");
+test("transactions apply staged mutations on commit", () => {
+	const store = create<{ status: string }>();
 
-	const putHandler = mock();
-	store.on("put", putHandler);
+	store.put("doc-1", { status: "active" });
+	const tx = store.begin();
 
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-	]);
+	tx.patch("doc-1", { status: "pending" });
+	tx.put("doc-2", { status: "draft" });
+	tx.del("doc-1");
 
-	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({ name: "Alice" });
-	expect(eventData.get("user2")).toEqual({ name: "Bob" });
-	expect(putHandler).toHaveBeenCalledTimes(1);
+	expect(store.get("doc-1")).toEqual({ status: "active" });
+	expect(store.get("doc-2")).toBeNull();
+
+	tx.commit();
+
+	expect(store.get("doc-1")).toBeNull();
+	expect(store.get("doc-2")).toEqual({ status: "draft" });
 });
 
-test("putMany() replaces existing items and emits put event", () => {
-	const store = createStore<{ name: string }>("users");
+test("transactions rollback without mutating store", () => {
+	const store = create<{ status: string }>();
 
-	store.put("user1", { name: "Alice" });
+	const tx = store.begin();
+	tx.put("doc-1", { status: "draft" });
 
-	const putHandler = mock();
-	store.on("put", putHandler);
+	tx.rollback();
 
-	store.putMany([
-		["user1", { name: "Updated" }],
-		["user2", { name: "Bob" }],
-	]);
-
-	expect(putHandler).toHaveBeenCalledTimes(1);
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([
-		["user1", { name: "Updated" }],
-		["user2", { name: "Bob" }],
-	]);
+	expect(store.get("doc-1")).toBeNull();
+	expect(store.size).toBe(0);
 });
 
-test("update() modifies existing item and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>("users");
-
-	store.put("user1", { name: "Alice" });
-
-	const updateHandler = mock();
-	store.on("update", updateHandler);
-
-	store.update("user1", { age: 30 });
-
-	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({
-		name: "Alice",
-		age: 30,
-	});
-	expect(updateHandler).toHaveBeenCalledTimes(1);
-});
-
-test("update() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>("users");
-
-	const updateHandler = mock();
-	store.on("update", updateHandler);
-
-	// Should not throw or emit event
-	store.update("nonexistent", { name: "Alice" });
-
-	expect(updateHandler).toHaveBeenCalledTimes(0);
-	expect(store.values().size).toBe(0);
-});
-
-test("updateMany() modifies multiple items and emits update event", () => {
-	const store = createStore<{ name: string; age?: number }>("users");
-
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-	]);
-
-	const updateHandler = mock();
-	store.on("update", updateHandler);
-
-	store.updateMany([
-		["user1", { age: 30 }],
-		["user2", { age: 25 }],
-	]);
-
-	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({ name: "Alice", age: 30 });
-	expect(eventData.get("user2")).toEqual({ name: "Bob", age: 25 });
-	expect(updateHandler).toHaveBeenCalledTimes(1);
-});
-
-test("updateMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.put("user1", { name: "Alice" });
-
-	const updateHandler = mock();
-	store.on("update", updateHandler);
-
-	// Should update only user1, silently ignore nonexistent
-	store.updateMany([
-		["user1", { name: "Updated" }],
-		["nonexistent", { name: "Bob" }],
-	]);
-
-	expect(updateHandler).toHaveBeenCalledTimes(1);
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([
-		["user1", { name: "Updated" }],
-	]);
-});
-
-test("delete() soft-deletes an item and emits delete event", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.put("user1", { name: "Alice" });
-
-	const deleteHandler = mock();
-	store.on("delete", deleteHandler);
-
-	store.delete("user1");
-
-	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
-	expect(deleteHandler).toHaveBeenCalledTimes(1);
-});
-
-test("delete() is a graceful no-op when key does not exist", () => {
-	const store = createStore<{ name: string }>("users");
-
-	const deleteHandler = mock();
-	store.on("delete", deleteHandler);
-
-	// Should not throw or emit event
-	store.delete("nonexistent");
-
-	expect(deleteHandler).toHaveBeenCalledTimes(0);
-});
-
-test("deleteMany() soft-deletes multiple items and emits delete event", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-	]);
-
-	const deleteHandler = mock();
-	store.on("delete", deleteHandler);
-
-	store.deleteMany(["user1", "user2"]);
-
-	expect(deleteHandler).toHaveBeenCalledWith([
-		{ key: "user1" },
-		{ key: "user2" },
-	]);
-	expect(deleteHandler).toHaveBeenCalledTimes(1);
-});
-
-test("deleteMany() gracefully skips nonexistent keys", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.put("user1", { name: "Alice" });
-
-	const deleteHandler = mock();
-	store.on("delete", deleteHandler);
-
-	// Should delete only user1, silently ignore nonexistent
-	store.deleteMany(["user1", "nonexistent"]);
-
-	expect(deleteHandler).toHaveBeenCalledTimes(1);
-	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
-});
-
-test("values() returns decoded non-deleted items", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-	]);
-
-	store.delete("user2");
-
-	const values = store.values();
-
-	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
-});
-
-test("values() excludes deleted items", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-		["user3", { name: "Charlie" }],
-	]);
-
-	store.deleteMany(["user2"]);
-
-	const values = store.values();
-
-	expect(Array.from(values.keys())).toEqual(["user1", "user3"]);
-});
-
-test("snapshot() returns raw encoded state including deleted items", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.put("user1", { name: "Alice" });
-	store.put("user2", { name: "Bob" });
-	store.delete("user2");
-
-	const snapshot = store.snapshot();
-
-	expect(snapshot.has("user1")).toBe(true);
-	expect(snapshot.has("user2")).toBe(true);
-	expect(snapshot.get("user2")?.__deleted).toBeDefined();
-});
-
-test("on() returns unsubscribe function that stops callbacks", () => {
-	const store = createStore<{ name: string }>("users");
-
-	let putCount = 0;
-	const unsubscribe = store.on("put", () => {
-		putCount++;
+test("direct put calls onPut hook once with array payload", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
 	});
 
-	store.put("user1", { name: "Alice" });
-	expect(putCount).toBe(1);
+	store.put("user-1", { name: "Alice" });
 
-	unsubscribe();
-
-	store.put("user2", { name: "Bob" });
-	expect(putCount).toBe(1);
+	expect(onPut).toHaveBeenCalledTimes(1);
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(entries).toEqual([["user-1", { name: "Alice" }]]);
 });
 
-test("on() supports multiple listeners for the same event", () => {
-	const store = createStore<{ name: string }>("users");
-
-	let count1 = 0;
-	let count2 = 0;
-
-	store.on("put", () => {
-		count1++;
+test("direct patch calls onPatch hook once with array payload", () => {
+	const onPatch = mock();
+	const store = create<{ name: string; title?: string }>({
+		hooks: { onPatch },
 	});
 
-	store.on("put", () => {
-		count2++;
-	});
+	store.put("user-1", { name: "Alice" });
+	store.patch("user-1", { title: "admin" });
 
-	store.put("user1", { name: "Alice" });
-
-	expect(count1).toBe(1);
-	expect(count2).toBe(1);
+	expect(onPatch).toHaveBeenCalledTimes(1);
+	const [entries] = onPatch.mock.calls[0] ?? [];
+	expect(entries).toEqual([["user-1", { name: "Alice", title: "admin" }]]);
 });
 
-test("dispose() clears all event listeners", () => {
-	const store = createStore<{ name: string }>("users");
-
-	let putCount = 0;
-	let updateCount = 0;
-	let deleteCount = 0;
-
-	store.on("put", () => {
-		putCount++;
+test("direct del calls onDelete hook once with array of keys", () => {
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onDelete },
 	});
+	store.put("user-1", { name: "Alice" });
 
-	store.on("update", () => {
-		updateCount++;
-	});
+	store.del("user-1");
 
-	store.on("delete", () => {
-		deleteCount++;
-	});
-
-	store.dispose();
-
-	store.put("user1", { name: "Alice" });
-	store.update("user1", { name: "Updated" });
-	store.delete("user1");
-
-	expect(putCount).toBe(0);
-	expect(updateCount).toBe(0);
-	expect(deleteCount).toBe(0);
+	expect(onDelete).toHaveBeenCalledTimes(1);
+	const [keys] = onDelete.mock.calls[0] ?? [];
+	expect(keys).toEqual(["user-1"]);
 });
 
-test("merge preserves eventstamps and handles deep updates", () => {
-	const store = createStore<{ name: string; profile?: { bio: string } }>(
-		"users",
-	);
-
-	store.put("user1", { name: "Alice", profile: { bio: "Hello" } });
-	store.update("user1", { profile: { bio: "Updated" } });
-
-	const values = store.values();
-	const user1 = values.get("user1");
-
-	expect(user1).toEqual({
-		name: "Alice",
-		profile: { bio: "Updated" },
+test("transaction batches multiple puts into single onPut call", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
 	});
+
+	const tx = store.begin();
+	tx.put("user-1", { name: "Alice" });
+	tx.put("user-2", { name: "Bob" });
+
+	tx.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(1);
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(entries).toEqual([
+		["user-1", { name: "Alice" }],
+		["user-2", { name: "Bob" }],
+	]);
 });
 
-test("store operations are synchronous", () => {
-	const store = createStore<{ name: string }>("users");
+test("transaction batches mixed operations into separate hook calls", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
 
-	const start = performance.now();
-	for (let i = 0; i < 1000; i++) {
-		store.put(`user${i}`, { name: `User ${i}` });
-	}
-	const duration = performance.now() - start;
+	store.put("user-1", { name: "Alice" });
 
-	// Should complete in less than 100ms for 1000 puts
-	expect(duration).toBeLessThan(100);
-	expect(store.values().size).toBe(1000);
+	const tx = store.begin();
+	tx.put("user-2", { name: "Bob" });
+	tx.patch("user-1", { name: "Alicia" });
+	tx.del("user-1");
+
+	expect(onPut).toHaveBeenCalledTimes(1);
+	expect(onPatch).toHaveBeenCalledTimes(0);
+	expect(onDelete).toHaveBeenCalledTimes(0);
+
+	tx.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(2);
+	expect(onPatch).toHaveBeenCalledTimes(1);
+	expect(onDelete).toHaveBeenCalledTimes(1);
+
+	// First onPut from direct put before transaction
+	const [firstPutEntries] = onPut.mock.calls[0] ?? [];
+	expect(firstPutEntries).toEqual([["user-1", { name: "Alice" }]]);
+
+	// Second onPut from transaction
+	const [secondPutEntries] = onPut.mock.calls[1] ?? [];
+	expect(secondPutEntries).toEqual([["user-2", { name: "Bob" }]]);
+
+	// onPatch from transaction
+	const [patchEntries] = onPatch.mock.calls[0] ?? [];
+	expect(patchEntries).toEqual([["user-1", { name: "Alicia" }]]);
+
+	// onDelete from transaction
+	const [deleteKeys] = onDelete.mock.calls[0] ?? [];
+	expect(deleteKeys).toEqual(["user-1"]);
 });
 
-test("merge() adds new items and emits put event", () => {
-	const store = createStore<{ name: string }>("users");
+test("transaction rollback does not fire hooks", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
 
-	const putHandler = mock();
-	store.on("put", putHandler);
+	const tx = store.begin();
+	tx.put("user-1", { name: "Alice" });
+	tx.patch("user-1", { name: "Alicia" });
+	tx.del("user-1");
 
-	const snapshot: [string, EncodedObject][] = [
-		[
-			"user1",
-			{
-				name: {
-					__value: "Alice",
-					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
-				},
+	tx.rollback();
+
+	expect(onPut).not.toHaveBeenCalled();
+	expect(onPatch).not.toHaveBeenCalled();
+	expect(onDelete).not.toHaveBeenCalled();
+});
+
+test("hooks receive readonly frozen arrays", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	const [entries] = onPut.mock.calls[0] ?? [];
+	expect(Object.isFrozen(entries)).toBe(true);
+});
+
+test("empty transaction does not fire hooks", () => {
+	const onPut = mock();
+	const onPatch = mock();
+	const onDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut, onPatch, onDelete },
+	});
+
+	const tx = store.begin();
+	tx.commit();
+
+	expect(onPut).not.toHaveBeenCalled();
+	expect(onPatch).not.toHaveBeenCalled();
+	expect(onDelete).not.toHaveBeenCalled();
+});
+
+test("hooks not called when no hooks configured", () => {
+	const store = create<{ name: string }>();
+
+	// Should not throw
+	store.put("user-1", { name: "Alice" });
+
+	const tx = store.begin();
+	tx.put("user-2", { name: "Bob" });
+	tx.commit();
+
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toEqual({ name: "Bob" });
+});
+
+test("multiple sequential transactions maintain hook batching", () => {
+	const onPut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onPut },
+	});
+
+	const tx1 = store.begin();
+	tx1.put("user-1", { name: "Alice" });
+	tx1.commit();
+
+	const tx2 = store.begin();
+	tx2.put("user-2", { name: "Bob" });
+	tx2.commit();
+
+	expect(onPut).toHaveBeenCalledTimes(2);
+});
+
+test("onBeforePut fires before put is applied", () => {
+	const onBeforePut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
+
+	store.put("user-1", { name: "Alice" });
+
+	expect(onBeforePut).toHaveBeenCalledTimes(1);
+	expect(onBeforePut).toHaveBeenCalledWith("user-1", { name: "Alice" });
+});
+
+test("onBeforePut rejecting throws and prevents put", () => {
+	const onBeforePut = () => {
+		throw new Error("Validation failed");
+	};
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
+
+	expect(() => {
+		store.put("user-1", { name: "Alice" });
+	}).toThrow("Validation failed");
+
+	// Store should still be empty after failed validation
+	expect(store.get("user-1")).toBeNull();
+});
+
+test("onBeforePatch fires before patch is applied", () => {
+	const onBeforePatch = mock();
+	const store = create<{ name: string; email: string }>({
+		hooks: { onBeforePatch },
+	});
+
+	store.put("user-1", { name: "Alice", email: "alice@example.com" });
+	onBeforePatch.mockClear();
+
+	store.patch("user-1", { email: "alice@newdomain.com" });
+
+	expect(onBeforePatch).toHaveBeenCalledTimes(1);
+	expect(onBeforePatch).toHaveBeenCalledWith("user-1", { email: "alice@newdomain.com" });
+});
+
+test("onBeforeDelete fires before delete is applied", () => {
+	const onBeforeDelete = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforeDelete },
+	});
+
+	store.put("user-1", { name: "Alice" });
+	onBeforeDelete.mockClear();
+
+	store.del("user-1");
+
+	expect(onBeforeDelete).toHaveBeenCalledTimes(1);
+	expect(onBeforeDelete).toHaveBeenCalledWith("user-1");
+});
+
+test("multiple before hooks compose", () => {
+	const beforePut1 = mock();
+	const beforePut2 = mock();
+	const store = create<{ name: string }>({
+		hooks: {
+			onBeforePut: (key, value) => {
+				beforePut1(key, value);
+				beforePut2(key, value);
 			},
-		],
-	];
+		},
+	});
 
-	store.merge(snapshot);
+	store.put("user-1", { name: "Alice" });
 
-	const eventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({ name: "Alice" });
-	expect(putHandler).toHaveBeenCalledTimes(1);
+	expect(beforePut1).toHaveBeenCalledTimes(1);
+	expect(beforePut2).toHaveBeenCalledTimes(1);
 });
 
-test("merge() updates existing items and emits update event", () => {
-	const store = createStore<{ name: string }>("users");
+test("before hooks fire in transactions", () => {
+	const onBeforePut = mock();
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
 
-	// Add initial item
-	store.put("user1", { name: "Alice" });
+	const tx = store.begin();
+	tx.put("user-1", { name: "Alice" });
+	tx.put("user-2", { name: "Bob" });
 
-	const updateHandler = mock();
-	store.on("update", updateHandler);
+	expect(onBeforePut).toHaveBeenCalledTimes(2);
 
-	// Merge with newer version
-	const snapshot: [string, EncodedObject][] = [
-		[
-			"user1",
-			{
-				name: {
-					__value: "Bob",
-					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
-				},
-			},
-		],
-	];
+	tx.commit();
 
-	store.merge(snapshot);
-
-	const eventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(eventData.get("user1")).toEqual({ name: "Bob" });
-	expect(updateHandler).toHaveBeenCalledTimes(1);
+	// onPut should not have been called yet (fires on commit)
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toEqual({ name: "Bob" });
 });
 
-test("merge() deletes items when __deleted is introduced and emits delete event", () => {
-	const store = createStore<{ name: string }>("users");
+test("rollback after before hook error leaves store unchanged", () => {
+	const onBeforePut = (key: string) => {
+		if (key === "user-2") {
+			throw new Error("user-2 is invalid");
+		}
+	};
+	const store = create<{ name: string }>({
+		hooks: { onBeforePut },
+	});
 
-	// Add initial item
-	store.put("user1", { name: "Alice" });
+	store.put("user-1", { name: "Alice" });
 
-	const deleteHandler = mock();
-	store.on("delete", deleteHandler);
+	const tx = store.begin();
+	expect(() => tx.put("user-2", { name: "Bob" })).toThrow("user-2 is invalid");
+	tx.rollback();
 
-	// Merge with deletion marker
-	const snapshot: [string, EncodedObject][] = [
-		[
-			"user1",
-			{
-				name: {
-					__value: "Alice",
-					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
-				},
-				__deleted: {
-					__value: true,
-					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
-				},
-			},
-		],
-	];
-
-	store.merge(snapshot);
-
-	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user1" }]);
-	expect(deleteHandler).toHaveBeenCalledTimes(1);
-	expect(store.values().size).toBe(0);
-});
-
-test("merge() handles multiple items with mixed operations", () => {
-	const store = createStore<{ name: string }>("users");
-
-	// Add initial items
-	store.putMany([
-		["user1", { name: "Alice" }],
-		["user2", { name: "Bob" }],
-	]);
-
-	const putHandler = mock();
-	const updateHandler = mock();
-	const deleteHandler = mock();
-
-	store.on("put", putHandler);
-	store.on("update", updateHandler);
-	store.on("delete", deleteHandler);
-
-	// Merge with: new item (user3), updated item (user1), deleted item (user2)
-	const snapshot: [string, EncodedObject][] = [
-		[
-			"user1",
-			{
-				name: {
-					__value: "Alice Updated",
-					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
-				},
-			},
-		],
-		[
-			"user2",
-			{
-				name: { __value: "Bob", __eventstamp: "01ARZ3NDEKTSV4RRFFQ69G5FAV001" },
-				__deleted: {
-					__value: true,
-					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
-				},
-			},
-		],
-		[
-			"user3",
-			{
-				name: {
-					__value: "Charlie",
-					__eventstamp: "2999-12-31T23:59:59.999Z|ffffffff",
-				},
-			},
-		],
-	];
-
-	store.merge(snapshot);
-
-	const putEventData = putHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(putEventData.get("user3")).toEqual({ name: "Charlie" });
-
-	const updateEventData = updateHandler.mock.calls[0]?.[0] as Map<string, any>;
-	expect(updateEventData.get("user1")).toEqual({ name: "Alice Updated" });
-
-	expect(deleteHandler).toHaveBeenCalledWith([{ key: "user2" }]);
-
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([
-		["user1", { name: "Alice Updated" }],
-		["user3", { name: "Charlie" }],
-	]);
-});
-
-test("merge() ignores items with older eventstamps", () => {
-	const store = createStore<{ name: string }>("users");
-
-	// Add initial item with newer timestamp
-	store.put("user1", { name: "Alice" });
-
-	const updateHandler = mock();
-	store.on("update", updateHandler);
-
-	// Try to merge with older version
-	const snapshot: [string, EncodedObject][] = [
-		[
-			"user1",
-			{
-				name: {
-					__value: "Older",
-					__eventstamp: "2000-01-01T00:00:00.000Z|00000001",
-				},
-			},
-		],
-	];
-
-	store.merge(snapshot);
-
-	// Should not emit update because incoming value is older
-	expect(updateHandler).toHaveBeenCalledTimes(0);
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
-});
-
-test("merge() handles empty snapshot gracefully", () => {
-	const store = createStore<{ name: string }>("users");
-
-	store.put("user1", { name: "Alice" });
-
-	const putHandler = mock();
-	const updateHandler = mock();
-	const deleteHandler = mock();
-
-	store.on("put", putHandler);
-	store.on("update", updateHandler);
-	store.on("delete", deleteHandler);
-
-	store.merge([]);
-
-	expect(putHandler).toHaveBeenCalledTimes(0);
-	expect(updateHandler).toHaveBeenCalledTimes(0);
-	expect(deleteHandler).toHaveBeenCalledTimes(0);
-	const values = store.values();
-	expect(Array.from(values.entries())).toEqual([["user1", { name: "Alice" }]]);
+	// Only first put should exist, second put should have been rejected
+	expect(store.get("user-1")).toEqual({ name: "Alice" });
+	expect(store.get("user-2")).toBeNull();
 });
