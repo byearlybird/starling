@@ -11,7 +11,7 @@
 		"build": "tsdown"
 	},
 	"peerDependencies": {
-		"@byearlybird/store": "workspace:*",
+		"@byearlybird/starling": "workspace:*",
 		"unstorage": "^1.17.1",
 		"typescript": "^5"
 	},
@@ -25,7 +25,7 @@
 	},
 	"devDependencies": {
 		"@types/bun": "latest",
-		"@byearlybird/store": "workspace:*",
+		"@byearlybird/starling": "workspace:*",
 		"typescript": "^5",
 		"unstorage": "^1.17.1"
 	}

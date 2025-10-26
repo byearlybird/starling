@@ -11,7 +11,7 @@
 		"build": "tsdown"
 	},
 	"peerDependencies": {
-		"@byearlybird/store": "workspace:*",
+		"@byearlybird/starling": "workspace:*",
 		"typescript": "^5"
 	},
 	"peerDependenciesMeta": {
@@ -21,7 +21,7 @@
 	},
 	"devDependencies": {
 		"@types/bun": "latest",
-		"@byearlybird/store": "workspace:*",
+		"@byearlybird/starling": "workspace:*",
 		"typescript": "^5"
 	}
 }
