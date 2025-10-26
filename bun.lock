@@ -32,6 +32,16 @@
         "typescript",
       ],
     },
+    "packages/plugins/query": {
+      "name": "@byearlybird/starling-plugins-query",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@byearlybird/starling": "workspace:*",
+      },
+      "peerDependencies": {
+        "@byearlybird/starling": "0.2.0",
+      },
+    },
     "packages/plugins/unstorage": {
       "name": "@byearlybird/starling-plugins-unstorage",
       "version": "0.1.0",
@@ -77,6 +87,8 @@
     "@byearlybird/plugins-push-pull": ["@byearlybird/plugins-push-pull@workspace:packages/plugins/push-pull"],
 
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/core"],
+
+    "@byearlybird/starling-plugins-query": ["@byearlybird/starling-plugins-query@workspace:packages/plugins/query"],
 
     "@byearlybird/starling-plugins-unstorage": ["@byearlybird/starling-plugins-unstorage@workspace:packages/plugins/unstorage"],
 

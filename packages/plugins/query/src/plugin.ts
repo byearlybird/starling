@@ -1,8 +1,4 @@
-import type {
-	StoreOnDelete,
-	StoreOnPatch,
-	StoreOnPut,
-} from "@byearlybird/starling/src/store";
+import type { $store } from "@byearlybird/starling";
 
 type Query<T extends Record<string, unknown>> = {
 	results: () => Map<string, T>;
@@ -17,7 +13,7 @@ type QueryInternal<T extends Record<string, unknown>> = {
 };
 
 const createQueryManager = <T extends Record<string, unknown>>() => {
-	const $queries = new Set<QueryInternal<T>>();
+	const queries = new Set<QueryInternal<T>>();
 
 	const runCallbacks = (dirtyQueries: Set<QueryInternal<T>>) => {
 		for (const query of dirtyQueries) {
@@ -35,7 +31,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			callbacks: new Set(),
 		};
 
-		$queries.add($query);
+		queries.add($query);
 
 		return {
 			results: () => new Map($query.results),
@@ -46,18 +42,18 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 				};
 			},
 			dispose: () => {
-				$queries.delete($query);
+				queries.delete($query);
 				$query.callbacks.clear();
 			},
 		};
 	};
 
 	const plugin = () => {
-		const onPut: StoreOnPut<T> = (entries) => {
+		const onPut: $store.StoreOnPut<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
-				for (const q of $queries) {
+				for (const q of queries) {
 					if (q.predicate(value) && !q.results.has(key)) {
 						// Only mark dirty if this is a new match
 						q.results.set(key, value);
@@ -72,11 +68,11 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onPatch: StoreOnPatch<T> = (entries) => {
+		const onPatch: $store.StoreOnPatch<T> = (entries) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const [key, value] of entries) {
-				for (const q of $queries) {
+				for (const q of queries) {
 					const matches = q.predicate(value);
 					const inResults = q.results.has(key);
 
@@ -98,11 +94,11 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 			runCallbacks(dirtyQueries);
 		};
 
-		const onDelete: StoreOnDelete = (keys) => {
+		const onDelete: $store.StoreOnDelete = (keys) => {
 			const dirtyQueries = new Set<QueryInternal<T>>();
 
 			for (const key of keys) {
-				for (const q of $queries) {
+				for (const q of queries) {
 					if (q.results.has(key)) {
 						q.results.delete(key);
 						dirtyQueries.add(q);

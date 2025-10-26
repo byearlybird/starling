@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { create as createStore } from "@byearlybird/starling/src/store";
-import { createQueryManager } from "./query-manager";
+import { $store } from "@byearlybird/starling";
+import { createQueryManager } from "./plugin";
 
 type User = {
 	name: string;
@@ -9,11 +9,11 @@ type User = {
 };
 
 describe("QueryManager", () => {
-	let store: ReturnType<typeof createStore<User>>;
+	let store: ReturnType<typeof $store.create<User>>;
 	let queries: ReturnType<typeof createQueryManager<User>>;
 
 	beforeEach(() => {
-		store = createStore<User>();
+		store = $store.create<User>();
 		queries = createQueryManager<User>();
 		store.use(() => queries.plugin());
 	});
