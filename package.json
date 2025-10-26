@@ -1,14 +1,14 @@
 {
-	"name": "@byearlybird/starling",
-	"version": "0.1.2",
+	"name": "@byearlybird/starling-repo",
+	"version": "0.0.0",
 	"type": "module",
 	"private": true,
 	"workspaces": [
 		"packages/*"
 	],
 	"scripts": {
-		"build": "bun run build:crdt && bun run build:store && bun run build:plugins-push-pull && bun run build:plugins-unstorage",
-		"build:crdt": "cd packages/crdt && bunx tsdown",
+		"build": "bun run build:core && bun run build:store && bun run build:plugins-push-pull && bun run build:plugins-unstorage",
+		"build:core": "cd packages/core && bunx tsdown",
 		"build:store": "cd packages/store && bunx tsdown",
 		"build:plugins-push-pull": "cd packages/plugins/push-pull && bunx tsdown",
 		"build:plugins-unstorage": "cd packages/plugins/unstorage && bunx tsdown",
