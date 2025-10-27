@@ -1,6 +1,6 @@
 # @byearlybird/starling-plugin-query
 
-Reactive query helpers for Starling stores. The package exposes a lightweight manager that listens to store hooks and keeps filtered `Map` snapshots synchronized with your predicates.
+Reactive query helpers for Starling stores. The plugin listens to store hooks and keeps filtered `Map` snapshots synchronized with your predicates. With the improved plugin system, query methods are available directly on the store.
 
 ## Installation
 
@@ -12,16 +12,14 @@ bun add @byearlybird/starling-plugin-query
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "@byearlybird/starling-plugin-query";
+import { queryPlugin } from "@byearlybird/starling-plugin-query";
 
-const store = Store.create<{ text: string; completed: boolean }>();
-const queries = createQueryManager<{ text: string; completed: boolean }>();
+const store = await Store.create<{ text: string; completed: boolean }>()
+	.use(queryPlugin())
+	.init();
 
-// Wire the query plugin into the store before init
-store.use(queries.plugin());
-await store.init();
-
-const activeTodos = queries.query((todo) => !todo.completed);
+// Query directly on the store - no separate manager needed!
+const activeTodos = store.query((todo) => !todo.completed);
 
 // Read the current results (a fresh Map copy)
 for (const [id, todo] of activeTodos.results()) {
@@ -41,12 +39,13 @@ await store.dispose();
 
 ## API
 
-### `createQueryManager<T>()`
+### `queryPlugin<T>()`
 
-Returns an object with:
+Returns a Starling plugin that adds query functionality to the store. The plugin wires `onPut`, `onPatch`, and `onDelete` hooks to keep queries synchronized.
 
-- `query(predicate: (value: T) => boolean)` – registers a predicate and returns a `Query<T>`.
-- `plugin()` – Returns a Starling plugin that wires `onPut`, `onPatch`, and `onDelete` so all queries stay in sync. Call `store.use(queries.plugin())` before `store.init()`.
+**Added Methods:**
+
+- `store.query(predicate: (value: T) => boolean)` – registers a predicate and returns a `Query<T>`.
 
 ### `Query<T>`
 
@@ -61,4 +60,3 @@ Objects returned by `query()` expose:
 - **Initialization**: When `store.init()` is called, the plugin automatically populates all registered queries by running their predicates against existing store entries. This ensures queries are immediately hydrated when used with persistence plugins (like `unstoragePlugin`).
 - Hooks batch per store commit, so a transaction that mutates multiple records results in a single change notification per query.
 - `results()` only reflects non-deleted entries. Deletions automatically evict the corresponding keys from every query `Map`.
-- You can create multiple managers per store if you want to isolate lifecycles across environments (e.g., UI vs. background worker).

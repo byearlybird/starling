@@ -43,20 +43,19 @@ bun add @byearlybird/starling-plugin-unstorage unstorage
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "@byearlybird/starling-plugin-query";
+import { queryPlugin } from "@byearlybird/starling-plugin-query";
 
 // Create a store with reactive queries
-const queries = createQueryManager<{ text: string; completed: boolean }>();
 const todoStore = await Store.create<{ text: string; completed: boolean }>()
-  .use(queries.plugin())
+  .use(queryPlugin())
   .init();
 
 // Insert items
 todoStore.put("todo-1", { text: "Learn Starling", completed: false });
 todoStore.put("todo-2", { text: "Build an app", completed: false });
 
-// Query with plain JavaScript predicates
-const activeTodos = queries.query(todo => !todo.completed);
+// Query with plain JavaScript predicates - direct method access!
+const activeTodos = todoStore.query(todo => !todo.completed);
 console.log(activeTodos.results()); // Map of incomplete todos
 
 // Updates automatically trigger query re-evaluation
@@ -213,7 +212,7 @@ Once you call `const tx = store.begin()`, you get access to the staged helpers i
 - `tx.merge(document)` – apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
 - `tx.del(key)` – tombstone a record by stamping `~deletedAt`.
 - `tx.has(key)` – check whether the staged view currently exposes the record (ignores soft-deleted docs).
-- `tx.commit({ silent })` – atomically publish the staged map. Pass `{ silent: true }` when you are hydrating state and do not want hooks to fire.
+- `tx.commit({ silent })` – atomically publish the staged map. Pass `{ silent: true }` when you do not want hooks to fire.
 - `tx.rollback()` – drop the staging map so the store remains untouched.
 
 ### Custom Plugin with Hooks
@@ -317,7 +316,7 @@ Attach predicate-based, reactive views that stay synchronized with store mutatio
 
 ### Unstorage (`@byearlybird/starling-plugin-unstorage`)
 
-Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
+Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
 
 For details about the repository structure, architecture, and package exports, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -5,6 +5,7 @@
 	"private": true,
 	"license": "MIT",
 	"workspaces": [
+		"apps/**",
 		"packages/**"
 	],
 	"scripts": {

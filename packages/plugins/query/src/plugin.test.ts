@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "./plugin";
+import { queryPlugin } from "./plugin";
 
 type User = {
 	name: string;
@@ -8,18 +8,19 @@ type User = {
 	age: number;
 };
 
-describe("QueryManager", () => {
-	let store: ReturnType<typeof Store.create<User>>;
-	let queries: ReturnType<typeof createQueryManager<User>>;
+const createStore = () => Store.create<User>().use(queryPlugin());
+
+type StoreWithQuery = ReturnType<typeof createStore>;
+
+describe("QueryPlugin", () => {
+	let store: StoreWithQuery;
 
 	beforeEach(() => {
-		store = Store.create<User>();
-		queries = createQueryManager<User>();
-		store.use(queries.plugin());
+		store = createStore();
 	});
 
 	it("creates a query and returns matching items", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: false, age: 25 });
@@ -44,14 +45,14 @@ describe("QueryManager", () => {
 		store.put("user2", { name: "Bob", active: false, age: 25 });
 		store.put("user3", { name: "Charlie", active: true, age: 35 });
 
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		const results = activeUsers.results();
 
 		expect(results.size).toBe(2);
 		expect(results.get("user1")?.name).toBe("Alice");
 		expect(results.get("user3")?.name).toBe("Charlie");
 
-		const inactiveUsers = queries.query((user) => !user.active);
+		const inactiveUsers = store.query((user) => !user.active);
 		const inactiveResults = inactiveUsers.results();
 
 		expect(inactiveResults.size).toBe(1);
@@ -59,7 +60,7 @@ describe("QueryManager", () => {
 	});
 
 	it("updates query results when items are patched", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: false, age: 25 });
@@ -79,7 +80,7 @@ describe("QueryManager", () => {
 	});
 
 	it("removes items from query results when they no longer match", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: true, age: 25 });
@@ -96,7 +97,7 @@ describe("QueryManager", () => {
 	});
 
 	it("removes items when they are deleted", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: true, age: 25 });
@@ -111,7 +112,7 @@ describe("QueryManager", () => {
 	});
 
 	it("triggers onChange callbacks whenever query data mutates", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -135,7 +136,7 @@ describe("QueryManager", () => {
 	});
 
 	it("does not trigger callbacks for non-matching items", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -150,8 +151,8 @@ describe("QueryManager", () => {
 	});
 
 	it("supports multiple independent queries", () => {
-		const activeUsers = queries.query((user) => user.active);
-		const youngUsers = queries.query((user) => user.age < 30);
+		const activeUsers = store.query((user) => user.active);
+		const youngUsers = store.query((user) => user.age < 30);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: false, age: 25 });
@@ -162,7 +163,7 @@ describe("QueryManager", () => {
 	});
 
 	it("allows disposing of a query", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -179,7 +180,7 @@ describe("QueryManager", () => {
 	});
 
 	it("returns a new Map from results() to prevent external mutation", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 
@@ -191,7 +192,7 @@ describe("QueryManager", () => {
 	});
 
 	it("unsubscribe from onChange returns a function that removes the callback", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		const unsubscribe = activeUsers.onChange(() => {
@@ -208,18 +209,14 @@ describe("QueryManager", () => {
 	});
 
 	it("populates queries with existing store entries before init", async () => {
-		// Add items before wiring the query plugin
+		// Add items before calling init
 		store.put("user1", { name: "Alice", active: true, age: 30 });
 		store.put("user2", { name: "Bob", active: false, age: 25 });
 		store.put("user3", { name: "Charlie", active: true, age: 35 });
 
-		// Now create query manager and wire the plugin
-		const newQueries = createQueryManager<User>();
-		store.use(newQueries.plugin());
-
-		// Create queries before init
-		const activeUsers = newQueries.query((user) => user.active);
-		const inactiveUsers = newQueries.query((user) => !user.active);
+		// Create queries before init - they should be populated immediately
+		const activeUsers = store.query((user) => user.active);
+		const inactiveUsers = store.query((user) => !user.active);
 
 		// Queries should be populated immediately even before init
 		const activeResults = activeUsers.results();
@@ -250,32 +247,36 @@ describe("QueryManager", () => {
 	});
 
 	it("populates queries registered before init", async () => {
-		// Create a fresh store and query manager
-		const freshStore = Store.create<User>();
-		const freshQueries = createQueryManager<User>();
+		// Create a fresh store with the plugin
+		const freshStore: StoreWithQuery = Store.create<User>().use(
+			queryPlugin(),
+		) as StoreWithQuery;
 
 		// Add data first
 		freshStore.put("user1", { name: "Alice", active: true, age: 30 });
 		freshStore.put("user2", { name: "Bob", active: false, age: 25 });
 		freshStore.put("user3", { name: "Charlie", active: true, age: 35 });
 
-		// Create query BEFORE wiring plugin
-		const freshActiveUsers = freshQueries.query((user) => user.active);
+		// Create query BEFORE calling init - should be populated immediately
+		const freshActiveUsers = freshStore.query((user) => user.active);
 
-		// Wire plugin after query is created
-		freshStore.use(freshQueries.plugin());
+		// Verify query is already populated
+		const resultsBefore = freshActiveUsers.results();
+		expect(resultsBefore.size).toBe(2);
+		expect(resultsBefore.get("user1")?.name).toBe("Alice");
+		expect(resultsBefore.get("user3")?.name).toBe("Charlie");
 
-		// Init should populate the query
+		// Init should not change the results (they're already populated)
 		await freshStore.init();
 
-		const results = freshActiveUsers.results();
-		expect(results.size).toBe(2);
-		expect(results.get("user1")?.name).toBe("Alice");
-		expect(results.get("user3")?.name).toBe("Charlie");
+		const resultsAfter = freshActiveUsers.results();
+		expect(resultsAfter.size).toBe(2);
+		expect(resultsAfter.get("user1")?.name).toBe("Alice");
+		expect(resultsAfter.get("user3")?.name).toBe("Charlie");
 	});
 
 	it("fires all registered callbacks on the same query", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callback1Count = 0;
 		let callback2Count = 0;
 		let callback3Count = 0;
@@ -304,7 +305,7 @@ describe("QueryManager", () => {
 	});
 
 	it("triggers onChange when matching items are deleted", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -330,8 +331,8 @@ describe("QueryManager", () => {
 	});
 
 	it("fires callbacks for every query whose tracked data changed", () => {
-		const activeUsers = queries.query((user) => user.active);
-		const youngUsers = queries.query((user) => user.age < 30);
+		const activeUsers = store.query((user) => user.active);
+		const youngUsers = store.query((user) => user.age < 30);
 		let activeCallCount = 0;
 		let youngCallCount = 0;
 
@@ -364,7 +365,7 @@ describe("QueryManager", () => {
 	});
 
 	it("still emits onChange when patching non-predicate fields", () => {
-		const activeUsers = queries.query((user) => user.active);
+		const activeUsers = store.query((user) => user.active);
 		let callCount = 0;
 
 		activeUsers.onChange(() => {

@@ -20,17 +20,23 @@ const storage = createStorage({
 	driver: localStorageDriver({ base: "app:" }),
 });
 
-const store = Store.create<{ text: string }>().use(
-	unstoragePlugin("todos", storage, { debounceMs: 300 }),
-);
+const store = await Store.create<{ text: string }>()
+	.use(unstoragePlugin("todos", storage, { debounceMs: 300 }))
+	.init();
 
-await store.init(); // replays persisted docs via tx.merge(..., { silent: true })
+// Automatic persistence on every mutation
 store.put("todo1", { text: "Buy milk" }); // automatically schedules a snapshot write
+store.patch("todo1", { text: "Buy almond milk" }); // automatically persists
+store.del("todo1"); // automatically persists
 ```
 
-## Options
+## API
 
-`unstoragePlugin(namespace, storage, config?)`
+### `unstoragePlugin(namespace, storage, config?)`
+
+Returns a Starling plugin that automatically persists store snapshots to storage.
+
+**Parameters:**
 
 - `namespace` – Unique key for the dataset inside your storage backend.
 - `storage` – Any `Storage<Document.EncodedDocument[]>` instance returned by `createStorage()`.
@@ -41,8 +47,43 @@ store.put("todo1", { text: "Buy milk" }); // automatically schedules a snapshot 
 
 ## Behavior
 
-- During `init`, the plugin loads `storage.get(namespace)` and replays each document inside a transaction committed with `{ silent: true }`, so other plugins do not react while hydrating. Provide `onAfterGet` to modify or filter the payload before it touches the store.
+- During `init`, the plugin loads `storage.get(namespace)` and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
 - `onPut`, `onPatch`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
 - `onBeforeSet` fires right before a snapshot write, enabling custom serialization or filtering.
-- When `pollIntervalMs` is set, the plugin will periodically poll storage and merge any external changes using `tx.commit({ silent: true })` to avoid triggering downstream hooks.
+- When `pollIntervalMs` is set, the plugin will periodically poll storage and merge any external changes.
 - `dispose()` clears any pending debounce timer and polling interval. Call it when the surrounding store shuts down to avoid writes after teardown.
+
+## Multiple Storage Instances
+
+One of Starling's key benefits is **storage multiplexing** - you can register multiple unstorage plugins and they work together seamlessly:
+
+```typescript
+const localStorage = createStorage({
+  driver: localStorageDriver({ base: "app:" }),
+});
+
+const httpStorage = createStorage({
+  driver: httpDriver({ base: "https://api.example.com" }),
+});
+
+const store = Store.create<Todo>()
+  .use(unstoragePlugin('todos', localStorage))
+  .use(unstoragePlugin('todos', httpStorage, { pollIntervalMs: 5000 }));
+
+await store.init(); // Hydrates from both storages, CRDT merge handles conflicts
+
+// Every mutation automatically persists to BOTH storages
+store.put('todo-1', { text: 'Learn Starling' }); // → localStorage + httpStorage
+```
+
+**How it works:**
+- Each plugin registers its own hooks independently
+- Mutations trigger all registered hooks (persist to all storages)
+- CRDT eventstamps resolve conflicts automatically
+- No manual merge code required
+
+This enables powerful patterns like:
+- **Offline-first**: localStorage (immediate) + HTTP (synced later)
+- **Multi-region**: Persist to multiple cloud providers
+- **Backup strategies**: Local + remote storage
+- **Development**: localStorage (dev) + mock storage (tests)

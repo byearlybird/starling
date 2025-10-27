@@ -3,11 +3,14 @@ import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 
-const storage = createStorage({
-	driver: fsDriver({ base: "./tmp" }),
-});
+const fileStorage = unstoragePlugin(
+	"todos",
+	createStorage({
+		driver: fsDriver({ base: "./tmp" }),
+	}),
+);
 
-const store = Store.create().use(unstoragePlugin("todos", storage));
+const store = Store.create().use(fileStorage);
 
 await store.init();
 
@@ -57,7 +60,7 @@ const server = Bun.serve({
 						...corsHeaders,
 					},
 				});
-			} catch (error) {
+			} catch {
 				return new Response(JSON.stringify({ error: "Invalid JSON" }), {
 					status: 400,
 					headers: {

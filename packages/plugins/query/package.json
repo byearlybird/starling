@@ -1,6 +1,6 @@
 {
-        "name": "@byearlybird/starling-plugin-query",
-	"version": "0.2.2",
+	"name": "@byearlybird/starling-plugin-query",
+	"version": "0.3.0",
 	"type": "module",
 	"license": "MIT",
 	"main": "./dist/index.js",
@@ -13,7 +13,7 @@
 		"prepublishOnly": "bun run build.ts"
 	},
 	"peerDependencies": {
-		"@byearlybird/starling": "^0.2.0"
+		"@byearlybird/starling": "^0.3.0"
 	},
 	"devDependencies": {
 		"@byearlybird/starling": "workspace:*"

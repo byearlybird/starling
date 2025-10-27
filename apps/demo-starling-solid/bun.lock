@@ -4,9 +4,9 @@
     "": {
       "name": "demo-starling-solid",
       "dependencies": {
-        "@byearlybird/starling": "^0.2.2",
-        "@byearlybird/starling-plugin-query": "^0.2.2",
-        "@byearlybird/starling-plugin-unstorage": "^0.2.2",
+        "@byearlybird/starling": "^0.3",
+        "@byearlybird/starling-plugin-query": "^0.3",
+        "@byearlybird/starling-plugin-unstorage": "^0.3",
         "solid-js": "^1.9.9",
         "unstorage": "^1.17.1",
       },
@@ -58,11 +58,11 @@
 
     "@babel/types": ["@babel/types@7.28.5", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.28.5" } }, "sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA=="],
 
-    "@byearlybird/starling": ["@byearlybird/starling@0.2.2", "", {}, "sha512-7iukhAoo3ZNFnW5VcRcJLBOclaE/jeiE426wBWFbVAo7KwlnFtZPJ1p03V1SK0GTwX5uVh+TGPiThIk01Vh34Q=="],
+    "@byearlybird/starling": ["@byearlybird/starling@0.3.0", "", {}, "sha512-u4Yw0W011NscJ/6wVtDbn10U3KK3Tcdt1JA3+7/MfeVUO/i8u2iQdAq6iew8D6X7IHW7UBbw7i252zBFu4Kz4w=="],
 
-    "@byearlybird/starling-plugin-query": ["@byearlybird/starling-plugin-query@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0" } }, "sha512-HIiIdnABmjLRPaTiE7rknsIF0BL7oW0au32n/Lg1P04rzDn+/bZqnf3BU7Ye74loeOFH1V1iWcBWuxAAWjXahg=="],
+    "@byearlybird/starling-plugin-query": ["@byearlybird/starling-plugin-query@0.3.0", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0" } }, "sha512-2KQKAGBuNgl7yfiCDh3RQww/Du9UXAZy5QfKKhCcWOdjTLHuAmrZR5rS7QxDIP47dCZOkdFXSqzekWaKbqaBNg=="],
 
-    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-w03d81bVe5Ke2VazHIP70NVtFcphYW5Rdbzpx11/98af1bDAd8Vd6l/2Du4eHmGdRq1K3Wx0ejw3yGVuabQxew=="],
+    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.3.0", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-NBielf95wpGxjBfi4/maRGYToV4eNW6iiaiTu5HlupwRUh0TuhXzgOWGX2euY7sw6J756oTCgpEQ3lgu1o2Eaw=="],
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
 

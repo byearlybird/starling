@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/complexity/noBannedTypes: <{} used to default to empty> */
+/** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
 import { create as createClock } from "./clock";
 import type { EncodedDocument } from "./document";
 import { decode, encode } from "./document";
@@ -77,15 +79,21 @@ type StoreTransaction<T extends Record<string, unknown>> = {
 	rollback: () => void;
 };
 
-type PluginHandle<T extends Record<string, unknown>> = {
+type PluginMethods = Record<string, (...args: any[]) => any>;
+
+type PluginHandle<
+	T extends Record<string, unknown>,
+	M extends PluginMethods = {},
+> = {
 	init: () => Promise<void> | void;
 	dispose: () => Promise<void> | void;
 	hooks?: StoreHooks<T>;
+	methods?: M;
 };
 
-type Plugin<T extends Record<string, unknown>> = (
-	store: Store<T>,
-) => PluginHandle<T>;
+type Plugin<T extends Record<string, unknown>, M extends PluginMethods = {}> = (
+	store: Store<T, any>,
+) => PluginHandle<T, M>;
 
 type ListenerMap<T extends Record<string, unknown>> = {
 	beforePut: Set<StoreOnBeforePut<T>>;
@@ -96,7 +104,7 @@ type ListenerMap<T extends Record<string, unknown>> = {
 	del: Set<StoreOnDelete>;
 };
 
-type Store<T extends Record<string, unknown>> = {
+type Store<T extends Record<string, unknown>, Extended = {}> = {
 	get: (key: string) => T | null;
 	has: (key: string) => boolean;
 	readonly size: number;
@@ -107,12 +115,14 @@ type Store<T extends Record<string, unknown>> = {
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	begin: () => StoreTransaction<T>;
-	use: (plugin: Plugin<T>) => Store<T>;
-	init: () => Promise<Store<T>>;
+	use: <M extends PluginMethods>(
+		plugin: Plugin<T, M>,
+	) => Store<T, Extended & M>;
+	init: () => Promise<Store<T, Extended>>;
 	dispose: () => Promise<void>;
-};
+} & Extended;
 
-const create = <T extends Record<string, unknown>>(): Store<T> => {
+const create = <T extends Record<string, unknown>>(): Store<T, {}> => {
 	const clock = createClock();
 	const encodeValue = (key: string, value: T) =>
 		encode(key, value, clock.now());
@@ -243,7 +253,7 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 				has(key: string) {
 					return tx.has(key);
 				},
-				commit(opts: { silent: boolean } = { silent: false }) {
+				commit(opts = { silent: false }) {
 					tx.commit();
 
 					if (opts.silent) return;
@@ -270,8 +280,13 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 				},
 			};
 		},
-		use(plugin: Plugin<T>) {
-			const { hooks: pluginHooks, init, dispose } = plugin(this);
+		use<M extends PluginMethods>(plugin: Plugin<T, M>): Store<T, M> {
+			const {
+				hooks: pluginHooks,
+				init,
+				dispose,
+				methods,
+			} = plugin(this as any);
 
 			if (pluginHooks) {
 				if (pluginHooks.onBeforePut) {
@@ -318,10 +333,15 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 				}
 			}
 
+			// Inject plugin methods directly into store
+			if (methods) {
+				Object.assign(this, methods);
+			}
+
 			initializers.add(init);
 			disposers.add(dispose);
 
-			return this;
+			return this as Store<T, M>;
 		},
 		async init() {
 			for (const fn of initializers) {
@@ -354,5 +374,6 @@ export type {
 	StoreTransaction,
 	Plugin,
 	PluginHandle,
+	PluginMethods,
 };
 export { create };
