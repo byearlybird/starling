@@ -1,17 +1,32 @@
 # @byearlybird/starling
 
+**Local-first reactive sync. Zero dependencies, no ceremony.**
+
 A reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. Starling provides a simple yet powerful way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution.
+
+## Why Starling?
+
+Cross-device sync shouldn't require heavyweight infrastructure or learning new query languages. Starling gives you:
+
+- **Tiny footprint** - Core library is ~5KB with zero runtime dependencies
+- **Just JavaScript** - Query with plain predicates, no complex query languages or custom DSLs
+- **Simple sync** - Multiplex storage backends (localStorage + HTTP) and conflicts auto-resolve
+- **Extensible hooks** - Add encryption, validation, or custom logic in ~10 lines
+- **Works everywhere** - React, Vue, Solid, Node, Deno, Bun - if it runs JS, it works
+
+Perfect for apps that sync across devices, offline-first apps, or any tool that benefits from eventual consistency.
 
 ## Features
 
-- **Reactive Stores**: Event-driven data stores with hook-based notifications
-- **Query System**: Predicate-based filtering with reactive updates (via plugin)
-- **CRDT-like Merging**: Conflict-free state synchronization using eventstamps (ISO8601 + hex counter)
-- **HTTP Synchronization**: Bidirectional client-server sync with customizable push/pull strategies (via plugin)
-- **Storage Abstraction**: Powered by `unstorage` for flexible persistence (via plugin)
-- **Transaction Support**: Stage operations and commit/rollback atomically
-- **TypeScript First**: Full type safety with strict TypeScript support
-- **Zero Dependencies**: Core package has no external dependencies
+- **Zero Dependencies** - Core package has no external dependencies (~5KB)
+- **Plain JavaScript Queries** - Filter with predicates, not DSLs: `query(todo => !todo.completed)`
+- **Automatic Conflict Resolution** - CRDT-like merging using eventstamps (ISO8601 + hex counter), no manual merge code
+- **Extensible Plugin Hooks** - Add encryption, validation, or custom sync in ~10 lines
+- **Reactive Stores** - Event-driven data stores with hook-based notifications
+- **Flexible Sync** - Use `unstorage` drivers for localStorage, HTTP, S3, Redis, or custom backends
+- **Transaction Support** - Stage operations and commit/rollback atomically
+- **TypeScript First** - Full type safety with strict TypeScript support
+- **Framework Agnostic** - Works with React, Vue, Solid, or any JavaScript runtime
 
 ## Installation
 
@@ -28,22 +43,50 @@ bun add @byearlybird/starling-plugins-unstorage unstorage
 
 ```typescript
 import { Store } from "@byearlybird/starling";
+import { createQueryManager } from "@byearlybird/starling-plugins-query";
 
-// Create a store
-const todoStore = Store.create<{ text: string; completed: boolean }>();
+// Create a store with reactive queries
+const queries = createQueryManager<{ text: string; completed: boolean }>();
+const todoStore = await Store.create<{ text: string; completed: boolean }>()
+  .use(queries.plugin())
+  .init();
 
 // Insert items
-todoStore.put("todo-1", {
-  text: "Learn Starling",
-  completed: false,
-});
+todoStore.put("todo-1", { text: "Learn Starling", completed: false });
+todoStore.put("todo-2", { text: "Build an app", completed: false });
 
-// Update items (supports partial updates)
+// Query with plain JavaScript predicates
+const activeTodos = queries.query(todo => !todo.completed);
+console.log(activeTodos.results()); // Map of incomplete todos
+
+// Updates automatically trigger query re-evaluation
 todoStore.patch("todo-1", { completed: true });
+console.log(activeTodos.results()); // Now only contains todo-2
+```
 
-// Get values
-const todo = todoStore.get("todo-1");
-console.log(todo); // { text: "Learn Starling", completed: true }
+**Want to see more?** Check out the [full examples](#examples) below for cross-device sync with storage multiplexing.
+
+## Examples
+
+Explore working demos that showcase cross-device sync with storage multiplexing:
+
+- **[React Todo App](apps/demo-starling-react)** - Todo app that syncs across devices using localStorage + HTTP
+- **[SolidJS Todo App](apps/demo-starling-solid)** - Same app built with SolidJS, showing framework flexibility
+- **[Server](apps/demo-starling-server)** - Simple Bun server that merges updates and persists to disk
+
+Each example shows how simple sync can be:
+- **Storage multiplexing** - Register localStorage + HTTP plugins, conflicts auto-resolve
+- **Works offline** - Local changes persist immediately, sync when connection returns
+- **Reactive queries** - Filter data with plain JavaScript predicates
+- **Zero config** - No schema definitions, no migration scripts, just works
+
+Run them locally:
+```bash
+# Start React demo
+bun run demo:react
+
+# Or start SolidJS demo
+bun run demo:solid
 ```
 
 ## Core API
