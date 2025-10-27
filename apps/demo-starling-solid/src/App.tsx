@@ -14,10 +14,10 @@ function App() {
 	const activeTodos = createQuerySignal(activeTodosQuery);
 	const completedTodos = createQuerySignal(completedTodosQuery);
 
-	const addTodo = (text: string) => {
-		const id = crypto.randomUUID();
-		todoStore.put(id, { text, completed: false });
-	};
+        const addTodo = (text: string) => {
+                const id = crypto.randomUUID();
+                todoStore.put({ "~id": id, text, completed: false });
+        };
 
 	const toggleTodo = (id: string) => {
 		const todo = todoStore.get(id);

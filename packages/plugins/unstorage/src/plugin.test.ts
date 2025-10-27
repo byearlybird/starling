@@ -29,7 +29,7 @@ test("initializes store with persisted data", async () => {
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
-	store1.put("todo1", { label: "Test", completed: false });
+	store1.put({ "~id": "todo1", label: "Test", completed: false });
 
 	// Create a new store with same storage
 	const store2 = await Store.create<Todo>()
@@ -41,7 +41,7 @@ test("initializes store with persisted data", async () => {
 });
 
 test("persists put operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
+	store.put({ "~id": "todo1", label: "Buy milk", completed: false });
 
 	const persisted = (await storage.getItem("todos")) as
 		| Document.EncodedDocument[]
@@ -52,7 +52,7 @@ test("persists put operation to storage", async () => {
 });
 
 test("persists patch operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
+	store.put({ "~id": "todo1", label: "Buy milk", completed: false });
 	store.patch("todo1", { completed: true });
 
 	const persisted = (await storage.getItem("todos")) as
@@ -65,7 +65,7 @@ test("persists patch operation to storage", async () => {
 });
 
 test("persists delete operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
+	store.put({ "~id": "todo1", label: "Buy milk", completed: false });
 	store.del("todo1");
 
 	const persisted = (await storage.getItem("todos")) as
@@ -79,9 +79,9 @@ test("persists delete operation to storage", async () => {
 });
 
 test("persists multiple items to storage", async () => {
-	store.put("todo1", { label: "Task 1", completed: false });
-	store.put("todo2", { label: "Task 2", completed: true });
-	store.put("todo3", { label: "Task 3", completed: false });
+	store.put({ "~id": "todo1", label: "Task 1", completed: false });
+	store.put({ "~id": "todo2", label: "Task 2", completed: true });
+	store.put({ "~id": "todo3", label: "Task 3", completed: false });
 
 	const persisted = (await storage.getItem("todos")) as
 		| Document.EncodedDocument[]
@@ -111,9 +111,9 @@ test("debounces storage writes when debounceMs is set", async () => {
 		.init();
 
 	// Rapid writes should be batched
-	debounceStore.put("todo1", { label: "Task 1", completed: false });
-	debounceStore.put("todo2", { label: "Task 2", completed: false });
-	debounceStore.put("todo3", { label: "Task 3", completed: false });
+	debounceStore.put({ "~id": "todo1", label: "Task 1", completed: false });
+	debounceStore.put({ "~id": "todo2", label: "Task 2", completed: false });
+	debounceStore.put({ "~id": "todo3", label: "Task 3", completed: false });
 
 	// No writes should have happened yet
 	expect(writeCount).toBe(0);
@@ -148,8 +148,8 @@ test("writes immediately when debounceMs is 0 (default)", async () => {
 		.use(unstoragePlugin("todos", defaultStorage))
 		.init();
 
-	defaultStore.put("todo1", { label: "Task 1", completed: false });
-	defaultStore.put("todo2", { label: "Task 2", completed: false });
+	defaultStore.put({ "~id": "todo1", label: "Task 1", completed: false });
+	defaultStore.put({ "~id": "todo2", label: "Task 2", completed: false });
 
 	// Should have immediate writes with debounceMs=0
 	expect(writeCount).toBe(2);
@@ -172,7 +172,7 @@ test("clears pending timer on dispose", async () => {
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();
 
-	debounceStore.put("todo1", { label: "Task 1", completed: false });
+	debounceStore.put({ "~id": "todo1", label: "Task 1", completed: false });
 
 	// Dispose before debounce completes
 	await debounceStore.dispose();
@@ -198,8 +198,8 @@ test("onBeforeSet hook filters documents before persisting", async () => {
 		)
 		.init();
 
-	hookStore.put("todo1", { label: "Keep", completed: false });
-	hookStore.put("skip-me", { label: "Drop", completed: false });
+	hookStore.put({ "~id": "todo1", label: "Keep", completed: false });
+	hookStore.put({ "~id": "skip-me", label: "Drop", completed: false });
 
 	// allow async hook + storage write to settle
 	await new Promise((resolve) => setTimeout(resolve, 0));
@@ -217,8 +217,8 @@ test("onAfterGet hook can mutate hydration payload", async () => {
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
-	writerStore.put("todo1", { label: "Keep", completed: false });
-	writerStore.put("todo2", { label: "Filter", completed: false });
+	writerStore.put({ "~id": "todo1", label: "Keep", completed: false });
+	writerStore.put({ "~id": "todo2", label: "Filter", completed: false });
 
 	const filteredStore = await Store.create<Todo>()
 		.use(

@@ -14,10 +14,10 @@ function App() {
 	const activeTodos = useQueryResults(activeTodosQuery);
 	const completedTodos = useQueryResults(completedTodosQuery);
 
-	const addTodo = useCallback((text: string) => {
-		const id = crypto.randomUUID();
-		todoStore.put(id, { text, completed: false });
-	}, []);
+        const addTodo = useCallback((text: string) => {
+                const id = crypto.randomUUID();
+                todoStore.put({ "~id": id, text, completed: false });
+        }, []);
 
 	const toggleTodo = useCallback((id: string) => {
 		const todo = todoStore.get(id);

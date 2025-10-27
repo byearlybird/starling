@@ -60,7 +60,7 @@ type StoreHooks<T> = {
 };
 
 type StoreTransaction<T> = {
-	put: (key: string, value: T) => void;
+        put: (value: T | (T & { "~id": string })) => string;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	merge: (doc: EncodedDocument) => void;
 	del: (key: string) => void;
@@ -98,7 +98,7 @@ type Store<T, Extended = {}> = {
 	values: () => IterableIterator<T>;
 	entries: () => IterableIterator<readonly [string, T]>;
 	snapshot: () => EncodedDocument[];
-	put: (key: string, value: T) => void;
+        put: (value: T | (T & { "~id": string })) => string;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	begin: () => StoreTransaction<T>;
@@ -109,11 +109,34 @@ type Store<T, Extended = {}> = {
 	dispose: () => Promise<void>;
 } & Extended;
 
-const create = <T>(): Store<T, {}> => {
-	const kv = KV.create();
-	const clock = Clock.create();
-	const encodeValue = (key: string, value: T) =>
-		encode(key, value, clock.now());
+const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
+        const kv = KV.create();
+        const clock = Clock.create();
+        const getId = config.getId ?? (() => {
+                if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+                        return crypto.randomUUID();
+                }
+
+                return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        });
+        const encodeValue = (key: string, value: T) =>
+                encode(key, value, clock.now());
+
+        const resolvePutInput = (
+                input: T | (T & { "~id": string }),
+        ): { key: string; value: T } => {
+                if (
+                        typeof input === "object" &&
+                        input !== null &&
+                        "~id" in (input as Record<string, unknown>) &&
+                        typeof (input as Record<string, unknown>)["~id"] === "string"
+                ) {
+                        const { ["~id"]: key, ...rest } = input as T & { "~id": string };
+                        return { key, value: rest as unknown as T };
+                }
+
+                return { key: getId(), value: input as T };
+        };
 
 	// Plugin management
 	const listeners: ListenerMap<T> = {
@@ -169,11 +192,12 @@ const create = <T>(): Store<T, {}> => {
 			}
 			return count;
 		},
-		put(key: string, value: T) {
-			const tx = this.begin();
-			tx.put(key, value);
-			tx.commit();
-		},
+                put(value: T | (T & { "~id": string })) {
+                        const tx = this.begin();
+                        const key = tx.put(value);
+                        tx.commit();
+                        return key;
+                },
 		patch(key: string, value: DeepPartial<T>) {
 			const tx = this.begin();
 			tx.patch(key, value);
@@ -193,14 +217,16 @@ const create = <T>(): Store<T, {}> => {
 			// For deletes, track the keys
 			const deleteKeys: Array<string> = [];
 
-			return {
-				put(key: string, value: T) {
-					for (const fn of listeners.beforePut) {
-						fn(key, value);
-					}
-					tx.put(key, encodeValue(key, value));
-					putKeyValues.push([key, value] as const);
-				},
+                        return {
+                                put(value: T | (T & { "~id": string })) {
+                                        const { key, value: payload } = resolvePutInput(value);
+                                        for (const fn of listeners.beforePut) {
+                                                fn(key, payload);
+                                        }
+                                        tx.put(key, encodeValue(key, payload));
+                                        putKeyValues.push([key, payload] as const);
+                                        return key;
+                                },
 				patch(key: string, value: DeepPartial<T>) {
 					for (const fn of listeners.beforePatch) {
 						fn(key, value);

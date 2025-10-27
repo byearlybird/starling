@@ -51,8 +51,8 @@ const todoStore = await Store.create<{ text: string; completed: boolean }>()
   .init();
 
 // Insert items
-todoStore.put("todo-1", { text: "Learn Starling", completed: false });
-todoStore.put("todo-2", { text: "Build an app", completed: false });
+const todo1Id = todoStore.put({ text: "Learn Starling", completed: false }); // capture generated ID
+todoStore.put({ "~id": "todo-2", text: "Build an app", completed: false });
 
 // Query with plain JavaScript predicates - direct method access!
 const activeTodos = todoStore.query(todo => !todo.completed);
@@ -98,6 +98,11 @@ import { Store } from "@byearlybird/starling";
 // Create a basic store
 const store = Store.create<YourType>();
 
+// Optionally provide a custom ID generator
+const deterministicStore = Store.create<YourType>({
+  getId: () => crypto.randomUUID(),
+});
+
 // To listen to store mutations, use plugins (see "Custom Plugin with Hooks" below)
 ```
 
@@ -109,11 +114,12 @@ const store = Store.create<YourType>();
 
 ### Store Methods
 
-#### `put(key: string, value: T): void`
-Insert a new item into the store. Each value is automatically encoded with eventstamps for conflict resolution.
+#### `put(value: T | (T & { "~id": string })): string`
+Insert a new item into the store and return its ID. Provide `~id` to override the generated key. Values are automatically encoded with eventstamps for conflict resolution, and the `~id` field is never persisted.
 
 ```typescript
-store.put("user-1", { name: "Alice", email: "alice@example.com" });
+const generatedId = store.put({ name: "Alice", email: "alice@example.com" });
+store.put({ "~id": "user-1", name: "Bob" });
 ```
 
 #### `patch(key: string, value: DeepPartial<T>): void`
@@ -176,8 +182,8 @@ Start a transaction to batch operations.
 
 ```typescript
 const tx = store.begin();
-tx.put("user-1", { name: "Alice" });
-tx.patch("user-1", { email: "alice@example.com" });
+const userId = tx.put({ name: "Alice" });
+tx.patch(userId, { email: "alice@example.com" });
 tx.commit(); // Or tx.rollback()
 ```
 
@@ -189,8 +195,8 @@ Transactions allow you to stage multiple operations and commit them atomically:
 const tx = store.begin();
 
 // Stage operations
-tx.put("user-1", { name: "Alice", email: "alice@example.com" });
-tx.patch("user-1", { email: "alice@newdomain.com" });
+const userId = tx.put({ "~id": "user-1", name: "Alice", email: "alice@example.com" });
+tx.patch(userId, { email: "alice@newdomain.com" });
 tx.del("user-2");
 
 // Commit all operations atomically
@@ -207,7 +213,7 @@ tx.rollback();
 
 Once you call `const tx = store.begin()`, you get access to the staged helpers implemented in [`packages/core/src/store.ts`](packages/core/src/store.ts):
 
-- `tx.put(key, value)` – stage a brand-new encoded document using the current clock.
+- `tx.put(value)` – stage a brand-new encoded document using the current clock. Returns the staged ID.
 - `tx.patch(key, partial)` – merge a partial update into the staged (or persisted) record.
 - `tx.merge(document)` – apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
 - `tx.del(key)` – tombstone a record by stamping `~deletedAt`.
