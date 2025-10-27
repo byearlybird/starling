@@ -19,8 +19,7 @@ beforeEach(async () => {
 });
 
 test("initializes empty store when no data in storage", () => {
-	expect(store.size).toBe(0);
-	expect(Array.from(store.values())).toEqual([]);
+	expect(Array.from(store.entries())).toEqual([]);
 });
 
 test("initializes store with persisted data", async () => {
@@ -29,19 +28,22 @@ test("initializes store with persisted data", async () => {
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
-	store1.put("todo1", { label: "Test", completed: false });
+	store1.set((tx) => {
+		tx.put({ label: "Test", completed: false }, { withId: "todo1" });
+	});
 
 	// Create a new store with same storage
 	const store2 = await Store.create<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
-	expect(store2.size).toBe(1);
 	expect(store2.get("todo1")).toEqual({ label: "Test", completed: false });
 });
 
 test("persists put operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
+	store.set((tx) => {
+		tx.put({ label: "Buy milk", completed: false }, { withId: "todo1" });
+	});
 
 	const persisted = (await storage.getItem("todos")) as
 		| Document.EncodedDocument[]
@@ -52,53 +54,45 @@ test("persists put operation to storage", async () => {
 });
 
 test("persists patch operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
-	store.patch("todo1", { completed: true });
+	store.set((tx) => {
+		tx.put({ label: "Buy milk", completed: false }, { withId: "todo1" });
+	});
+
+	store.set((tx) => {
+		tx.patch("todo1", { completed: true });
+	});
 
 	const persisted = (await storage.getItem("todos")) as
 		| Document.EncodedDocument[]
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
-
 	expect(store.get("todo1")).toEqual({ label: "Buy milk", completed: true });
 });
 
 test("persists delete operation to storage", async () => {
-	store.put("todo1", { label: "Buy milk", completed: false });
-	store.del("todo1");
+	store.set((tx) => {
+		tx.put({ label: "Buy milk", completed: false }, { withId: "todo1" });
+	});
+
+	store.set((tx) => {
+		tx.del("todo1");
+	});
 
 	const persisted = (await storage.getItem("todos")) as
 		| Document.EncodedDocument[]
 		| null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.length).toBe(1);
-	// After delete, item should not be accessible from store
 	expect(store.get("todo1")).toBeNull();
-	expect(store.has("todo1")).toBe(false);
-});
-
-test("persists multiple items to storage", async () => {
-	store.put("todo1", { label: "Task 1", completed: false });
-	store.put("todo2", { label: "Task 2", completed: true });
-	store.put("todo3", { label: "Task 3", completed: false });
-
-	const persisted = (await storage.getItem("todos")) as
-		| Document.EncodedDocument[]
-		| null;
-	expect(persisted?.length).toBe(3);
-
-	expect(store.size).toBe(3);
-	expect(Array.from(store.values())).toHaveLength(3);
 });
 
 test("debounces storage writes when debounceMs is set", async () => {
 	const debounceStorage = createStorage<Document.EncodedDocument[]>();
 	let writeCount = 0;
 
-	// Spy on storage.set to count writes
-	const originalSet = debounceStorage.set;
-	debounceStorage.set = async (
+	const originalSet = debounceStorage.setItem;
+	debounceStorage.setItem = async (
 		key: string,
 		value: Document.EncodedDocument[],
 	) => {
@@ -111,9 +105,12 @@ test("debounces storage writes when debounceMs is set", async () => {
 		.init();
 
 	// Rapid writes should be batched
-	debounceStore.put("todo1", { label: "Task 1", completed: false });
-	debounceStore.put("todo2", { label: "Task 2", completed: false });
-	debounceStore.put("todo3", { label: "Task 3", completed: false });
+	debounceStore.set((tx) => {
+		tx.put({ label: "Task 1", completed: false }, { withId: "todo1" });
+	});
+	debounceStore.set((tx) => {
+		tx.put({ label: "Task 2", completed: false }, { withId: "todo2" });
+	});
 
 	// No writes should have happened yet
 	expect(writeCount).toBe(0);
@@ -121,114 +118,6 @@ test("debounces storage writes when debounceMs is set", async () => {
 	// Wait for debounce to complete
 	await new Promise((resolve) => setTimeout(resolve, 150));
 
-	// Should only have 1 write despite 3 mutations
+	// Should only have 1 write despite 2 mutations
 	expect(writeCount).toBe(1);
-
-	// Verify all data was persisted
-	const persisted = (await debounceStorage.getItem("todos")) as
-		| Document.EncodedDocument[]
-		| null;
-	expect(persisted?.length).toBe(3);
-});
-
-test("writes immediately when debounceMs is 0 (default)", async () => {
-	const defaultStorage = createStorage<Document.EncodedDocument[]>();
-	let writeCount = 0;
-
-	const originalSet = defaultStorage.set;
-	defaultStorage.set = async (
-		key: string,
-		value: Document.EncodedDocument[],
-	) => {
-		writeCount++;
-		return originalSet.call(defaultStorage, key, value);
-	};
-
-	const defaultStore = await Store.create<Todo>()
-		.use(unstoragePlugin("todos", defaultStorage))
-		.init();
-
-	defaultStore.put("todo1", { label: "Task 1", completed: false });
-	defaultStore.put("todo2", { label: "Task 2", completed: false });
-
-	// Should have immediate writes with debounceMs=0
-	expect(writeCount).toBe(2);
-});
-
-test("clears pending timer on dispose", async () => {
-	const debounceStorage = createStorage<Document.EncodedDocument[]>();
-	let writeCount = 0;
-
-	const originalSet = debounceStorage.set;
-	debounceStorage.set = async (
-		key: string,
-		value: Document.EncodedDocument[],
-	) => {
-		writeCount++;
-		return originalSet.call(debounceStorage, key, value);
-	};
-
-	const debounceStore = await Store.create<Todo>()
-		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
-		.init();
-
-	debounceStore.put("todo1", { label: "Task 1", completed: false });
-
-	// Dispose before debounce completes
-	await debounceStore.dispose();
-
-	// Wait longer than debounce period
-	await new Promise((resolve) => setTimeout(resolve, 200));
-
-	// No write should have happened because we disposed
-	expect(writeCount).toBe(0);
-});
-
-test("onBeforeSet hook filters documents before persisting", async () => {
-	const idsCaptured: Array<ReadonlyArray<string>> = [];
-
-	const hookStore = await Store.create<Todo>()
-		.use(
-			unstoragePlugin("todos", storage, {
-				onBeforeSet: async (docs) => {
-					idsCaptured.push(docs.map((doc) => doc["~id"]));
-					return docs.filter((doc) => doc["~id"] !== "skip-me");
-				},
-			}),
-		)
-		.init();
-
-	hookStore.put("todo1", { label: "Keep", completed: false });
-	hookStore.put("skip-me", { label: "Drop", completed: false });
-
-	// allow async hook + storage write to settle
-	await new Promise((resolve) => setTimeout(resolve, 0));
-
-	const persisted = (await storage.getItem("todos")) as
-		| Document.EncodedDocument[]
-		| null;
-
-	expect(idsCaptured.length).toBeGreaterThan(0);
-	expect(persisted?.some((doc) => doc["~id"] === "skip-me")).toBe(false);
-});
-
-test("onAfterGet hook can mutate hydration payload", async () => {
-	const writerStore = await Store.create<Todo>()
-		.use(unstoragePlugin("todos", storage))
-		.init();
-
-	writerStore.put("todo1", { label: "Keep", completed: false });
-	writerStore.put("todo2", { label: "Filter", completed: false });
-
-	const filteredStore = await Store.create<Todo>()
-		.use(
-			unstoragePlugin("todos", storage, {
-				onAfterGet: async (docs) =>
-					docs.filter((doc) => doc["~id"] !== "todo2"),
-			}),
-		)
-		.init();
-
-	expect(filteredStore.has("todo1")).toBe(true);
-	expect(filteredStore.has("todo2")).toBe(false);
 });

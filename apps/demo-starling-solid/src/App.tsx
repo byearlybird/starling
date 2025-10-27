@@ -15,25 +15,28 @@ function App() {
 	const completedTodos = createQuerySignal(completedTodosQuery);
 
 	const addTodo = (text: string) => {
-		const id = crypto.randomUUID();
-		todoStore.put(id, { text, completed: false });
+		todoStore.set((tx) => tx.put({ text, completed: false }));
 	};
 
 	const toggleTodo = (id: string) => {
-		const todo = todoStore.get(id);
-		if (todo) {
-			todoStore.patch(id, { completed: !todo.completed });
-		}
+		todoStore.set((tx) => {
+			const todo = tx.get(id);
+			if (todo) {
+				tx.patch(id, { completed: !todo.completed });
+			}
+		});
 	};
 
 	const deleteTodo = (id: string) => {
-		todoStore.del(id);
+		todoStore.set((tx) => tx.del(id));
 	};
 
 	const clearCompleted = () => {
-		for (const id of completedTodos().keys()) {
-			todoStore.del(id);
-		}
+		todoStore.set((tx) => {
+			for (const id of completedTodos().keys()) {
+				tx.del(id);
+			}
+		});
 	};
 
 	const handleAddTodo = (event: Event) => {

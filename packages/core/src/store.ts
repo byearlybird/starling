@@ -10,6 +10,12 @@ type DeepPartial<T> = T extends object
 	: T;
 
 /**
+ * Type constraint to prevent Promise returns from set callbacks.
+ * Transactions must be synchronous operations.
+ */
+type NotPromise<T> = T extends Promise<any> ? never : T;
+
+/**
  * Called once per commit with all put operations accumulated as decoded entries.
  * Only fires if at least one put occurred.
  */
@@ -28,64 +34,37 @@ type StoreOnPatch<T> = (entries: ReadonlyArray<readonly [string, T]>) => void;
 type StoreOnDelete = (keys: ReadonlyArray<string>) => void;
 
 /**
- * Called before a put operation is applied.
- * Throws to reject the operation.
- */
-type StoreOnBeforePut<T> = (key: string, value: T) => void;
-
-/**
- * Called before a patch operation is applied.
- * Throws to reject the operation.
- */
-type StoreOnBeforePatch<T> = (key: string, value: DeepPartial<T>) => void;
-
-/**
- * Called before a delete operation is applied.
- * Throws to reject the operation.
- */
-type StoreOnBeforeDelete = (key: string) => void;
-
-/**
  * Hook callbacks that receive batches of decoded entries.
  * Hooks fire on commit only, never during staged operations.
  * Arrays are readonly to prevent external mutation.
  */
 type StoreHooks<T> = {
-	onBeforePut?: StoreOnBeforePut<T>;
-	onBeforePatch?: StoreOnBeforePatch<T>;
-	onBeforeDelete?: StoreOnBeforeDelete;
 	onPut?: StoreOnPut<T>;
 	onPatch?: StoreOnPatch<T>;
 	onDelete?: StoreOnDelete;
 };
 
-type StoreTransaction<T> = {
-	put: (key: string, value: T) => void;
+type StorePutOptions = { withId?: string };
+
+type StoreSetTransaction<T> = {
+	put: (value: T, options?: StorePutOptions) => string;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	merge: (doc: EncodedDocument) => void;
 	del: (key: string) => void;
-	has: (key: string) => boolean;
-	commit: (opts?: { silent: boolean }) => void;
+	get: (key: string) => T | null;
 	rollback: () => void;
 };
 
 type PluginMethods = Record<string, (...args: any[]) => any>;
 
-type PluginHandle<T, M extends PluginMethods = {}> = {
-	init: () => Promise<void> | void;
+type Plugin<T, M extends PluginMethods = {}> = {
+	init: (store: Store<T>) => Promise<void> | void;
 	dispose: () => Promise<void> | void;
 	hooks?: StoreHooks<T>;
 	methods?: M;
 };
 
-type Plugin<T, M extends PluginMethods = {}> = (
-	store: Store<T, any>,
-) => PluginHandle<T, M>;
-
 type ListenerMap<T> = {
-	beforePut: Set<StoreOnBeforePut<T>>;
-	beforePatch: Set<StoreOnBeforePatch<T>>;
-	beforeDel: Set<StoreOnBeforeDelete>;
 	put: Set<StoreOnPut<T>>;
 	patch: Set<StoreOnPatch<T>>;
 	del: Set<StoreOnDelete>;
@@ -93,15 +72,12 @@ type ListenerMap<T> = {
 
 type Store<T, Extended = {}> = {
 	get: (key: string) => T | null;
-	has: (key: string) => boolean;
-	readonly size: number;
-	values: () => IterableIterator<T>;
+	set: <R = void>(
+		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
+		opts?: { silent?: boolean },
+	) => NotPromise<R>;
 	entries: () => IterableIterator<readonly [string, T]>;
 	snapshot: () => EncodedDocument[];
-	put: (key: string, value: T) => void;
-	patch: (key: string, value: DeepPartial<T>) => void;
-	del: (key: string) => void;
-	begin: () => StoreTransaction<T>;
 	use: <M extends PluginMethods>(
 		plugin: Plugin<T, M>,
 	) => Store<T, Extended & M>;
@@ -109,23 +85,21 @@ type Store<T, Extended = {}> = {
 	dispose: () => Promise<void>;
 } & Extended;
 
-const create = <T>(): Store<T, {}> => {
+const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
 	const kv = KV.create();
 	const clock = Clock.create();
+	const initializers = new Set<Plugin<T>["init"]>();
+	const disposers = new Set<Plugin<T>["dispose"]>();
+	const getId = config.getId ?? (() => crypto.randomUUID());
 	const encodeValue = (key: string, value: T) =>
 		encode(key, value, clock.now());
 
 	// Plugin management
 	const listeners: ListenerMap<T> = {
-		beforePut: new Set(),
-		beforePatch: new Set(),
-		beforeDel: new Set(),
 		put: new Set(),
 		patch: new Set(),
 		del: new Set(),
 	};
-	const initializers = new Set<PluginHandle<T>["init"]>();
-	const disposers = new Set<PluginHandle<T>["dispose"]>();
 
 	const decodeActive = (doc: EncodedDocument | null): T | null => {
 		if (!doc || doc["~deletedAt"]) return null;
@@ -135,19 +109,6 @@ const create = <T>(): Store<T, {}> => {
 	const store: Store<T> = {
 		get(key: string) {
 			return decodeActive(kv.get(key));
-		},
-		has(key: string) {
-			return decodeActive(kv.get(key)) !== null;
-		},
-		values() {
-			function* iterator() {
-				for (const doc of kv.values()) {
-					const data = decodeActive(doc);
-					if (data !== null) yield data;
-				}
-			}
-
-			return iterator();
 		},
 		entries() {
 			function* iterator() {
@@ -162,30 +123,12 @@ const create = <T>(): Store<T, {}> => {
 		snapshot() {
 			return Array.from(kv.values());
 		},
-		get size() {
-			let count = 0;
-			for (const doc of kv.values()) {
-				if (doc && !doc["~deletedAt"]) count++;
-			}
-			return count;
-		},
-		put(key: string, value: T) {
-			const tx = this.begin();
-			tx.put(key, value);
-			tx.commit();
-		},
-		patch(key: string, value: DeepPartial<T>) {
-			const tx = this.begin();
-			tx.patch(key, value);
-			tx.commit();
-		},
-		del(key: string) {
-			const tx = this.begin();
-			tx.del(key);
-			tx.commit();
-		},
-		begin() {
+		set<R = void>(
+			callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
+			opts?: { silent?: boolean },
+		): NotPromise<R> {
 			const tx = kv.begin();
+			const silent = opts?.silent ?? false;
 			// For puts, we have the value directly
 			const putKeyValues: Array<readonly [string, T]> = [];
 			// For patches, capture the merged value at patch time
@@ -193,18 +136,16 @@ const create = <T>(): Store<T, {}> => {
 			// For deletes, track the keys
 			const deleteKeys: Array<string> = [];
 
-			return {
-				put(key: string, value: T) {
-					for (const fn of listeners.beforePut) {
-						fn(key, value);
-					}
+			let rolledBack = false;
+
+			const setTransaction: StoreSetTransaction<T> = {
+				put(value: T, options?: StorePutOptions) {
+					const key = options?.withId ?? getId();
 					tx.put(key, encodeValue(key, value));
 					putKeyValues.push([key, value] as const);
+					return key;
 				},
 				patch(key: string, value: DeepPartial<T>) {
-					for (const fn of listeners.beforePatch) {
-						fn(key, value);
-					}
 					tx.patch(key, encode(key, value as T, clock.now()));
 					const merged = decodeActive(tx.get(key));
 					if (merged) {
@@ -212,7 +153,7 @@ const create = <T>(): Store<T, {}> => {
 					}
 				},
 				merge(doc: EncodedDocument) {
-					if (tx.has(doc["~id"])) {
+					if (tx.get(doc["~id"])) {
 						tx.patch(doc["~id"], doc);
 					} else {
 						tx.put(doc["~id"], doc);
@@ -227,23 +168,33 @@ const create = <T>(): Store<T, {}> => {
 					}
 				},
 				del(key: string) {
-					for (const fn of listeners.beforeDel) {
-						fn(key);
-					}
 					const currentDoc = tx.get(key);
 					if (!currentDoc) return;
 
 					tx.del(key, clock.now());
 					deleteKeys.push(key);
 				},
-				has(key: string) {
-					return tx.has(key);
+				get(key: string) {
+					return decodeActive(tx.get(key));
 				},
-				commit(opts = { silent: false }) {
-					tx.commit();
+				rollback() {
+					rolledBack = true;
+					tx.rollback();
+				},
+			};
 
-					if (opts.silent) return;
+			try {
+				const result = callback(setTransaction);
 
+				// If rollback was explicitly called, don't commit
+				if (rolledBack) {
+					return result;
+				}
+
+				// Auto-commit
+				tx.commit();
+
+				if (!silent) {
 					// Emit plugin hooks
 					if (putKeyValues.length > 0) {
 						for (const fn of listeners.put) {
@@ -260,42 +211,19 @@ const create = <T>(): Store<T, {}> => {
 							fn(Object.freeze([...deleteKeys]));
 						}
 					}
-				},
-				rollback() {
-					tx.rollback();
-				},
-			};
+				}
+
+				return result;
+			} catch (error) {
+				// Rollback on error and re-throw
+				tx.rollback();
+				throw error;
+			}
 		},
 		use<M extends PluginMethods>(plugin: Plugin<T, M>): Store<T, M> {
-			const {
-				hooks: pluginHooks,
-				init,
-				dispose,
-				methods,
-			} = plugin(this as any);
+			const { hooks: pluginHooks, init, dispose, methods } = plugin;
 
 			if (pluginHooks) {
-				if (pluginHooks.onBeforePut) {
-					const callback = pluginHooks.onBeforePut;
-					listeners.beforePut.add(callback);
-					disposers.add(() => {
-						listeners.beforePut.delete(callback);
-					});
-				}
-				if (pluginHooks.onBeforePatch) {
-					const callback = pluginHooks.onBeforePatch;
-					listeners.beforePatch.add(callback);
-					disposers.add(() => {
-						listeners.beforePatch.delete(callback);
-					});
-				}
-				if (pluginHooks.onBeforeDelete) {
-					const callback = pluginHooks.onBeforeDelete;
-					listeners.beforeDel.add(callback);
-					disposers.add(() => {
-						listeners.beforeDel.delete(callback);
-					});
-				}
 				if (pluginHooks.onPut) {
 					const callback = pluginHooks.onPut;
 					listeners.put.add(callback);
@@ -332,7 +260,7 @@ const create = <T>(): Store<T, {}> => {
 		async init() {
 			for (const fn of initializers) {
 				// Await sequentially to honor the order plugins are registered (FIFO)
-				await fn();
+				await fn(this);
 			}
 
 			return this;
@@ -351,15 +279,14 @@ const create = <T>(): Store<T, {}> => {
 export type {
 	Store as StarlingStore, // avoid namespace collision
 	StoreHooks,
-	StoreOnBeforeDelete,
-	StoreOnBeforePatch,
-	StoreOnBeforePut,
 	StoreOnDelete,
 	StoreOnPatch,
 	StoreOnPut,
-	StoreTransaction,
+	StorePutOptions,
+	StoreSetTransaction,
 	Plugin,
-	PluginHandle,
 	PluginMethods,
+	DeepPartial,
+	NotPromise,
 };
 export { create };

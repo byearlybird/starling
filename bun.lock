@@ -36,8 +36,8 @@
       "name": "demo-server",
       "version": "0.0.0",
       "dependencies": {
-        "@byearlybird/starling": "^0.3",
-        "@byearlybird/starling-plugin-unstorage": "^0.3",
+        "@byearlybird/starling": "^0.4",
+        "@byearlybird/starling-plugin-unstorage": "^0.4",
         "unstorage": "^1.17.1",
       },
       "devDependencies": {
@@ -63,27 +63,27 @@
     },
     "packages/core": {
       "name": "@byearlybird/starling",
-      "version": "0.4.0",
+      "version": "0.5.0",
     },
     "packages/plugins/query": {
       "name": "@byearlybird/starling-plugin-query",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
       },
       "peerDependencies": {
-        "@byearlybird/starling": "^0.4.0",
+        "@byearlybird/starling": "^0.5.0",
       },
     },
     "packages/plugins/unstorage": {
       "name": "@byearlybird/starling-plugin-unstorage",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
         "unstorage": "^1.17.1",
       },
       "peerDependencies": {
-        "@byearlybird/starling": "^0.4.0",
+        "@byearlybird/starling": "^0.5.0",
         "unstorage": "^1.17.1",
       },
     },
@@ -445,10 +445,6 @@
 
     "babel-plugin-jsx-dom-expressions/@babel/helper-module-imports": ["@babel/helper-module-imports@7.18.6", "", { "dependencies": { "@babel/types": "^7.18.6" } }, "sha512-0NFvs3VkuSYbFi1x2Vd6tKrywq+z/cLeYC/RJNFrIX/30Bf5aiGYbtvGXolEktzJH8o5E5KJ3tT+nkxuuZFVlA=="],
 
-    "demo-server/@byearlybird/starling": ["@byearlybird/starling@0.3.0", "", {}, "sha512-u4Yw0W011NscJ/6wVtDbn10U3KK3Tcdt1JA3+7/MfeVUO/i8u2iQdAq6iew8D6X7IHW7UBbw7i252zBFu4Kz4w=="],
-
-    "demo-server/@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.3.0", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-NBielf95wpGxjBfi4/maRGYToV4eNW6iiaiTu5HlupwRUh0TuhXzgOWGX2euY7sw6J756oTCgpEQ3lgu1o2Eaw=="],
-
     "demo-server/@types/bun": ["@types/bun@1.3.1", "", { "dependencies": { "bun-types": "1.3.1" } }, "sha512-4jNMk2/K9YJtfqwoAa28c8wK+T7nvJFOjxI4h/7sORWcypRNxBpr+TPNaCfVWq70tLCJsqoFwcf0oI0JU/fvMQ=="],
 
     "demo-starling-solid/@byearlybird/starling": ["@byearlybird/starling@0.3.0", "", {}, "sha512-u4Yw0W011NscJ/6wVtDbn10U3KK3Tcdt1JA3+7/MfeVUO/i8u2iQdAq6iew8D6X7IHW7UBbw7i252zBFu4Kz4w=="],
@@ -460,8 +456,6 @@
     "rolldown/@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-beta.44", "", {}, "sha512-g6eW7Zwnr2c5RADIoqziHoVs6b3W5QTQ4+qbpfjbkMJ9x+8Og211VW/oot2dj9dVwaK/UyC6Yo+02gV+wWQVNg=="],
 
     "vite/rolldown": ["rolldown@1.0.0-beta.41", "", { "dependencies": { "@oxc-project/types": "=0.93.0", "@rolldown/pluginutils": "1.0.0-beta.41", "ansis": "=4.2.0" }, "optionalDependencies": { "@rolldown/binding-android-arm64": "1.0.0-beta.41", "@rolldown/binding-darwin-arm64": "1.0.0-beta.41", "@rolldown/binding-darwin-x64": "1.0.0-beta.41", "@rolldown/binding-freebsd-x64": "1.0.0-beta.41", "@rolldown/binding-linux-arm-gnueabihf": "1.0.0-beta.41", "@rolldown/binding-linux-arm64-gnu": "1.0.0-beta.41", "@rolldown/binding-linux-arm64-musl": "1.0.0-beta.41", "@rolldown/binding-linux-x64-gnu": "1.0.0-beta.41", "@rolldown/binding-linux-x64-musl": "1.0.0-beta.41", "@rolldown/binding-openharmony-arm64": "1.0.0-beta.41", "@rolldown/binding-wasm32-wasi": "1.0.0-beta.41", "@rolldown/binding-win32-arm64-msvc": "1.0.0-beta.41", "@rolldown/binding-win32-ia32-msvc": "1.0.0-beta.41", "@rolldown/binding-win32-x64-msvc": "1.0.0-beta.41" }, "bin": { "rolldown": "bin/cli.mjs" } }, "sha512-U+NPR0Bkg3wm61dteD2L4nAM1U9dtaqVrpDXwC36IKRHpEO/Ubpid4Nijpa2imPchcVNHfxVFwSSMJdwdGFUbg=="],
-
-    "demo-server/@byearlybird/starling-plugin-unstorage/@byearlybird/starling": ["@byearlybird/starling@0.2.2", "", {}, "sha512-7iukhAoo3ZNFnW5VcRcJLBOclaE/jeiE426wBWFbVAo7KwlnFtZPJ1p03V1SK0GTwX5uVh+TGPiThIk01Vh34Q=="],
 
     "demo-server/@types/bun/bun-types": ["bun-types@1.3.1", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-NMrcy7smratanWJ2mMXdpatalovtxVggkj11bScuWuiOoXTiKIu2eVS1/7qbyI/4yHedtsn175n4Sm4JcdHLXw=="],
 

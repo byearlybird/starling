@@ -48,11 +48,11 @@ const server = Bun.serve({
 				const incomingDocs: Document.EncodedDocument[] = await req.json();
 
 				// Merge incoming documents using store transaction
-				const tx = store.begin();
-				for (const doc of incomingDocs) {
-					tx.merge(doc);
-				}
-				tx.commit();
+				store.set((tx) => {
+					for (const doc of incomingDocs) {
+						tx.merge(doc);
+					}
+				});
 
 				return new Response(JSON.stringify({ success: true }), {
 					headers: {

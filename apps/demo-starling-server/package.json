@@ -7,8 +7,8 @@
 		"dev": "bun --hot server.ts"
 	},
 	"dependencies": {
-		"@byearlybird/starling": "^0.3",
-		"@byearlybird/starling-plugin-unstorage": "^0.3",
+		"@byearlybird/starling": "^0.5.0",
+		"@byearlybird/starling-plugin-unstorage": "^0.5.0",
 		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
