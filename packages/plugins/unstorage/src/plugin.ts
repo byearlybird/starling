@@ -13,6 +13,7 @@ type UnstorageOnAfterGet = (
 
 type UnstorageConfig = {
 	debounceMs?: number;
+	pollIntervalMs?: number;
 	onBeforeSet?: UnstorageOnBeforeSet;
 	onAfterGet?: UnstorageOnAfterGet;
 };
@@ -27,8 +28,9 @@ const unstoragePlugin = <T extends Record<string, unknown>>(
 	config: UnstorageConfig = {},
 ): Store.Plugin<T> => {
 	const plugin: Store.Plugin<T> = (store) => {
-		const { debounceMs = 0, onBeforeSet, onAfterGet } = config;
+		const { debounceMs = 0, pollIntervalMs, onBeforeSet, onAfterGet } = config;
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+		let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 		const persistSnapshot = async () => {
 			const snapshot = store.snapshot();
@@ -57,29 +59,45 @@ const unstoragePlugin = <T extends Record<string, unknown>>(
 			debounceTimer = setTimeout(runPersist, debounceMs);
 		};
 
+		const pollStorage = async () => {
+			const persisted = await storage.get<Document.EncodedDocument[]>(key);
+
+			if (!persisted) return;
+
+			const docs =
+				onAfterGet !== undefined
+					? await onAfterGet(toReadonly(persisted))
+					: persisted;
+
+			if (!docs || docs.length === 0) return;
+
+			const tx = store.begin();
+			for (const doc of docs) {
+				tx.merge(doc);
+			}
+			tx.commit();
+		};
+
 		return {
 			init: async () => {
-				const persisted = await storage.get<Document.EncodedDocument[]>(key);
+				// Initial load from storage
+				await pollStorage();
 
-				if (!persisted) return;
-
-				const docs =
-					onAfterGet !== undefined
-						? await onAfterGet(toReadonly(persisted))
-						: persisted;
-
-				if (!docs || docs.length === 0) return;
-
-				const tx = store.begin();
-				for (const doc of docs) {
-					tx.merge(doc);
+				// Start polling if configured
+				if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
+					pollInterval = setInterval(() => {
+						void pollStorage();
+					}, pollIntervalMs);
 				}
-				tx.commit();
 			},
 			dispose: () => {
 				if (debounceTimer !== null) {
 					clearTimeout(debounceTimer);
 					debounceTimer = null;
+				}
+				if (pollInterval !== null) {
+					clearInterval(pollInterval);
+					pollInterval = null;
 				}
 			},
 			hooks: {

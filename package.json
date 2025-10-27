@@ -13,6 +13,8 @@
 		"build:plugins-poll": "cd packages/plugins/poll && bun run build.ts",
 		"build:plugins-query": "cd packages/plugins/query && bun run build.ts",
 		"build:plugins-unstorage": "cd packages/plugins/unstorage && bun run build.ts",
+		"demo:react": "bun scripts/demo-react.ts",
+		"demo:solid": "bun scripts/demo-solid.ts",
 		"version:core:patch": "cd packages/core && bun pm version patch",
 		"version:core:minor": "cd packages/core && bun pm version minor",
 		"version:plugins:poll:patch": "cd packages/plugins/poll && bun pm version patch",
