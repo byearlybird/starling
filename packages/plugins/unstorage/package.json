@@ -1,6 +1,6 @@
 {
 	"name": "@byearlybird/starling-plugin-unstorage",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"type": "module",
 	"license": "MIT",
 	"main": "./dist/index.js",
@@ -13,7 +13,7 @@
 		"prepublishOnly": "bun run build.ts"
 	},
 	"peerDependencies": {
-		"@byearlybird/starling": "^0.3.0",
+		"@byearlybird/starling": "^0.4.0",
 		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
