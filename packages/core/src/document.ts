@@ -43,9 +43,7 @@ const merge = (
 
 	// Type mismatch: cannot merge primitive with object
 	if (intoIsValue !== fromIsValue) {
-		throw new Error(
-			`Cannot merge documents with incompatible types: ${intoIsValue ? "primitive" : "object"} vs ${fromIsValue ? "primitive" : "object"}`,
-		);
+		throw new Error("Merge error: Incompatible types");
 	}
 
 	const mergedData =
@@ -74,7 +72,8 @@ const merge = (
 };
 
 const del = (doc: EncodedDocument, eventstamp: string): EncodedDocument => ({
-	...doc,
+	"~id": doc["~id"],
+	"~data": doc["~data"],
 	"~deletedAt": eventstamp,
 });
 

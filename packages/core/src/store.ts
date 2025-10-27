@@ -198,17 +198,17 @@ const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
 					// Emit plugin hooks
 					if (putKeyValues.length > 0) {
 						for (const fn of listeners.put) {
-							fn(Object.freeze([...putKeyValues]));
+							fn(putKeyValues);
 						}
 					}
 					if (patchKeyValues.length > 0) {
 						for (const fn of listeners.patch) {
-							fn(Object.freeze([...patchKeyValues]));
+							fn(patchKeyValues);
 						}
 					}
 					if (deleteKeys.length > 0) {
 						for (const fn of listeners.del) {
-							fn(Object.freeze([...deleteKeys]));
+							fn(deleteKeys);
 						}
 					}
 				}

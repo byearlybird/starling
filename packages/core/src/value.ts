@@ -13,14 +13,8 @@ const decode = <T>(value: EncodedValue<T>): T => value["~value"];
 const merge = <T>(
 	into: EncodedValue<T>,
 	from: EncodedValue<T>,
-): EncodedValue<T> => ({
-	"~value":
-		into["~eventstamp"] > from["~eventstamp"] ? into["~value"] : from["~value"],
-	"~eventstamp":
-		into["~eventstamp"] > from["~eventstamp"]
-			? into["~eventstamp"]
-			: from["~eventstamp"],
-});
+): EncodedValue<T> =>
+	into["~eventstamp"] > from["~eventstamp"] ? into : from;
 
 const isEncoded = (value: unknown): boolean =>
 	!!(

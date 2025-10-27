@@ -6,10 +6,6 @@ const create = (
 ) => {
 	let readMap = new Map<string, EncodedDocument>(iterable); // published state
 
-	function cloneMap(src: Map<string, EncodedDocument>) {
-		return new Map(src);
-	}
-
 	const kv = {
 		get(key: string) {
 			return readMap.get(key) ?? null;
@@ -29,7 +25,7 @@ const create = (
 
 		// Begin an atomic batch
 		begin() {
-			const staging = cloneMap(readMap);
+			const staging = new Map(readMap);
 			let committed = false;
 
 			const tx = {
