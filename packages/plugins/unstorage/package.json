@@ -1,5 +1,5 @@
 {
-	"name": "@byearlybird/starling-plugins-unstorage",
+        "name": "@byearlybird/starling-plugin-unstorage",
 	"version": "0.2.3",
 	"type": "module",
 	"license": "MIT",

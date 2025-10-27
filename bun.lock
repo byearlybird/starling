@@ -27,7 +27,7 @@
       },
     },
     "packages/plugins/query": {
-      "name": "@byearlybird/starling-plugins-query",
+      "name": "@byearlybird/starling-plugin-query",
       "version": "0.2.2",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
@@ -37,7 +37,7 @@
       },
     },
     "packages/plugins/unstorage": {
-      "name": "@byearlybird/starling-plugins-unstorage",
+      "name": "@byearlybird/starling-plugin-unstorage",
       "version": "0.2.2",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
@@ -82,9 +82,9 @@
 
     "@byearlybird/starling-plugins-poll": ["@byearlybird/starling-plugins-poll@workspace:packages/plugins/poll"],
 
-    "@byearlybird/starling-plugins-query": ["@byearlybird/starling-plugins-query@workspace:packages/plugins/query"],
+    "@byearlybird/starling-plugin-query": ["@byearlybird/starling-plugin-query@workspace:packages/plugins/query"],
 
-    "@byearlybird/starling-plugins-unstorage": ["@byearlybird/starling-plugins-unstorage@workspace:packages/plugins/unstorage"],
+    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@workspace:packages/plugins/unstorage"],
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
 

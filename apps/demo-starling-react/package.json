@@ -10,8 +10,8 @@
 	},
 	"dependencies": {
 		"@byearlybird/starling": "^0.2.2",
-		"@byearlybird/starling-plugins-query": "^0.2.2",
-		"@byearlybird/starling-plugins-unstorage": "^0.2.2",
+            "@byearlybird/starling-plugin-query": "^0.2.2",
+            "@byearlybird/starling-plugin-unstorage": "^0.2.2",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
 		"unstorage": "^1.17.1"

@@ -1,18 +1,18 @@
-# @byearlybird/starling-plugins-query
+# @byearlybird/starling-plugin-query
 
 Reactive query helpers for Starling stores. The package exposes a lightweight manager that listens to store hooks and keeps filtered `Map` snapshots synchronized with your predicates.
 
 ## Installation
 
 ```bash
-bun add @byearlybird/starling-plugins-query
+bun add @byearlybird/starling-plugin-query
 ```
 
 ## Usage
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "@byearlybird/starling-plugins-query";
+import { createQueryManager } from "@byearlybird/starling-plugin-query";
 
 const store = Store.create<{ text: string; completed: boolean }>();
 const queries = createQueryManager<{ text: string; completed: boolean }>();

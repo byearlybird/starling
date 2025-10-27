@@ -98,10 +98,10 @@ Starling is organized as a monorepo with three packages:
   - Exports: `Store`, `Document`, `Eventstamp`, `Clock`, `KV`, `Record`, `Value`
   - Zero dependencies
 
-- **`@byearlybird/starling-plugins-query`** – Query plugin for reactive filtered views
+- **`@byearlybird/starling-plugin-query`** – Query plugin for reactive filtered views
   - Exports: `createQueryManager`
 
-- **`@byearlybird/starling-plugins-unstorage`** – Persistence plugin
+- **`@byearlybird/starling-plugin-unstorage`** – Persistence plugin
   - Exports: `unstoragePlugin`
   - Peer dependency: `unstorage@^1.17.1`
 
