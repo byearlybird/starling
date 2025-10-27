@@ -14,11 +14,11 @@
     },
     "packages/core": {
       "name": "@byearlybird/starling",
-      "version": "0.2.0",
+      "version": "0.2.2",
     },
     "packages/plugins/poll": {
       "name": "@byearlybird/starling-plugins-poll",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
       },
@@ -28,7 +28,7 @@
     },
     "packages/plugins/query": {
       "name": "@byearlybird/starling-plugins-query",
-      "version": "0.2.0",
+      "version": "0.2.2",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
       },
@@ -38,7 +38,7 @@
     },
     "packages/plugins/unstorage": {
       "name": "@byearlybird/starling-plugins-unstorage",
-      "version": "0.2.0",
+      "version": "0.2.2",
       "devDependencies": {
         "@byearlybird/starling": "workspace:*",
         "unstorage": "^1.17.1",

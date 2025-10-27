@@ -12,7 +12,9 @@ test("put stores values that can be read back", () => {
 	const kv = create();
 	const doc = buildDoc("doc-1", { name: "Alpha" }, 1);
 
-	kv.put("doc-1", doc);
+	const tx = kv.begin();
+	tx.put("doc-1", doc);
+	tx.commit();
 
 	expect(kv.size).toBe(1);
 	expect(kv.has("doc-1")).toBe(true);
@@ -29,8 +31,13 @@ test("patch combines document state when a key already exists", () => {
 		2,
 	);
 
-	kv.put("user-1", current);
-	kv.patch("user-1", incoming);
+	const seedTx = kv.begin();
+	seedTx.put("user-1", current);
+	seedTx.commit();
+
+	const patchTx = kv.begin();
+	patchTx.patch("user-1", incoming);
+	patchTx.commit();
 
 	const merged = kv.get("user-1");
 	expect(merged).not.toBeNull();
@@ -49,8 +56,10 @@ test("del marks stored documents as deleted", () => {
 	const doc = buildDoc("doc-1", { name: "Alpha" }, 1);
 	const deleteStamp = "2025-01-02T00:00:00.000Z|0003";
 
-	kv.put("doc-1", doc);
-	kv.del("doc-1", deleteStamp);
+	const tx = kv.begin();
+	tx.put("doc-1", doc);
+	tx.del("doc-1", deleteStamp);
+	tx.commit();
 
 	const deleted = kv.get("doc-1");
 	expect(deleted?.["~deletedAt"]).toBe(deleteStamp);
@@ -62,7 +71,9 @@ test("transactions isolate staged writes until commit applies them", () => {
 	const staged = buildDoc("doc-2", { status: "pending" }, 2);
 	const deleteStamp = "2025-01-02T00:00:00.000Z|0004";
 
-	kv.put("doc-1", existing);
+	const seedTx = kv.begin();
+	seedTx.put("doc-1", existing);
+	seedTx.commit();
 
 	const tx = kv.begin();
 	tx.put("doc-2", staged);

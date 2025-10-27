@@ -19,8 +19,7 @@ type UnstorageConfig = {
 
 const toReadonly = (
 	docs: Document.EncodedDocument[],
-): ReadonlyArray<Document.EncodedDocument> =>
-	Object.freeze([...docs]);
+): ReadonlyArray<Document.EncodedDocument> => Object.freeze([...docs]);
 
 const unstoragePlugin = <T extends Record<string, unknown>>(
 	key: string,
@@ -75,7 +74,7 @@ const unstoragePlugin = <T extends Record<string, unknown>>(
 				for (const doc of docs) {
 					tx.merge(doc);
 				}
-				tx.commit({ silent: true });
+				tx.commit();
 			},
 			dispose: () => {
 				if (debounceTimer !== null) {

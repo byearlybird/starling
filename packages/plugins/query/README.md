@@ -18,7 +18,7 @@ const store = Store.create<{ text: string; completed: boolean }>();
 const queries = createQueryManager<{ text: string; completed: boolean }>();
 
 // Wire the query plugin into the store before init
-store.use(() => queries.plugin());
+store.use(queries.plugin());
 await store.init();
 
 const activeTodos = queries.query((todo) => !todo.completed);
@@ -46,7 +46,7 @@ await store.dispose();
 Returns an object with:
 
 - `query(predicate: (value: T) => boolean)` – registers a predicate and returns a `Query<T>`.
-- `plugin()` – Starling plugin that wires `onPut`, `onPatch`, and `onDelete` so all queries stay in sync. Call `store.use(() => queries.plugin())` before `store.init()`.
+- `plugin()` – Returns a Starling plugin that wires `onPut`, `onPatch`, and `onDelete` so all queries stay in sync. Call `store.use(queries.plugin())` before `store.init()`.
 
 ### `Query<T>`
 
@@ -58,6 +58,7 @@ Objects returned by `query()` expose:
 
 ## Behavioral Notes
 
+- **Initialization**: When `store.init()` is called, the plugin automatically populates all registered queries by running their predicates against existing store entries. This ensures queries are immediately hydrated when used with persistence plugins (like `unstoragePlugin`).
 - Hooks batch per store commit, so a transaction that mutates multiple records results in a single change notification per query.
 - `results()` only reflects non-deleted entries. Deletions automatically evict the corresponding keys from every query `Map`.
 - You can create multiple managers per store if you want to isolate lifecycles across environments (e.g., UI vs. background worker).

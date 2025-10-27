@@ -196,8 +196,6 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 			const patchKeyValues: Array<readonly [string, T]> = [];
 			// For deletes, track the keys
 			const deleteKeys: Array<string> = [];
-			// Track the current state through the transaction (put or patched values)
-			const txState = new Map<string, T>();
 
 			return {
 				put(key: string, value: T) {
@@ -205,7 +203,6 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 						fn(key, value);
 					}
 					tx.put(key, encodeValue(key, value));
-					txState.set(key, value);
 					putKeyValues.push([key, value] as const);
 				},
 				patch(key: string, value: DeepPartial<T>) {
@@ -213,27 +210,12 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 						fn(key, value);
 					}
 					tx.patch(key, encode(key, value as T, clock.now()));
-					// Get the base value: either from txState (if put/patched in this tx) or from kv
-					let baseValue: T | null;
-					if (txState.has(key)) {
-						baseValue = txState.get(key) ?? null;
-					} else {
-						baseValue = decodeActive(kv.get(key));
-					}
-
-					if (baseValue) {
-						// Merge the partial update into the base value
-						const merged = { ...baseValue, ...value };
-						txState.set(key, merged);
-						patchKeyValues.push([key, merged as T] as const);
+					const merged = decodeActive(tx.get(key));
+					if (merged) {
+						patchKeyValues.push([key, merged] as const);
 					}
 				},
 				merge(doc: EncodedDocument) {
-					if (doc["~deletedAt"]) {
-						this.del(doc["~id"]);
-						return;
-					}
-
 					if (tx.has(doc["~id"])) {
 						tx.patch(doc["~id"], doc);
 					} else {
@@ -241,11 +223,10 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 					}
 
 					// For hooks, we need to decode to get the final merged value
-					// Get the current value after the patch operation
-					const currentDoc = kv.get(doc["~id"]);
+					// Get the current value after the merge from the transaction's view
+					const currentDoc = tx.get(doc["~id"]);
 					if (currentDoc && !currentDoc["~deletedAt"]) {
 						const merged = decode<T>(currentDoc)["~data"];
-						txState.set(doc["~id"], merged);
 						patchKeyValues.push([doc["~id"], merged] as const);
 					}
 				},
@@ -253,8 +234,8 @@ const create = <T extends Record<string, unknown>>(): Store<T> => {
 					for (const fn of listeners.beforeDel) {
 						fn(key);
 					}
-					const current = txState.get(key) ?? kv.get(key);
-					if (!current) return;
+					const currentDoc = tx.get(key);
+					if (!currentDoc) return;
 
 					tx.del(key, clock.now());
 					deleteKeys.push(key);

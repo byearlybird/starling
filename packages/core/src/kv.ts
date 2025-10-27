@@ -27,33 +27,15 @@ const create = (
 			return readMap.size;
 		},
 
-		// Non-transactional write (direct)
-		put(key: string, value: EncodedDocument) {
-			const next = cloneMap(readMap);
-			next.set(key, value);
-			readMap = next;
-		},
-
-		patch(key: string, value: EncodedDocument) {
-			const next = cloneMap(readMap);
-			const prev = next.get(key);
-			next.set(key, prev ? Document.merge(prev, value) : value);
-			readMap = next;
-		},
-
-		del(key: string, eventstamp: string) {
-			const next = cloneMap(readMap);
-			const prev = next.get(key);
-			if (prev) next.set(key, Document.del(prev, eventstamp));
-			readMap = next;
-		},
-
 		// Begin an atomic batch
 		begin() {
 			const staging = cloneMap(readMap);
 			let committed = false;
 
 			const tx = {
+				get(key: string) {
+					return staging.get(key) ?? null;
+				},
 				put(key: string, value: EncodedDocument) {
 					staging.set(key, value);
 				},
@@ -67,7 +49,7 @@ const create = (
 				},
 				has(key: string) {
 					const doc = staging.get(key);
-					return doc !== undefined && !doc["~deletedAt"];
+					return doc !== undefined;
 				},
 				// Atomically publish everything
 				commit() {

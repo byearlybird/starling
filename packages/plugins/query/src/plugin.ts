@@ -14,6 +14,17 @@ type QueryInternal<T extends Record<string, unknown>> = {
 
 const createQueryManager = <T extends Record<string, unknown>>() => {
 	const queries = new Set<QueryInternal<T>>();
+	let currentStore: Store.StarlingStore<T> | null = null;
+
+	const hydrateQuery = (query: QueryInternal<T>) => {
+		if (!currentStore) return;
+		query.results.clear();
+		for (const [key, value] of currentStore.entries()) {
+			if (query.predicate(value)) {
+				query.results.set(key, value);
+			}
+		}
+	};
 
 	const runCallbacks = (dirtyQueries: Set<QueryInternal<T>>) => {
 		for (const query of dirtyQueries) {
@@ -32,6 +43,7 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 		};
 
 		queries.add($query);
+		hydrateQuery($query);
 
 		return {
 			results: () => new Map($query.results),
@@ -48,75 +60,87 @@ const createQueryManager = <T extends Record<string, unknown>>() => {
 		};
 	};
 
-	const plugin = () => {
-		const onPut: Store.StoreOnPut<T> = (entries) => {
-			const dirtyQueries = new Set<QueryInternal<T>>();
+	const plugin = (): Store.Plugin<T> => {
+		return (store: Store.StarlingStore<T>) => {
+			currentStore = store;
 
-			for (const [key, value] of entries) {
-				for (const q of queries) {
-					if (q.predicate(value) && !q.results.has(key)) {
-						// Only mark dirty if this is a new match
-						q.results.set(key, value);
-						dirtyQueries.add(q);
-					} else if (q.predicate(value)) {
-						// Update the value but don't mark dirty (item already in results)
-						q.results.set(key, value);
+			const onPut: Store.StoreOnPut<T> = (
+				entries: ReadonlyArray<readonly [string, T]>,
+			) => {
+				const dirtyQueries = new Set<QueryInternal<T>>();
+
+				for (const [key, value] of entries) {
+					for (const q of queries) {
+						if (q.predicate(value)) {
+							q.results.set(key, value);
+							dirtyQueries.add(q);
+						}
 					}
 				}
-			}
 
-			runCallbacks(dirtyQueries);
-		};
+				runCallbacks(dirtyQueries);
+			};
 
-		const onPatch: Store.StoreOnPatch<T> = (entries) => {
-			const dirtyQueries = new Set<QueryInternal<T>>();
+			const onPatch: Store.StoreOnPatch<T> = (
+				entries: ReadonlyArray<readonly [string, T]>,
+			) => {
+				const dirtyQueries = new Set<QueryInternal<T>>();
 
-			for (const [key, value] of entries) {
-				for (const q of queries) {
-					const matches = q.predicate(value);
-					const inResults = q.results.has(key);
+				for (const [key, value] of entries) {
+					for (const q of queries) {
+						const matches = q.predicate(value);
+						const inResults = q.results.has(key);
 
-					if (matches && !inResults) {
-						// Item now matches but wasn't in results before
-						q.results.set(key, value);
-						dirtyQueries.add(q);
-					} else if (!matches && inResults) {
-						// Item no longer matches but was in results
-						q.results.delete(key);
-						dirtyQueries.add(q);
-					} else if (matches && inResults) {
-						// Item still matches and was already in results
-						q.results.set(key, value); // Update value but don't mark dirty
+						if (matches && !inResults) {
+							// Item now matches but wasn't in results before
+							q.results.set(key, value);
+							dirtyQueries.add(q);
+						} else if (!matches && inResults) {
+							// Item no longer matches but was in results
+							q.results.delete(key);
+							dirtyQueries.add(q);
+						} else if (matches && inResults) {
+							// Item still matches and was already in results
+							q.results.set(key, value);
+							dirtyQueries.add(q);
+						}
 					}
 				}
-			}
 
-			runCallbacks(dirtyQueries);
-		};
+				runCallbacks(dirtyQueries);
+			};
 
-		const onDelete: Store.StoreOnDelete = (keys) => {
-			const dirtyQueries = new Set<QueryInternal<T>>();
+			const onDelete: Store.StoreOnDelete = (keys: ReadonlyArray<string>) => {
+				const dirtyQueries = new Set<QueryInternal<T>>();
 
-			for (const key of keys) {
-				for (const q of queries) {
-					if (q.results.has(key)) {
-						q.results.delete(key);
-						dirtyQueries.add(q);
+				for (const key of keys) {
+					for (const q of queries) {
+						if (q.results.has(key)) {
+							q.results.delete(key);
+							dirtyQueries.add(q);
+						}
 					}
 				}
-			}
 
-			runCallbacks(dirtyQueries);
-		};
+				runCallbacks(dirtyQueries);
+			};
 
-		return {
-			init: () => {},
-			dispose: () => {},
-			hooks: {
-				onPut,
-				onPatch,
-				onDelete,
-			},
+			return {
+				init: () => {
+					// Populate queries with existing store entries on initialization
+					for (const q of queries) {
+						hydrateQuery(q);
+					}
+				},
+				dispose: () => {
+					currentStore = null;
+				},
+				hooks: {
+					onPut,
+					onPatch,
+					onDelete,
+				},
+			};
 		};
 	};
 
