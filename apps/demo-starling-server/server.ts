@@ -1,5 +1,5 @@
 import { type Document, Store } from "@byearlybird/starling";
-import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
+import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 

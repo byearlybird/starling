@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@byearlybird/starling": "^0.2.2",
-    "@byearlybird/starling-plugins-query": "^0.2.2",
-    "@byearlybird/starling-plugins-unstorage": "^0.2.2",
+            "@byearlybird/starling-plugin-query": "^0.2.2",
+            "@byearlybird/starling-plugin-unstorage": "^0.2.2",
     "solid-js": "^1.9.9",
     "unstorage": "^1.17.1"
   },

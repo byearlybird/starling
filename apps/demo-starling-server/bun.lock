@@ -5,7 +5,7 @@
       "name": "demo-server",
       "dependencies": {
         "@byearlybird/starling": "^0.2.2",
-        "@byearlybird/starling-plugins-unstorage": "^0.2.2",
+        "@byearlybird/starling-plugin-unstorage": "^0.2.2",
         "unstorage": "^1.17.1",
       },
       "devDependencies": {
@@ -16,7 +16,7 @@
   "packages": {
     "@byearlybird/starling": ["@byearlybird/starling@0.2.2", "", {}, "sha512-7iukhAoo3ZNFnW5VcRcJLBOclaE/jeiE426wBWFbVAo7KwlnFtZPJ1p03V1SK0GTwX5uVh+TGPiThIk01Vh34Q=="],
 
-    "@byearlybird/starling-plugins-unstorage": ["@byearlybird/starling-plugins-unstorage@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-w03d81bVe5Ke2VazHIP70NVtFcphYW5Rdbzpx11/98af1bDAd8Vd6l/2Du4eHmGdRq1K3Wx0ejw3yGVuabQxew=="],
+    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-w03d81bVe5Ke2VazHIP70NVtFcphYW5Rdbzpx11/98af1bDAd8Vd6l/2Du4eHmGdRq1K3Wx0ejw3yGVuabQxew=="],
 
     "@types/bun": ["@types/bun@1.3.1", "", { "dependencies": { "bun-types": "1.3.1" } }, "sha512-4jNMk2/K9YJtfqwoAa28c8wK+T7nvJFOjxI4h/7sORWcypRNxBpr+TPNaCfVWq70tLCJsqoFwcf0oI0JU/fvMQ=="],
 

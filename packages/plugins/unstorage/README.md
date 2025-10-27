@@ -1,18 +1,18 @@
-# @byearlybird/starling-plugins-unstorage
+# @byearlybird/starling-plugin-unstorage
 
 Persistence adapter for Starling built on top of [`unstorage`](https://github.com/unjs/unstorage). The plugin saves store snapshots after every mutation and hydrates them back on boot.
 
 ## Installation
 
 ```bash
-bun add @byearlybird/starling-plugins-unstorage unstorage
+bun add @byearlybird/starling-plugin-unstorage unstorage
 ```
 
 ## Usage
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
+import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 

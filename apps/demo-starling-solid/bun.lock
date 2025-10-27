@@ -5,8 +5,8 @@
       "name": "demo-starling-solid",
       "dependencies": {
         "@byearlybird/starling": "^0.2.2",
-        "@byearlybird/starling-plugins-query": "^0.2.2",
-        "@byearlybird/starling-plugins-unstorage": "^0.2.2",
+        "@byearlybird/starling-plugin-query": "^0.2.2",
+        "@byearlybird/starling-plugin-unstorage": "^0.2.2",
         "solid-js": "^1.9.9",
         "unstorage": "^1.17.1",
       },
@@ -60,9 +60,9 @@
 
     "@byearlybird/starling": ["@byearlybird/starling@0.2.2", "", {}, "sha512-7iukhAoo3ZNFnW5VcRcJLBOclaE/jeiE426wBWFbVAo7KwlnFtZPJ1p03V1SK0GTwX5uVh+TGPiThIk01Vh34Q=="],
 
-    "@byearlybird/starling-plugins-query": ["@byearlybird/starling-plugins-query@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0" } }, "sha512-HIiIdnABmjLRPaTiE7rknsIF0BL7oW0au32n/Lg1P04rzDn+/bZqnf3BU7Ye74loeOFH1V1iWcBWuxAAWjXahg=="],
+    "@byearlybird/starling-plugin-query": ["@byearlybird/starling-plugin-query@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0" } }, "sha512-HIiIdnABmjLRPaTiE7rknsIF0BL7oW0au32n/Lg1P04rzDn+/bZqnf3BU7Ye74loeOFH1V1iWcBWuxAAWjXahg=="],
 
-    "@byearlybird/starling-plugins-unstorage": ["@byearlybird/starling-plugins-unstorage@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-w03d81bVe5Ke2VazHIP70NVtFcphYW5Rdbzpx11/98af1bDAd8Vd6l/2Du4eHmGdRq1K3Wx0ejw3yGVuabQxew=="],
+    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.2.2", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-w03d81bVe5Ke2VazHIP70NVtFcphYW5Rdbzpx11/98af1bDAd8Vd6l/2Du4eHmGdRq1K3Wx0ejw3yGVuabQxew=="],
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
 

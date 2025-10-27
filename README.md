@@ -35,15 +35,15 @@ Perfect for apps that sync across devices, offline-first apps, or any tool that 
 bun add @byearlybird/starling
 
 # Optional plugins
-bun add @byearlybird/starling-plugins-query
-bun add @byearlybird/starling-plugins-unstorage unstorage
+bun add @byearlybird/starling-plugin-query
+bun add @byearlybird/starling-plugin-unstorage unstorage
 ```
 
 ## Quick Start
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { createQueryManager } from "@byearlybird/starling-plugins-query";
+import { createQueryManager } from "@byearlybird/starling-plugin-query";
 
 // Create a store with reactive queries
 const queries = createQueryManager<{ text: string; completed: boolean }>();
@@ -278,7 +278,7 @@ One of Starling's most powerful features is the ability to register multiple plu
 
 ```typescript
 import { Store } from "@byearlybird/starling";
-import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
+import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
@@ -311,11 +311,11 @@ This example demonstrates seamless **cross-device sync with offline support**:
 - When back online, conflicts auto-resolve via eventstamps
 - No manual conflict resolution code needed
 
-### Query (`@byearlybird/starling-plugins-query`)
+### Query (`@byearlybird/starling-plugin-query`)
 
 Attach predicate-based, reactive views that stay synchronized with store mutations. The manager exposes a `query()` helper and a store plugin. See [`packages/plugins/query/README.md`](packages/plugins/query/README.md) for usage patterns and API notes.
 
-### Unstorage (`@byearlybird/starling-plugins-unstorage`)
+### Unstorage (`@byearlybird/starling-plugin-unstorage`)
 
 Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
 

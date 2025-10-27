@@ -1,5 +1,5 @@
 {
-	"name": "@byearlybird/starling-plugins-query",
+        "name": "@byearlybird/starling-plugin-query",
 	"version": "0.2.2",
 	"type": "module",
 	"license": "MIT",
