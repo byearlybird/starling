@@ -21,7 +21,6 @@ bun add @byearlybird/starling
 
 # Optional plugins
 bun add @byearlybird/starling-plugins-query
-bun add @byearlybird/starling-plugins-poll
 bun add @byearlybird/starling-plugins-unstorage unstorage
 ```
 
@@ -230,17 +229,52 @@ await store.init();
 
 Starling ships with optional packages that extend the core store. Each plugin has its own README inside `packages/plugins/*` with in-depth examples.
 
+### Multiple Plugin Registration
+
+One of Starling's most powerful features is the ability to register multiple plugins seamlessly. Thanks to CRDT-like merging, conflicts resolve automatically based on eventstamps:
+
+```typescript
+import { Store } from "@byearlybird/starling";
+import { unstoragePlugin } from "@byearlybird/starling-plugins-unstorage";
+import { createStorage } from "unstorage";
+import localStorageDriver from "unstorage/drivers/localstorage";
+import httpDriver from "unstorage/drivers/http";
+
+// Register multiple storage backends - they work together automatically
+const store = await Store.create<Todo>()
+  .use(
+    unstoragePlugin(
+      "todos",
+      createStorage({
+        driver: localStorageDriver({ base: "app:" }),
+      }),
+    ),
+  )
+  .use(
+    unstoragePlugin(
+      "todos",
+      createStorage({
+        driver: httpDriver({ base: "https://api.example.com" }),
+      }),
+      { pollIntervalMs: 5000 }, // Sync with server every 5 seconds
+    ),
+  )
+  .init();
+```
+
+This example demonstrates seamless **cross-device sync with offline support**:
+- Local changes are immediately persisted to localStorage
+- Changes sync to the server every 5 seconds
+- When back online, conflicts auto-resolve via eventstamps
+- No manual conflict resolution code needed
+
 ### Query (`@byearlybird/starling-plugins-query`)
 
 Attach predicate-based, reactive views that stay synchronized with store mutations. The manager exposes a `query()` helper and a store plugin. See [`packages/plugins/query/README.md`](packages/plugins/query/README.md) for usage patterns and API notes.
 
-### Poll Sync (`@byearlybird/starling-plugins-poll`)
-
-Bidirectional HTTP polling that batches push/pull operations and merges remote documents via transactions. Configuration details, networking tips, and server-merging guidance live in [`packages/plugins/poll/README.md`](packages/plugins/poll/README.md).
-
 ### Unstorage (`@byearlybird/starling-plugins-unstorage`)
 
-Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
+Persists snapshots to any `unstorage` backend, replays them with `{ silent: true }` during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
 
 ## Repository Layout
 
@@ -248,9 +282,7 @@ Persists snapshots to any `unstorage` backend, replays them with `{ silent: true
 | --- | --- |
 | `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
 | `packages/plugins/query` | Reactive query manager (`createQueryManager`) that listens to store hooks to keep filtered `Map`s in sync. |
-| `packages/plugins/poll` | Bidirectional HTTP poller (`pollSyncPlugin`) with push/pull/preprocess hooks. |
 | `packages/plugins/unstorage` | Persistence bridge (`unstoragePlugin`) that replays snapshots on boot and debounces writes. |
-| `index.ts` | Convenience export surface if you want to consume packages from the monorepo during local development. |
 
 ## Architecture
 
@@ -317,7 +349,7 @@ await store.init();
 
 ## Package Exports
 
-Starling is organized as a monorepo with four packages:
+Starling is organized as a monorepo with three packages:
 
 - **`@byearlybird/starling`** - Core library (stores, CRDT operations, transactions)
   - Exports: `Store`, `Document`, `Eventstamp`, `Clock`, `KV`, `Record`, `Value`
@@ -325,9 +357,6 @@ Starling is organized as a monorepo with four packages:
 
 - **`@byearlybird/starling-plugins-query`** - Query plugin for reactive filtered views
   - Exports: `createQueryManager`
-
-- **`@byearlybird/starling-plugins-poll`** - Poll-based plugin for bidirectional HTTP sync
-  - Exports: `pollSyncPlugin`, `PollSyncConfig`
 
 - **`@byearlybird/starling-plugins-unstorage`** - Persistence plugin
   - Exports: `unstoragePlugin`

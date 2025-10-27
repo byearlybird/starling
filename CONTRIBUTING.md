@@ -56,7 +56,6 @@ Formatting is automated, but please skim the diffs for unintended rewrites—esp
 bun run build:core
 
 # Build plugin packages
-cd packages/plugins/poll && bun run build.ts
 cd packages/plugins/query && bun run build.ts
 cd packages/plugins/unstorage && bun run build.ts
 ```
@@ -69,7 +68,6 @@ Each package exposes `build`/`prepublishOnly` scripts plus `publishConfig.access
 
 - `bun run publish:core`
 - `bun run publish:plugins:query`
-- `bun run publish:plugins:poll`
 - `bun run publish:plugins:unstorage`
 
 Those commands publish individual packages after you bump their versions (e.g., `bun pm version patch` or `bun pm version minor` inside the package you are releasing). To ship everything together, run `bun run release`—it builds the workspace and then publishes each package in dependency order. Make sure you are authenticated via `bun login` and have your npm OTP ready before running these scripts.
