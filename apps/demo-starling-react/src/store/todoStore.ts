@@ -10,25 +10,25 @@ export type Todo = {
 	completed: boolean;
 };
 
-const localStorage = unstoragePlugin(
-	"todos",
-	createStorage({
-		driver: localStorageDriver({ base: "starling-todos:" }),
-	}),
-);
-
-const remoteStorage = unstoragePlugin(
-	"todos",
-	createStorage({
-		driver: httpDriver({ base: "http://localhost:3001/api" }),
-	}),
-	{ pollIntervalMs: 5000 },
-);
-
-// Create Starling store with local storage and HTTP Sync
+// Create the Starling store with local storage and HTTP sync
 export const todoStore = await Store.create<Todo>()
-	.use(localStorage)
-	.use(remoteStorage)
+	.use(
+		unstoragePlugin(
+			"todos",
+			createStorage({
+				driver: localStorageDriver({ base: "starling-todos:" }),
+			}),
+		),
+	)
+	.use(
+		unstoragePlugin(
+			"todos",
+			createStorage({
+				driver: httpDriver({ base: "http://localhost:3001/api" }),
+			}),
+			{ pollIntervalMs: 5000 },
+		),
+	)
 	.use(queryPlugin())
 	.init();
 

@@ -1,28 +1,25 @@
 import type { Store } from "@byearlybird/starling";
 
-type Query<T extends Record<string, unknown>> = {
+type Query<T> = {
 	results: () => Map<string, T>;
 	onChange: (callback: () => void) => () => void;
 	dispose: () => void;
 };
 
-type QueryInternal<T extends Record<string, unknown>> = {
+type QueryInternal<T> = {
 	predicate: (data: T) => boolean;
 	results: Map<string, T>;
 	callbacks: Set<() => void>;
 };
 
-type QueryMethods<T extends Record<string, unknown>> = {
+type QueryMethods<T> = {
 	query: (predicate: (data: T) => boolean) => Query<T>;
 };
 
-const queryPlugin = <T extends Record<string, unknown>>(): Store.Plugin<
-	T,
-	QueryMethods<T>
-> => {
+const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
 	const queries = new Set<QueryInternal<T>>();
 
-	return (store: Store.StarlingStore<T>) => {
+	return (store: Store.StarlingStore<T, any>) => {
 		const hydrateQuery = (query: QueryInternal<T>) => {
 			query.results.clear();
 			for (const [key, value] of store.entries()) {
@@ -119,26 +116,26 @@ const queryPlugin = <T extends Record<string, unknown>>(): Store.Plugin<
 			},
 			methods: {
 				query: (predicate: (data: T) => boolean): Query<T> => {
-					const $query: QueryInternal<T> = {
+					const query: QueryInternal<T> = {
 						predicate,
 						results: new Map(),
 						callbacks: new Set(),
 					};
 
-					queries.add($query);
-					hydrateQuery($query);
+					queries.add(query);
+					hydrateQuery(query);
 
 					return {
-						results: () => new Map($query.results),
+						results: () => new Map(query.results),
 						onChange: (callback: () => void) => {
-							$query.callbacks.add(callback);
+							query.callbacks.add(callback);
 							return () => {
-								$query.callbacks.delete(callback);
+								query.callbacks.delete(callback);
 							};
 						},
 						dispose: () => {
-							queries.delete($query);
-							$query.callbacks.clear();
+							queries.delete(query);
+							query.callbacks.clear();
 						},
 					};
 				},

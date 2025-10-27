@@ -146,7 +146,7 @@ cd packages/plugins/query && bun run build.ts
 cd packages/plugins/unstorage && bun run build.ts
 ```
 
-Use `bun run build` at the workspace root to build every package in sequence.
+Use `bun run build:all` at the workspace root to build every package in sequence.
 
 ## Publishing to npm
 

@@ -22,7 +22,7 @@ const toReadonly = (
 	docs: Document.EncodedDocument[],
 ): ReadonlyArray<Document.EncodedDocument> => Object.freeze([...docs]);
 
-const unstoragePlugin = <T extends Record<string, unknown>>(
+const unstoragePlugin = <T>(
 	key: string,
 	storage: Storage<Document.EncodedDocument[]>,
 	config: UnstorageConfig = {},

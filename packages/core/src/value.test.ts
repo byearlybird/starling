@@ -6,8 +6,8 @@ test("encode creates an EncodedValue with value and eventstamp", () => {
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001";
 	const encoded = encode(value, eventstamp);
 
-	expect(encoded.__value).toBe(value);
-	expect(encoded.__eventstamp).toBe(eventstamp);
+	expect(encoded["~value"]).toBe(value);
+	expect(encoded["~eventstamp"]).toBe(eventstamp);
 });
 
 test("decode extracts the value from an EncodedValue", () => {
@@ -24,8 +24,8 @@ test("merge returns the value with newer eventstamp", () => {
 
 	const result = merge(into, from);
 
-	expect(result.__value).toBe("newer");
-	expect(result.__eventstamp).toBe("2025-10-25T12:00:00.000Z|0001");
+	expect(result["~value"]).toBe("newer");
+	expect(result["~eventstamp"]).toBe("2025-10-25T12:00:00.000Z|0001");
 });
 
 test("merge returns the value with oldest eventstamp when it's newer", () => {
@@ -34,8 +34,8 @@ test("merge returns the value with oldest eventstamp when it's newer", () => {
 
 	const result = merge(into, from);
 
-	expect(result.__value).toBe("newer");
-	expect(result.__eventstamp).toBe("2025-10-25T14:00:00.000Z|0001");
+	expect(result["~value"]).toBe("newer");
+	expect(result["~eventstamp"]).toBe("2025-10-25T14:00:00.000Z|0001");
 });
 
 test("isEncoded returns true for valid EncodedValues", () => {
@@ -44,8 +44,8 @@ test("isEncoded returns true for valid EncodedValues", () => {
 });
 
 test("isEncoded returns false for plain objects without required fields", () => {
-	expect(isEncoded({ __value: "test" })).toBe(false);
-	expect(isEncoded({ __eventstamp: "time" })).toBe(false);
+	expect(isEncoded({ "~value": "test" })).toBe(false);
+	expect(isEncoded({ "~eventstamp": "time" })).toBe(false);
 	expect(isEncoded({ value: "test", eventstamp: "time" })).toBe(false);
 });
 
@@ -60,5 +60,5 @@ test("isEncoded returns false for null and primitives", () => {
 test("isEncoded returns false for arrays and other objects", () => {
 	expect(isEncoded([])).toBe(false);
 	expect(isEncoded({})).toBe(false);
-	expect(isEncoded({ __value: null, __eventstamp: null })).toBe(true);
+	expect(isEncoded({ "~value": null, "~eventstamp": null })).toBe(true);
 });

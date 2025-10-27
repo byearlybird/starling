@@ -9,21 +9,21 @@
 		"packages/**"
 	],
 	"scripts": {
-		"build": "bun run build:core && bun run build:plugins-query && bun run build:plugins-unstorage",
+		"build:all": "bun run build:core && bun run build:plugin-query && bun run build:plugin-unstorage",
 		"build:core": "cd packages/core && bun run build.ts",
-		"build:plugins-query": "cd packages/plugins/query && bun run build.ts",
-		"build:plugins-unstorage": "cd packages/plugins/unstorage && bun run build.ts",
+		"build:plugin-query": "cd packages/plugins/query && bun run build.ts",
+		"build:plugin-unstorage": "cd packages/plugins/unstorage && bun run build.ts",
 		"demo:react": "bun scripts/demo-react.ts",
 		"demo:solid": "bun scripts/demo-solid.ts",
 		"version:core:patch": "cd packages/core && bun pm version patch",
 		"version:core:minor": "cd packages/core && bun pm version minor",
-		"version:plugins:query:patch": "cd packages/plugins/query && bun pm version patch",
-		"version:plugins:query:minor": "cd packages/plugins/query && bun pm version minor",
-		"version:plugins:unstorage:patch": "cd packages/plugins/unstorage && bun pm version patch",
-		"version:plugins:unstorage:minor": "cd packages/plugins/unstorage && bun pm version minor",
+		"version:plugin:query:patch": "cd packages/plugins/query && bun pm version patch",
+		"version:plugin:query:minor": "cd packages/plugins/query && bun pm version minor",
+		"version:plugin:unstorage:patch": "cd packages/plugins/unstorage && bun pm version patch",
+		"version:plugin:unstorage:minor": "cd packages/plugins/unstorage && bun pm version minor",
 		"publish:core": "cd packages/core && bun publish --access public",
-		"publish:plugins:query": "cd packages/plugins/query && bun publish --access public",
-		"publish:plugins:unstorage": "cd packages/plugins/unstorage && bun publish --access public"
+		"publish:plugin:query": "cd packages/plugins/query && bun publish --access public",
+		"publish:plugin:unstorage": "cd packages/plugins/unstorage && bun publish --access public"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",

@@ -113,4 +113,4 @@ const merge = (into: EncodedRecord, from: EncodedRecord): EncodedRecord => {
 	return result;
 };
 
-export { encode, decode, merge };
+export { encode, decode, merge, isObject };

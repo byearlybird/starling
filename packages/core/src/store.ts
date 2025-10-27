@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: <{} used to default to empty> */
 /** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
-import { create as createClock } from "./clock";
+import * as Clock from "./clock";
 import type { EncodedDocument } from "./document";
 import { decode, encode } from "./document";
 import * as KV from "./kv";
@@ -13,17 +13,13 @@ type DeepPartial<T> = T extends object
  * Called once per commit with all put operations accumulated as decoded entries.
  * Only fires if at least one put occurred.
  */
-type StoreOnPut<T extends Record<string, unknown>> = (
-	entries: ReadonlyArray<readonly [string, T]>,
-) => void;
+type StoreOnPut<T> = (entries: ReadonlyArray<readonly [string, T]>) => void;
 
 /**
  * Called once per commit with all patch operations accumulated as decoded entries.
  * Only fires if at least one patch occurred.
  */
-type StoreOnPatch<T extends Record<string, unknown>> = (
-	entries: ReadonlyArray<readonly [string, T]>,
-) => void;
+type StoreOnPatch<T> = (entries: ReadonlyArray<readonly [string, T]>) => void;
 
 /**
  * Called once per commit with all deleted keys (IDs).
@@ -35,19 +31,13 @@ type StoreOnDelete = (keys: ReadonlyArray<string>) => void;
  * Called before a put operation is applied.
  * Throws to reject the operation.
  */
-type StoreOnBeforePut<T extends Record<string, unknown>> = (
-	key: string,
-	value: T,
-) => void;
+type StoreOnBeforePut<T> = (key: string, value: T) => void;
 
 /**
  * Called before a patch operation is applied.
  * Throws to reject the operation.
  */
-type StoreOnBeforePatch<T extends Record<string, unknown>> = (
-	key: string,
-	value: DeepPartial<T>,
-) => void;
+type StoreOnBeforePatch<T> = (key: string, value: DeepPartial<T>) => void;
 
 /**
  * Called before a delete operation is applied.
@@ -60,7 +50,7 @@ type StoreOnBeforeDelete = (key: string) => void;
  * Hooks fire on commit only, never during staged operations.
  * Arrays are readonly to prevent external mutation.
  */
-type StoreHooks<T extends Record<string, unknown>> = {
+type StoreHooks<T> = {
 	onBeforePut?: StoreOnBeforePut<T>;
 	onBeforePatch?: StoreOnBeforePatch<T>;
 	onBeforeDelete?: StoreOnBeforeDelete;
@@ -69,7 +59,7 @@ type StoreHooks<T extends Record<string, unknown>> = {
 	onDelete?: StoreOnDelete;
 };
 
-type StoreTransaction<T extends Record<string, unknown>> = {
+type StoreTransaction<T> = {
 	put: (key: string, value: T) => void;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	merge: (doc: EncodedDocument) => void;
@@ -81,21 +71,18 @@ type StoreTransaction<T extends Record<string, unknown>> = {
 
 type PluginMethods = Record<string, (...args: any[]) => any>;
 
-type PluginHandle<
-	T extends Record<string, unknown>,
-	M extends PluginMethods = {},
-> = {
+type PluginHandle<T, M extends PluginMethods = {}> = {
 	init: () => Promise<void> | void;
 	dispose: () => Promise<void> | void;
 	hooks?: StoreHooks<T>;
 	methods?: M;
 };
 
-type Plugin<T extends Record<string, unknown>, M extends PluginMethods = {}> = (
+type Plugin<T, M extends PluginMethods = {}> = (
 	store: Store<T, any>,
 ) => PluginHandle<T, M>;
 
-type ListenerMap<T extends Record<string, unknown>> = {
+type ListenerMap<T> = {
 	beforePut: Set<StoreOnBeforePut<T>>;
 	beforePatch: Set<StoreOnBeforePatch<T>>;
 	beforeDel: Set<StoreOnBeforeDelete>;
@@ -104,7 +91,7 @@ type ListenerMap<T extends Record<string, unknown>> = {
 	del: Set<StoreOnDelete>;
 };
 
-type Store<T extends Record<string, unknown>, Extended = {}> = {
+type Store<T, Extended = {}> = {
 	get: (key: string) => T | null;
 	has: (key: string) => boolean;
 	readonly size: number;
@@ -122,12 +109,11 @@ type Store<T extends Record<string, unknown>, Extended = {}> = {
 	dispose: () => Promise<void>;
 } & Extended;
 
-const create = <T extends Record<string, unknown>>(): Store<T, {}> => {
-	const clock = createClock();
+const create = <T>(): Store<T, {}> => {
+	const kv = KV.create();
+	const clock = Clock.create();
 	const encodeValue = (key: string, value: T) =>
 		encode(key, value, clock.now());
-
-	const kv = KV.create();
 
 	// Plugin management
 	const listeners: ListenerMap<T> = {
@@ -157,7 +143,7 @@ const create = <T extends Record<string, unknown>>(): Store<T, {}> => {
 			function* iterator() {
 				for (const doc of kv.values()) {
 					const data = decodeActive(doc);
-					if (data) yield data;
+					if (data !== null) yield data;
 				}
 			}
 
@@ -167,7 +153,7 @@ const create = <T extends Record<string, unknown>>(): Store<T, {}> => {
 			function* iterator() {
 				for (const [key, doc] of kv.entries()) {
 					const data = decodeActive(doc);
-					if (data) yield [key, data] as const;
+					if (data !== null) yield [key, data] as const;
 				}
 			}
 

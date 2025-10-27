@@ -1,32 +1,33 @@
 type EncodedValue<T> = {
-	__value: T;
-	__eventstamp: string;
+	"~value": T;
+	"~eventstamp": string;
 };
 
 const encode = <T>(value: T, eventstamp: string): EncodedValue<T> => ({
-	__value: value,
-	__eventstamp: eventstamp,
+	"~value": value,
+	"~eventstamp": eventstamp,
 });
 
-const decode = <T>(value: EncodedValue<T>): T => value.__value;
+const decode = <T>(value: EncodedValue<T>): T => value["~value"];
 
 const merge = <T>(
 	into: EncodedValue<T>,
 	from: EncodedValue<T>,
 ): EncodedValue<T> => ({
-	__value: into.__eventstamp > from.__eventstamp ? into.__value : from.__value,
-	__eventstamp:
-		into.__eventstamp > from.__eventstamp
-			? into.__eventstamp
-			: from.__eventstamp,
+	"~value":
+		into["~eventstamp"] > from["~eventstamp"] ? into["~value"] : from["~value"],
+	"~eventstamp":
+		into["~eventstamp"] > from["~eventstamp"]
+			? into["~eventstamp"]
+			: from["~eventstamp"],
 });
 
 const isEncoded = (value: unknown): boolean =>
 	!!(
 		typeof value === "object" &&
 		value !== null &&
-		"__value" in value &&
-		"__eventstamp" in value
+		"~value" in value &&
+		"~eventstamp" in value
 	);
 
 export type { EncodedValue };

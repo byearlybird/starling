@@ -6,13 +6,13 @@ test("encode wraps all leaf values with eventstamp", () => {
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001";
 	const encoded = encode(obj, eventstamp);
 
-	const name = encoded.name as { __value: unknown; __eventstamp: string };
-	const age = encoded.age as { __value: unknown; __eventstamp: string };
+	const name = encoded.name as { "~value": unknown; "~eventstamp": string };
+	const age = encoded.age as { "~value": unknown; "~eventstamp": string };
 
-	expect(name.__value).toBe("Alice");
-	expect(name.__eventstamp).toBe(eventstamp);
-	expect(age.__value).toBe(30);
-	expect(age.__eventstamp).toBe(eventstamp);
+	expect(name["~value"]).toBe("Alice");
+	expect(name["~eventstamp"]).toBe(eventstamp);
+	expect(age["~value"]).toBe(30);
+	expect(age["~eventstamp"]).toBe(eventstamp);
 });
 
 test("decode extracts all values from encoded object", () => {
@@ -35,8 +35,8 @@ test("encode handles nested objects recursively", () => {
 	const encoded = encode(obj, eventstamp);
 
 	expect(encoded.user).toEqual({
-		name: { __value: "Bob", __eventstamp: eventstamp },
-		email: { __value: "bob@example.com", __eventstamp: eventstamp },
+		name: { "~value": "Bob", "~eventstamp": eventstamp },
+		email: { "~value": "bob@example.com", "~eventstamp": eventstamp },
 	});
 });
 
