@@ -12,6 +12,12 @@ const createStore = () => Store.create<User>().use(queryPlugin());
 
 type StoreWithQuery = ReturnType<typeof createStore>;
 
+const putWithId = <T>(
+        target: { put: (value: T, options?: { withId?: string }) => string },
+        id: string,
+        value: T,
+) => target.put(value, { withId: id });
+
 describe("QueryPlugin", () => {
 	let store: StoreWithQuery;
 
@@ -22,9 +28,9 @@ describe("QueryPlugin", () => {
 	it("creates a query and returns matching items", () => {
 		const activeUsers = store.query((user) => user.active);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
-		store.put({ "~id": "user3", name: "Charlie", active: true, age: 35 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
+		putWithId(store, "user3", { name: "Charlie", active: true, age: 35 });
 
 		const results = activeUsers.results();
 		expect(results.size).toBe(2);
@@ -41,9 +47,9 @@ describe("QueryPlugin", () => {
 	});
 
 	it("prepopulates query results when registered after data exists", () => {
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
-		store.put({ "~id": "user3", name: "Charlie", active: true, age: 35 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
+		putWithId(store, "user3", { name: "Charlie", active: true, age: 35 });
 
 		const activeUsers = store.query((user) => user.active);
 		const results = activeUsers.results();
@@ -62,8 +68,8 @@ describe("QueryPlugin", () => {
 	it("updates query results when items are patched", () => {
 		const activeUsers = store.query((user) => user.active);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
 
 		expect(activeUsers.results().size).toBe(1);
 
@@ -82,8 +88,8 @@ describe("QueryPlugin", () => {
 	it("removes items from query results when they no longer match", () => {
 		const activeUsers = store.query((user) => user.active);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 
 		expect(activeUsers.results().size).toBe(2);
 
@@ -99,8 +105,8 @@ describe("QueryPlugin", () => {
 	it("removes items when they are deleted", () => {
 		const activeUsers = store.query((user) => user.active);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 
 		expect(activeUsers.results().size).toBe(2);
 
@@ -119,10 +125,10 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(callCount).toBe(1);
 
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
 		expect(callCount).toBe(1); // No change, user2 doesn't match
 
 		store.patch("user2", { active: true });
@@ -143,10 +149,10 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.put({ "~id": "user1", name: "Alice", active: false, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: false, age: 30 });
 		expect(callCount).toBe(0);
 
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
 		expect(callCount).toBe(0);
 	});
 
@@ -154,9 +160,9 @@ describe("QueryPlugin", () => {
 		const activeUsers = store.query((user) => user.active);
 		const youngUsers = store.query((user) => user.age < 30);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
-		store.put({ "~id": "user3", name: "Charlie", active: true, age: 35 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
+		putWithId(store, "user3", { name: "Charlie", active: true, age: 35 });
 
 		expect(activeUsers.results().size).toBe(2);
 		expect(youngUsers.results().size).toBe(1);
@@ -170,19 +176,19 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(callCount).toBe(1);
 
 		activeUsers.dispose();
 
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 		expect(callCount).toBe(1); // No more callbacks after dispose
 	});
 
 	it("returns a new Map from results() to prevent external mutation", () => {
 		const activeUsers = store.query((user) => user.active);
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 
 		const results1 = activeUsers.results();
 		const results2 = activeUsers.results();
@@ -199,20 +205,20 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(callCount).toBe(1);
 
 		unsubscribe();
 
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 		expect(callCount).toBe(1); // No more callbacks after unsubscribe
 	});
 
 	it("populates queries with existing store entries before init", async () => {
 		// Add items before calling init
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
-		store.put({ "~id": "user3", name: "Charlie", active: true, age: 35 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
+		putWithId(store, "user3", { name: "Charlie", active: true, age: 35 });
 
 		// Create queries before init - they should be populated immediately
 		const activeUsers = store.query((user) => user.active);
@@ -253,9 +259,9 @@ describe("QueryPlugin", () => {
 		) as StoreWithQuery;
 
 		// Add data first
-		freshStore.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		freshStore.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
-		freshStore.put({ "~id": "user3", name: "Charlie", active: true, age: 35 });
+		putWithId(freshStore, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(freshStore, "user2", { name: "Bob", active: false, age: 25 });
+		putWithId(freshStore, "user3", { name: "Charlie", active: true, age: 35 });
 
 		// Create query BEFORE calling init - should be populated immediately
 		const freshActiveUsers = freshStore.query((user) => user.active);
@@ -292,13 +298,13 @@ describe("QueryPlugin", () => {
 		});
 
 		// Add a matching item - all callbacks should fire
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(callback1Count).toBe(1);
 		expect(callback2Count).toBe(1);
 		expect(callback3Count).toBe(1);
 
 		// Add another matching item - all callbacks should fire again
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 		expect(callback1Count).toBe(2);
 		expect(callback2Count).toBe(2);
 		expect(callback3Count).toBe(2);
@@ -313,8 +319,8 @@ describe("QueryPlugin", () => {
 		});
 
 		// Add matching items
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
-		store.put({ "~id": "user2", name: "Bob", active: true, age: 25 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
+		putWithId(store, "user2", { name: "Bob", active: true, age: 25 });
 		expect(callCount).toBe(2);
 
 		// Delete a matching item - should trigger onChange
@@ -344,17 +350,17 @@ describe("QueryPlugin", () => {
 		});
 
 		// Add item matching only activeUsers
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(activeCallCount).toBe(1);
 		expect(youngCallCount).toBe(0); // Should not fire
 
 		// Add item matching only youngUsers
-		store.put({ "~id": "user2", name: "Bob", active: false, age: 25 });
+		putWithId(store, "user2", { name: "Bob", active: false, age: 25 });
 		expect(activeCallCount).toBe(1); // Should not fire
 		expect(youngCallCount).toBe(1);
 
 		// Add item matching both queries
-		store.put({ "~id": "user3", name: "Charlie", active: true, age: 25 });
+		putWithId(store, "user3", { name: "Charlie", active: true, age: 25 });
 		expect(activeCallCount).toBe(2);
 		expect(youngCallCount).toBe(2);
 
@@ -373,7 +379,7 @@ describe("QueryPlugin", () => {
 		});
 
 		// Add a matching item
-		store.put({ "~id": "user1", name: "Alice", active: true, age: 30 });
+		putWithId(store, "user1", { name: "Alice", active: true, age: 30 });
 		expect(callCount).toBe(1);
 
 		// Patch a field that doesn't affect the predicate

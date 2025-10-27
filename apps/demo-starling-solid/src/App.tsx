@@ -16,7 +16,7 @@ function App() {
 
         const addTodo = (text: string) => {
                 const id = crypto.randomUUID();
-                todoStore.put({ "~id": id, text, completed: false });
+                todoStore.put({ text, completed: false }, { withId: id });
         };
 
 	const toggleTodo = (id: string) => {

@@ -52,7 +52,7 @@ const todoStore = await Store.create<{ text: string; completed: boolean }>()
 
 // Insert items
 const todo1Id = todoStore.put({ text: "Learn Starling", completed: false }); // capture generated ID
-todoStore.put({ "~id": "todo-2", text: "Build an app", completed: false });
+todoStore.put({ text: "Build an app", completed: false }, { withId: "todo-2" });
 
 // Query with plain JavaScript predicates - direct method access!
 const activeTodos = todoStore.query(todo => !todo.completed);
@@ -114,12 +114,12 @@ const deterministicStore = Store.create<YourType>({
 
 ### Store Methods
 
-#### `put(value: T | (T & { "~id": string })): string`
-Insert a new item into the store and return its ID. Provide `~id` to override the generated key. Values are automatically encoded with eventstamps for conflict resolution, and the `~id` field is never persisted.
+#### `put(value: T, options?: { withId?: string }): string`
+Insert a new item into the store and return its ID. Provide `withId` to override the generated key while keeping the stored payload untouched. Values are automatically encoded with eventstamps for conflict resolution.
 
 ```typescript
 const generatedId = store.put({ name: "Alice", email: "alice@example.com" });
-store.put({ "~id": "user-1", name: "Bob" });
+store.put({ name: "Bob" }, { withId: "user-1" });
 ```
 
 #### `patch(key: string, value: DeepPartial<T>): void`
@@ -195,7 +195,7 @@ Transactions allow you to stage multiple operations and commit them atomically:
 const tx = store.begin();
 
 // Stage operations
-const userId = tx.put({ "~id": "user-1", name: "Alice", email: "alice@example.com" });
+const userId = tx.put({ name: "Alice", email: "alice@example.com" }, { withId: "user-1" });
 tx.patch(userId, { email: "alice@newdomain.com" });
 tx.del("user-2");
 

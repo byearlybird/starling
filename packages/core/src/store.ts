@@ -51,16 +51,18 @@ type StoreOnBeforeDelete = (key: string) => void;
  * Arrays are readonly to prevent external mutation.
  */
 type StoreHooks<T> = {
-	onBeforePut?: StoreOnBeforePut<T>;
-	onBeforePatch?: StoreOnBeforePatch<T>;
-	onBeforeDelete?: StoreOnBeforeDelete;
-	onPut?: StoreOnPut<T>;
-	onPatch?: StoreOnPatch<T>;
-	onDelete?: StoreOnDelete;
+        onBeforePut?: StoreOnBeforePut<T>;
+        onBeforePatch?: StoreOnBeforePatch<T>;
+        onBeforeDelete?: StoreOnBeforeDelete;
+        onPut?: StoreOnPut<T>;
+        onPatch?: StoreOnPatch<T>;
+        onDelete?: StoreOnDelete;
 };
 
+type StorePutOptions = { withId?: string };
+
 type StoreTransaction<T> = {
-        put: (value: T | (T & { "~id": string })) => string;
+        put: (value: T, options?: StorePutOptions) => string;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	merge: (doc: EncodedDocument) => void;
 	del: (key: string) => void;
@@ -98,7 +100,7 @@ type Store<T, Extended = {}> = {
 	values: () => IterableIterator<T>;
 	entries: () => IterableIterator<readonly [string, T]>;
 	snapshot: () => EncodedDocument[];
-        put: (value: T | (T & { "~id": string })) => string;
+        put: (value: T, options?: StorePutOptions) => string;
 	patch: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	begin: () => StoreTransaction<T>;
@@ -123,19 +125,14 @@ const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
                 encode(key, value, clock.now());
 
         const resolvePutInput = (
-                input: T | (T & { "~id": string }),
+                input: T,
+                options?: StorePutOptions,
         ): { key: string; value: T } => {
-                if (
-                        typeof input === "object" &&
-                        input !== null &&
-                        "~id" in (input as Record<string, unknown>) &&
-                        typeof (input as Record<string, unknown>)["~id"] === "string"
-                ) {
-                        const { ["~id"]: key, ...rest } = input as T & { "~id": string };
-                        return { key, value: rest as unknown as T };
+                if (options?.withId !== undefined) {
+                        return { key: options.withId, value: input };
                 }
 
-                return { key: getId(), value: input as T };
+                return { key: getId(), value: input };
         };
 
 	// Plugin management
@@ -192,9 +189,9 @@ const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
 			}
 			return count;
 		},
-                put(value: T | (T & { "~id": string })) {
+                put(value: T, options?: StorePutOptions) {
                         const tx = this.begin();
-                        const key = tx.put(value);
+                        const key = tx.put(value, options);
                         tx.commit();
                         return key;
                 },
@@ -218,8 +215,8 @@ const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
 			const deleteKeys: Array<string> = [];
 
                         return {
-                                put(value: T | (T & { "~id": string })) {
-                                        const { key, value: payload } = resolvePutInput(value);
+                                put(value: T, options?: StorePutOptions) {
+                                        const { key, value: payload } = resolvePutInput(value, options);
                                         for (const fn of listeners.beforePut) {
                                                 fn(key, payload);
                                         }
@@ -375,17 +372,18 @@ const create = <T>(config: { getId?: () => string } = {}): Store<T, {}> => {
 };
 
 export type {
-	Store as StarlingStore, // avoid namespace collision
-	StoreHooks,
-	StoreOnBeforeDelete,
-	StoreOnBeforePatch,
-	StoreOnBeforePut,
-	StoreOnDelete,
-	StoreOnPatch,
-	StoreOnPut,
-	StoreTransaction,
-	Plugin,
-	PluginHandle,
-	PluginMethods,
+        Store as StarlingStore, // avoid namespace collision
+        StoreHooks,
+        StoreOnBeforeDelete,
+        StoreOnBeforePatch,
+        StoreOnBeforePut,
+        StoreOnDelete,
+        StoreOnPatch,
+        StoreOnPut,
+        StorePutOptions,
+        StoreTransaction,
+        Plugin,
+        PluginHandle,
+        PluginMethods,
 };
 export { create };

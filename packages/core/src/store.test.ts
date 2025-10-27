@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { create, type Plugin, type StoreHooks } from "./store.ts";
+import { create, type Plugin, type StoreHooks, type StorePutOptions } from "./store.ts";
 
 // Helper to create a plugin with hooks for testing
 const createTestPlugin = <T>(hooks: StoreHooks<T>): Plugin<T> => {
@@ -22,6 +22,12 @@ const createIdGenerator = (ids: string[]) => {
         };
 };
 
+const putWithId = <T>(
+        target: { put: (value: T, options?: StorePutOptions) => string },
+        id: string,
+        value: T,
+) => target.put(value, { withId: id });
+
 test("put/get expose only plain data", () => {
         const store = create<{ name: string }>();
 
@@ -35,10 +41,10 @@ test("put/get expose only plain data", () => {
         expect(Array.from(store.entries())).toEqual([[generatedId, { name: "Alice" }]]);
 });
 
-test("put respects explicit ~id overrides without persisting it", () => {
+test("put respects explicit id overrides without persisting it", () => {
         const store = create<{ name: string }>();
 
-        const id = store.put({ "~id": "user-1", name: "Alice" });
+        const id = putWithId(store, "user-1", { name: "Alice" });
 
         expect(id).toBe("user-1");
         expect(store.get("user-1")).toEqual({ name: "Alice" });
@@ -58,11 +64,22 @@ test("custom getId is used when provided", () => {
         expect(store.get(id)).not.toHaveProperty("~id");
 });
 
-test("del hides records from reads and counts", () => {
-	const store = create<{ name: string }>();
+test("explicit withId bypasses custom getId", () => {
+        const getId = mock(() => "should-not-run");
+        const store = create<{ name: string }>({ getId });
 
-	store.put({ "~id": "user-1", name: "Alice" });
-	store.put({ "~id": "user-2", name: "Bob" });
+        const id = store.put({ name: "Alice" }, { withId: "custom-id" });
+
+        expect(id).toBe("custom-id");
+        expect(getId).not.toHaveBeenCalled();
+        expect(store.get(id)).toEqual({ name: "Alice" });
+});
+
+test("del hides records from reads and counts", () => {
+        const store = create<{ name: string }>();
+
+        putWithId(store, "user-1", { name: "Alice" });
+        putWithId(store, "user-2", { name: "Bob" });
 
 	store.del("user-1");
 
@@ -75,11 +92,11 @@ test("del hides records from reads and counts", () => {
 test("transactions apply staged mutations on commit", () => {
 	const store = create<{ status: string }>();
 
-	store.put({ "~id": "doc-1", status: "active" });
-	const tx = store.begin();
+        putWithId(store, "doc-1", { status: "active" });
+        const tx = store.begin();
 
-	tx.patch("doc-1", { status: "pending" });
-	tx.put({ "~id": "doc-2", status: "draft" });
+        tx.patch("doc-1", { status: "pending" });
+        putWithId(tx, "doc-2", { status: "draft" });
 	tx.del("doc-1");
 
 	expect(store.get("doc-1")).toEqual({ status: "active" });
@@ -94,8 +111,8 @@ test("transactions apply staged mutations on commit", () => {
 test("transactions rollback without mutating store", () => {
 	const store = create<{ status: string }>();
 
-	const tx = store.begin();
-	tx.put({ "~id": "doc-1", status: "draft" });
+        const tx = store.begin();
+        putWithId(tx, "doc-1", { status: "draft" });
 
 	tx.rollback();
 
@@ -104,11 +121,11 @@ test("transactions rollback without mutating store", () => {
 });
 
 test("direct put calls onPut hook once with array payload", async () => {
-	const onPut = mock();
-	const store = create<{ name: string }>().use(createTestPlugin({ onPut }));
-	await store.init();
+        const onPut = mock();
+        const store = create<{ name: string }>().use(createTestPlugin({ onPut }));
+        await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	expect(onPut).toHaveBeenCalledTimes(1);
 	const [entries] = onPut.mock.calls[0] ?? [];
@@ -122,7 +139,7 @@ test("direct patch calls onPatch hook once with array payload", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 	store.patch("user-1", { title: "admin" });
 
 	expect(onPatch).toHaveBeenCalledTimes(1);
@@ -134,7 +151,7 @@ test("direct del calls onDelete hook once with array of keys", async () => {
 	const onDelete = mock();
 	const store = create<{ name: string }>().use(createTestPlugin({ onDelete }));
 	await store.init();
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	store.del("user-1");
 
@@ -149,8 +166,8 @@ test("transaction batches multiple puts into single onPut call", async () => {
         await store.init();
 
         const tx = store.begin();
-        tx.put({ "~id": "user-1", name: "Alice" });
-        tx.put({ "~id": "user-2", name: "Bob" });
+        putWithId(tx, "user-1", { name: "Alice" });
+        putWithId(tx, "user-2", { name: "Bob" });
 
         tx.commit();
 
@@ -168,7 +185,7 @@ test("transaction put returns ids and strips overrides in hooks", async () => {
         await store.init();
 
         const tx = store.begin();
-        const overrideId = tx.put({ "~id": "user-override", name: "Alice" });
+        const overrideId = putWithId(tx, "user-override", { name: "Alice" });
         const generatedId = tx.put({ name: "Bob" });
 
         expect(overrideId).toBe("user-override");
@@ -197,10 +214,10 @@ test("transaction batches mixed operations into separate hook calls", async () =
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	const tx = store.begin();
-	tx.put({ "~id": "user-2", name: "Bob" });
+        putWithId(tx, "user-2", { name: "Bob" });
 	tx.patch("user-1", { name: "Alicia" });
 	tx.del("user-1");
 
@@ -241,7 +258,7 @@ test("transaction rollback does not fire hooks", async () => {
 	await store.init();
 
 	const tx = store.begin();
-	tx.put({ "~id": "user-1", name: "Alice" });
+        putWithId(tx, "user-1", { name: "Alice" });
 	tx.patch("user-1", { name: "Alicia" });
 	tx.del("user-1");
 
@@ -257,7 +274,7 @@ test("hooks receive readonly frozen arrays", async () => {
 	const store = create<{ name: string }>().use(createTestPlugin({ onPut }));
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	const [entries] = onPut.mock.calls[0] ?? [];
 	expect(Object.isFrozen(entries)).toBe(true);
@@ -284,10 +301,10 @@ test("hooks not called when no hooks configured", () => {
 	const store = create<{ name: string }>();
 
 	// Should not throw
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	const tx = store.begin();
-	tx.put({ "~id": "user-2", name: "Bob" });
+        putWithId(tx, "user-2", { name: "Bob" });
 	tx.commit();
 
 	expect(store.get("user-1")).toEqual({ name: "Alice" });
@@ -300,11 +317,11 @@ test("multiple sequential transactions maintain hook batching", async () => {
 	await store.init();
 
 	const tx1 = store.begin();
-	tx1.put({ "~id": "user-1", name: "Alice" });
+        putWithId(tx1, "user-1", { name: "Alice" });
 	tx1.commit();
 
 	const tx2 = store.begin();
-	tx2.put({ "~id": "user-2", name: "Bob" });
+        putWithId(tx2, "user-2", { name: "Bob" });
 	tx2.commit();
 
 	expect(onPut).toHaveBeenCalledTimes(2);
@@ -317,7 +334,7 @@ test("onBeforePut fires before put is applied", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	expect(onBeforePut).toHaveBeenCalledTimes(1);
 	expect(onBeforePut).toHaveBeenCalledWith("user-1", { name: "Alice" });
@@ -333,7 +350,7 @@ test("onBeforePut rejecting throws and prevents put", async () => {
 	await store.init();
 
 	expect(() => {
-		store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 	}).toThrow("Validation failed");
 
 	// Store should still be empty after failed validation
@@ -347,7 +364,7 @@ test("onBeforePatch fires before patch is applied", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice", email: "alice@example.com" });
+        putWithId(store, "user-1", { name: "Alice", email: "alice@example.com" });
 	onBeforePatch.mockClear();
 
 	store.patch("user-1", { email: "alice@newdomain.com" });
@@ -365,7 +382,7 @@ test("onBeforeDelete fires before delete is applied", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 	onBeforeDelete.mockClear();
 
 	store.del("user-1");
@@ -387,7 +404,7 @@ test("multiple before hooks compose", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	expect(beforePut1).toHaveBeenCalledTimes(1);
 	expect(beforePut2).toHaveBeenCalledTimes(1);
@@ -401,8 +418,8 @@ test("before hooks fire in transactions", async () => {
 	await store.init();
 
 	const tx = store.begin();
-	tx.put({ "~id": "user-1", name: "Alice" });
-	tx.put({ "~id": "user-2", name: "Bob" });
+        putWithId(tx, "user-1", { name: "Alice" });
+        putWithId(tx, "user-2", { name: "Bob" });
 
 	expect(onBeforePut).toHaveBeenCalledTimes(2);
 
@@ -424,10 +441,10 @@ test("rollback after before hook error leaves store unchanged", async () => {
 	);
 	await store.init();
 
-	store.put({ "~id": "user-1", name: "Alice" });
+        putWithId(store, "user-1", { name: "Alice" });
 
 	const tx = store.begin();
-	expect(() => tx.put({ "~id": "user-2", name: "Bob" })).toThrow("user-2 is invalid");
+        expect(() => putWithId(tx, "user-2", { name: "Bob" })).toThrow("user-2 is invalid");
 	tx.rollback();
 
 	// Only first put should exist, second put should have been rejected
