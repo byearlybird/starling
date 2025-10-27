@@ -14,26 +14,29 @@ function App() {
 	const activeTodos = useQueryResults(activeTodosQuery);
 	const completedTodos = useQueryResults(completedTodosQuery);
 
-        const addTodo = useCallback((text: string) => {
-                const id = crypto.randomUUID();
-                todoStore.put({ text, completed: false }, { withId: id });
-        }, []);
+	const addTodo = useCallback((text: string) => {
+		todoStore.set((tx) => tx.put({ text, completed: false }));
+	}, []);
 
 	const toggleTodo = useCallback((id: string) => {
-		const todo = todoStore.get(id);
-		if (todo) {
-			todoStore.patch(id, { completed: !todo.completed });
-		}
+		todoStore.set((tx) => {
+			const todo = tx.get(id);
+			if (todo) {
+				tx.patch(id, { completed: !todo.completed });
+			}
+		});
 	}, []);
 
 	const deleteTodo = useCallback((id: string) => {
-		todoStore.del(id);
+		todoStore.set((tx) => tx.del(id));
 	}, []);
 
 	const clearCompleted = useCallback(() => {
-		for (const id of completedTodos.keys()) {
-			todoStore.del(id);
-		}
+		todoStore.set((tx) => {
+			for (const id of completedTodos.keys()) {
+				tx.del(id);
+			}
+		});
 	}, [completedTodos]);
 
 	const handleAddTodo = (e: React.FormEvent) => {

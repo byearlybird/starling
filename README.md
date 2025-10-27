@@ -8,7 +8,7 @@ A reactive, framework-agnostic data synchronization library with CRDT-like merge
 
 Cross-device sync shouldn't require heavyweight infrastructure or learning new query languages. Starling gives you:
 
-- **Tiny footprint** - Core library is ~5KB with zero runtime dependencies
+- **Tiny footprint** - Core library is ~4KB with zero runtime dependencies
 - **Just JavaScript** - Query with plain predicates, no complex query languages or custom DSLs
 - **Simple sync** - Multiplex storage backends (localStorage + HTTP) and conflicts auto-resolve
 - **Extensible hooks** - Add encryption, validation, or custom logic in ~10 lines
@@ -18,7 +18,7 @@ Perfect for apps that sync across devices, offline-first apps, or any tool that 
 
 ## Features
 
-- **Zero Dependencies** - Core package has no external dependencies (~5KB)
+- **Zero Dependencies** - Core package has no external dependencies (~4KB)
 - **Plain JavaScript Queries** - Filter with predicates, not DSLs: `query(todo => !todo.completed)`
 - **Automatic Conflict Resolution** - CRDT-like merging using eventstamps (ISO8601 + hex counter), no manual merge code
 - **Extensible Plugin Hooks** - Add encryption, validation, or custom sync in ~10 lines
@@ -50,16 +50,21 @@ const todoStore = await Store.create<{ text: string; completed: boolean }>()
   .use(queryPlugin())
   .init();
 
-// Insert items
-const todo1Id = todoStore.put({ text: "Learn Starling", completed: false }); // capture generated ID
-todoStore.put({ text: "Build an app", completed: false }, { withId: "todo-2" });
+// Insert items using set
+let todo1Id: string;
+todoStore.set(tx => {
+  todo1Id = tx.put({ text: "Learn Starling", completed: false }); // capture generated ID
+  tx.put({ text: "Build an app", completed: false }, { withId: "todo-2" });
+});
 
 // Query with plain JavaScript predicates - direct method access!
 const activeTodos = todoStore.query(todo => !todo.completed);
 console.log(activeTodos.results()); // Map of incomplete todos
 
 // Updates automatically trigger query re-evaluation
-todoStore.patch("todo-1", { completed: true });
+todoStore.set(tx => {
+  tx.patch(todo1Id, { completed: true });
+});
 console.log(activeTodos.results()); // Now only contains todo-2
 ```
 
@@ -114,26 +119,40 @@ const deterministicStore = Store.create<YourType>({
 
 ### Store Methods
 
-#### `put(value: T, options?: { withId?: string }): string`
-Insert a new item into the store and return its ID. Provide `withId` to override the generated key while keeping the stored payload untouched. Values are automatically encoded with eventstamps for conflict resolution.
+#### `set(callback: (tx) => void, options?: { silent?: boolean }): void`
+Execute mutations on the store. All mutations must be performed inside the set callback. The transaction auto-commits when the callback completes, unless `tx.rollback()` is called.
 
 ```typescript
-const generatedId = store.put({ name: "Alice", email: "alice@example.com" });
-store.put({ name: "Bob" }, { withId: "user-1" });
-```
+// Insert items
+store.set(tx => {
+  const generatedId = tx.put({ name: "Alice", email: "alice@example.com" });
+  tx.put({ name: "Bob" }, { withId: "user-1" });
+});
 
-#### `patch(key: string, value: DeepPartial<T>): void`
-Update an existing item with partial data.
+// Update items
+store.set(tx => {
+  tx.patch("user-1", { email: "alice@newdomain.com" });
+});
 
-```typescript
-store.patch("user-1", { email: "alice@newdomain.com" });
-```
+// Delete items
+store.set(tx => {
+  tx.del("user-1");
+});
 
-#### `del(key: string): void`
-Delete an item (adds `~deletedAt` timestamp).
+// Silent mutations (don't trigger hooks - useful for sync)
+store.set(tx => {
+  tx.put({ name: "Charlie" });
+}, { silent: true });
 
-```typescript
-store.del("user-1");
+// Rollback on error
+store.set(tx => {
+  tx.put({ name: "Dave" });
+  if (someCondition) {
+    tx.rollback(); // Abort all changes
+    return;
+  }
+  tx.patch("user-1", { name: "Updated" });
+});
 ```
 
 #### `get(key: string): T | null`
@@ -143,11 +162,11 @@ Get a single item by key.
 const user = store.get("user-1");
 ```
 
-#### `has(key: string): boolean`
-Check if an item exists (and is not deleted).
+#### `get(key: string): boolean`
+Return an item if it exists (and is not deleted).
 
 ```typescript
-if (store.has("user-1")) {
+if (store.get("user-1")) {
   // user exists
 }
 ```
@@ -177,100 +196,58 @@ Get the raw encoded state with eventstamps (includes deleted items with `~delete
 const encodedState = store.snapshot();
 ```
 
-#### `begin(): Transaction`
-Start a transaction to batch operations.
+### Transaction API
 
-```typescript
-const tx = store.begin();
-const userId = tx.put({ name: "Alice" });
-tx.patch(userId, { email: "alice@example.com" });
-tx.commit(); // Or tx.rollback()
-```
+The `set()` callback receives a transaction object with these methods:
 
-### Transactions
-
-Transactions allow you to stage multiple operations and commit them atomically:
-
-```typescript
-const tx = store.begin();
-
-// Stage operations
-const userId = tx.put({ name: "Alice", email: "alice@example.com" }, { withId: "user-1" });
-tx.patch(userId, { email: "alice@newdomain.com" });
-tx.del("user-2");
-
-// Commit all operations atomically
-tx.commit();
-
-// Or commit silently (no hooks fire - useful during sync)
-tx.commit({ silent: true });
-
-// Or rollback (discard all staged operations)
-tx.rollback();
-```
-
-#### Transaction Methods
-
-Once you call `const tx = store.begin()`, you get access to the staged helpers implemented in [`packages/core/src/store.ts`](packages/core/src/store.ts):
-
-- `tx.put(value)` – stage a brand-new encoded document using the current clock. Returns the staged ID.
-- `tx.patch(key, partial)` – merge a partial update into the staged (or persisted) record.
-- `tx.merge(document)` – apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
-- `tx.del(key)` – tombstone a record by stamping `~deletedAt`.
-- `tx.has(key)` – check whether the staged view currently exposes the record (ignores soft-deleted docs).
-- `tx.commit({ silent })` – atomically publish the staged map. Pass `{ silent: true }` when you do not want hooks to fire.
-- `tx.rollback()` – drop the staging map so the store remains untouched.
+- `tx.put(value, options?)` – Insert a new document. Returns the generated or provided ID.
+- `tx.patch(key, partial)` – Merge a partial update into an existing document.
+- `tx.merge(document)` – Apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
+- `tx.del(key)` – Soft-delete a document by stamping `~deletedAt`.
+- `tx.get(key)` – Get a document by key if it exists (ignores soft-deleted docs).
+- `tx.rollback()` – Abort the transaction and discard all changes.
 
 ### Custom Plugin with Hooks
 
 Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import type { Store } from "@byearlybird/starling";
 
 // Create a custom plugin with hooks
-const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => {
-  return (store) => ({
-    init: () => {
-      console.log("Logging plugin initialized");
+const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => ({
+  init: (store) => {
+    console.log("Logging plugin initialized with store");
+  },
+  dispose: () => {
+    console.log("Logging plugin disposed");
+  },
+  hooks: {
+    // Hooks receive batched entries after mutations commit
+    onPut: (entries) => {
+      for (const [key, value] of entries) {
+        console.log(`Put ${key}:`, value);
+      }
     },
-    dispose: () => {
-      console.log("Logging plugin disposed");
+
+    onPatch: (entries) => {
+      for (const [key, value] of entries) {
+        console.log(`Patched ${key}:`, value); // Full merged value
+      }
     },
-    hooks: {
-      // Before hooks (throw to reject operation)
-      onBeforePut: (key, value) => {
-        console.log(`Before put: ${key}`);
-        // Throw to reject: if (invalid) throw new Error("Invalid");
-      },
 
-      // After hooks (receive batched entries)
-      onPut: (entries) => {
-        for (const [key, value] of entries) {
-          console.log(`Put ${key}:`, value);
-        }
-      },
-
-      onPatch: (entries) => {
-        for (const [key, value] of entries) {
-          console.log(`Patched ${key}:`, value); // Full merged value
-        }
-      },
-
-      onDelete: (keys) => {
-        for (const key of keys) {
-          console.log(`Deleted ${key}`);
-        }
-      },
+    onDelete: (keys) => {
+      for (const key of keys) {
+        console.log(`Deleted ${key}`);
+      }
     },
-  });
-};
+  },
+});
 
 // Use the plugin
-const store = Store.create<{ name: string }>()
-  .use(loggingPlugin());
-
-await store.init();
+const store = await Store.create<{ name: string }>()
+  .use(loggingPlugin())
+  .init();
 ```
 
 ## Official Plugins

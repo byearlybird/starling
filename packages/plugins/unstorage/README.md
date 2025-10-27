@@ -25,9 +25,17 @@ const store = await Store.create<{ text: string }>()
 	.init();
 
 // Automatic persistence on every mutation
-store.put({ text: "Buy milk" }, { withId: "todo1" }); // automatically schedules a snapshot write
-store.patch("todo1", { text: "Buy almond milk" }); // automatically persists
-store.del("todo1"); // automatically persists
+store.set(tx => {
+  tx.put({ text: "Buy milk" }, { withId: "todo1" }); // automatically schedules a snapshot write
+});
+
+store.set(tx => {
+  tx.patch("todo1", { text: "Buy almond milk" }); // automatically persists
+});
+
+store.set(tx => {
+  tx.del("todo1"); // automatically persists
+});
 ```
 
 ## API
@@ -73,7 +81,9 @@ const store = Store.create<Todo>()
 await store.init(); // Hydrates from both storages, CRDT merge handles conflicts
 
 // Every mutation automatically persists to BOTH storages
-store.put({ text: 'Learn Starling' }, { withId: 'todo-1' }); // → localStorage + httpStorage
+store.set(tx => {
+  tx.put({ text: 'Learn Starling' }, { withId: 'todo-1' }); // → localStorage + httpStorage
+});
 ```
 
 **How it works:**

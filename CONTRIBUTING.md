@@ -62,14 +62,14 @@ When merging states, Starling compares eventstamps at the field level:
 
 ### Plugin System
 
-Stores are extensible via plugins that provide lifecycle hooks:
+Stores are extensible via plugins that provide lifecycle hooks and optional methods:
 
 ```typescript
-type Plugin<T> = (store: Store<T>) => PluginHandle<T>;
-type PluginHandle<T> = {
-  init: () => Promise<void> | void;
+type Plugin<T, M extends PluginMethods = {}> = {
+  init: (store: Store<T>) => Promise<void> | void;
   dispose: () => Promise<void> | void;
   hooks?: StoreHooks<T>;
+  methods?: M;
 };
 
 // Usage
@@ -79,6 +79,11 @@ const store = Store.create<T>()
 
 await store.init();
 ```
+
+**Key changes from the old plugin system:**
+- Plugins now return objects directly instead of factory functions
+- `init` receives the store as a parameter
+- Optional `methods` object gets injected directly into the store (e.g., `queryPlugin` adds a `query()` method)
 
 ### Modules at a Glance
 
@@ -99,7 +104,7 @@ Starling is organized as a monorepo with three packages:
   - Zero dependencies
 
 - **`@byearlybird/starling-plugin-query`** – Query plugin for reactive filtered views
-  - Exports: `createQueryManager`
+  - Exports: `queryPlugin`
 
 - **`@byearlybird/starling-plugin-unstorage`** – Persistence plugin
   - Exports: `unstoragePlugin`
