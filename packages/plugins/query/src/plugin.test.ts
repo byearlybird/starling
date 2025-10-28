@@ -17,7 +17,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("returns matching items", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.set((tx) => {
 			tx.put({ name: "Alice", active: true }, { withId: "user1" });
@@ -30,7 +30,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("updates query results when items are patched", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.set((tx) => {
 			tx.put({ name: "Alice", active: false }, { withId: "user1" });
@@ -46,7 +46,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("removes items when they are deleted", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.set((tx) => {
 			tx.put({ name: "Alice", active: true }, { withId: "user1" });
@@ -62,7 +62,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("triggers onChange callbacks", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -77,8 +77,8 @@ describe("QueryPlugin", () => {
 	});
 
 	it("supports multiple independent queries", () => {
-		const activeUsers = store.query((user) => user.active);
-		const inactiveUsers = store.query((user) => !user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
+		const inactiveUsers = store.query({ where: (user) => !user.active });
 
 		store.set((tx) => {
 			tx.put({ name: "Alice", active: true }, { withId: "user1" });
@@ -90,7 +90,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("allows disposing of a query", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 		let callCount = 0;
 
 		activeUsers.onChange(() => {
@@ -113,7 +113,7 @@ describe("QueryPlugin", () => {
 	});
 
 	it("unsubscribe removes the callback", () => {
-		const activeUsers = store.query((user) => user.active);
+		const activeUsers = store.query({ where: (user) => user.active });
 		let callCount = 0;
 
 		const unsubscribe = activeUsers.onChange(() => {
@@ -133,5 +133,59 @@ describe("QueryPlugin", () => {
 		});
 
 		expect(callCount).toBe(1);
+	});
+
+	it("supports select to transform results", () => {
+		const activeUserNames = store.query({
+			where: (user) => user.active,
+			select: (user) => user.name,
+		});
+
+		store.set((tx) => {
+			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+			tx.put({ name: "Bob", active: false }, { withId: "user2" });
+		});
+
+		const results = activeUserNames.results();
+		expect(results.size).toBe(1);
+		expect(results.get("user1")).toBe("Alice");
+	});
+
+	it("select updates when data changes", () => {
+		const activeUserNames = store.query({
+			where: (user) => user.active,
+			select: (user) => user.name,
+		});
+
+		store.set((tx) => {
+			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		});
+
+		expect(activeUserNames.results().get("user1")).toBe("Alice");
+
+		store.set((tx) => {
+			tx.patch("user1", { name: "Alicia" });
+		});
+
+		expect(activeUserNames.results().get("user1")).toBe("Alicia");
+	});
+
+	it("select removes items that no longer match", () => {
+		const activeUserNames = store.query({
+			where: (user) => user.active,
+			select: (user) => user.name,
+		});
+
+		store.set((tx) => {
+			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		});
+
+		expect(activeUserNames.results().size).toBe(1);
+
+		store.set((tx) => {
+			tx.patch("user1", { active: false });
+		});
+
+		expect(activeUserNames.results().size).toBe(0);
 	});
 });

@@ -18,8 +18,16 @@ const store = await Store.create<{ text: string; completed: boolean }>()
 	.use(queryPlugin())
 	.init();
 
-// Query directly on the store - no separate manager needed!
-const activeTodos = store.query((todo) => !todo.completed);
+// Query directly on the store with a where clause
+const activeTodos = store.query({
+	where: (todo) => !todo.completed,
+});
+
+// Optional: transform results with select
+const activeTodoNames = store.query({
+	where: (todo) => !todo.completed,
+	select: (todo) => todo.text,
+});
 
 // Read the current results (a fresh Map copy)
 for (const [id, todo] of activeTodos.results()) {
@@ -45,14 +53,28 @@ Returns a Starling plugin that adds query functionality to the store. The plugin
 
 **Added Methods:**
 
-- `store.query(predicate: (value: T) => boolean)` – registers a predicate and returns a `Query<T>`.
+- `store.query(config)` – registers a query with a config object and returns a `Query<U>`.
 
-### `Query<T>`
+### Query Config
+
+The config object passed to `query()` has the following shape:
+
+```typescript
+type QueryConfig<T, U = T> = {
+	where: (data: T) => boolean;      // Filter predicate
+	select?: (data: T) => U;          // Optional transformation function
+};
+```
+
+- `where` – A predicate function that returns `true` for items to include in the query results.
+- `select` – An optional transformation function that projects each matching item to a different type. If omitted, results will be of type `T`.
+
+### `Query<U>`
 
 Objects returned by `query()` expose:
 
-- `results(): Map<string, T>` – defensive copy of the latest matching entries. Treat it as immutable.
-- `onChange(callback)` – registers a listener; returns an unsubscribe function. Fired only when the predicate's truthiness changes for at least one entry.
+- `results(): Map<string, U>` – defensive copy of the latest matching entries. Treat it as immutable. The value type `U` is determined by the `select` function if provided, otherwise it's `T`.
+- `onChange(callback)` – registers a listener; returns an unsubscribe function. Fired only when the query's results change (items added, updated, or removed).
 - `dispose()` – removes the query from the manager and clears all listeners. Call this when the query is no longer needed.
 
 ## Behavioral Notes

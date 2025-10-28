@@ -19,7 +19,7 @@ Perfect for apps that sync across devices, offline-first apps, or any tool that 
 ## Features
 
 - **Zero Dependencies** - Core package has no external dependencies (~4KB)
-- **Plain JavaScript Queries** - Filter with predicates, not DSLs: `query(todo => !todo.completed)`
+- **Plain JavaScript Queries** - Filter with predicates, not DSLs: `query({ where: (todo) => !todo.completed })`
 - **Automatic Conflict Resolution** - CRDT-like merging using eventstamps (ISO8601 + hex counter), no manual merge code
 - **Extensible Plugin Hooks** - Add encryption, validation, or custom sync in ~10 lines
 - **Reactive Stores** - Event-driven data stores with hook-based notifications
@@ -58,7 +58,7 @@ todoStore.set(tx => {
 });
 
 // Query with plain JavaScript predicates - direct method access!
-const activeTodos = todoStore.query(todo => !todo.completed);
+const activeTodos = todoStore.query({ where: (todo) => !todo.completed });
 console.log(activeTodos.results()); // Map of incomplete todos
 
 // Updates automatically trigger query re-evaluation
