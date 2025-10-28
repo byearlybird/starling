@@ -4,6 +4,8 @@
 
 A reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. Starling provides a simple yet powerful way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution.
 
+For a record of project-wide decisions, see the [Architecture Decision Log](docs/architecture-decisions.md).
+
 ## Why Starling?
 
 Cross-device sync shouldn't require heavyweight infrastructure or learning new query languages. Starling gives you:
