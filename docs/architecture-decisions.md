@@ -36,19 +36,3 @@ Prefix all private or system-reserved keys with a tilde (`~`), such as `~id`, `~
 ### Alternatives Considered
 - **Underscore or other alphanumeric prefixes** — Rejected because they blend with typical user-defined keys and provide less visual separation.
 
-## Decision 003 — Factory Functions vs. Classes
-
-### Context
-We compared classes and factory functions for creating stateful objects that support plugin-based extension and controlled mutation.
-
-### Decision
-Use factory functions instead of classes when constructing extensible stateful objects.
-
-### Rationale
-- Factory functions simplify controlled mutation of returned objects.
-- Type inference and augmentation are more straightforward in TypeScript with factory patterns.
-- Encourages flexible composition that suits plugin and mixin patterns.
-- Avoids class-specific constraints around inheritance hierarchies and method binding semantics.
-
-### Alternatives Considered
-- **Classes** — Rejected because they reduce flexibility for dynamically mutating or extending instances.
