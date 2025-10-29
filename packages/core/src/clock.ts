@@ -12,16 +12,16 @@ export const createClock = (): Clock => {
 
 	return {
 		now: (): string => {
-			const nowMs = Date.now();
+			const wallMs = Date.now();
 
-			if (nowMs <= lastMs) {
-				counter++;
-			} else {
-				lastMs = nowMs;
+			if (wallMs > lastMs) {
+				lastMs = wallMs;
 				counter = 0;
+			} else {
+				counter++;
 			}
 
-			return encodeEventstamp(nowMs, counter);
+			return encodeEventstamp(lastMs, counter);
 		},
 		latest() {
 			return encodeEventstamp(lastMs, counter);
