@@ -35,4 +35,3 @@ Prefix all private or system-reserved keys with a tilde (`~`), such as `~id`, `~
 
 ### Alternatives Considered
 - **Underscore or other alphanumeric prefixes** — Rejected because they blend with typical user-defined keys and provide less visual separation.
-
