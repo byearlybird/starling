@@ -39,7 +39,7 @@ const unsubscribe = activeTodos.onChange(() => {
 	console.log("Active todos changed:", activeTodos.results());
 });
 
-// Clean up when the consumer unmounts
+// Clean up when your component unmounts or the store is no longer needed
 unsubscribe();
 activeTodos.dispose();
 await store.dispose();
