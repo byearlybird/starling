@@ -29,7 +29,6 @@
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",
 		"mitata": "^1.0.34",
-		"tinybench": "^5.0.1",
 		"tsdown": "^0.15.9",
 		"typescript": "^5"
 	}
