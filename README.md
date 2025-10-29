@@ -44,19 +44,19 @@ bun add @byearlybird/starling-plugin-unstorage unstorage
 ## Quick Start
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { queryPlugin } from "@byearlybird/starling-plugin-query";
 
 // Create a store with reactive queries
-const todoStore = await Store.create<{ text: string; completed: boolean }>()
+const todoStore = await createStore<{ text: string; completed: boolean }>()
   .use(queryPlugin())
   .init();
 
-// Insert items using set
-let todo1Id: string;
-todoStore.set(tx => {
-  todo1Id = tx.put({ text: "Learn Starling", completed: false }); // capture generated ID
-  tx.put({ text: "Build an app", completed: false }, { withId: "todo-2" });
+// Insert items using begin()
+const todo1Id = todoStore.begin((tx) => {
+  const generatedId = tx.add({ text: "Learn Starling", completed: false });
+  tx.add({ text: "Build an app", completed: false }, { withId: "todo-2" });
+  return generatedId; // capture generated ID
 });
 
 // Query with plain JavaScript predicates - direct method access!
@@ -64,8 +64,8 @@ const activeTodos = todoStore.query({ where: (todo) => !todo.completed });
 console.log(activeTodos.results()); // Map of incomplete todos
 
 // Updates automatically trigger query re-evaluation
-todoStore.set(tx => {
-  tx.patch(todo1Id, { completed: true });
+todoStore.begin((tx) => {
+  tx.update(todo1Id, { completed: true });
 });
 console.log(activeTodos.results()); // Now only contains todo-2
 ```
@@ -100,13 +100,13 @@ bun run demo:solid
 ### Creating a Store
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 
 // Create a basic store
-const store = Store.create<YourType>();
+const store = createStore<YourType>();
 
 // Optionally provide a custom ID generator
-const deterministicStore = Store.create<YourType>({
+const deterministicStore = createStore<YourType>({
   getId: () => crypto.randomUUID(),
 });
 
@@ -121,39 +121,39 @@ const deterministicStore = Store.create<YourType>({
 
 ### Store Methods
 
-#### `set(callback: (tx) => void, options?: { silent?: boolean }): void`
-Execute mutations on the store. All mutations must be performed inside the set callback. The transaction auto-commits when the callback completes, unless `tx.rollback()` is called.
+#### `begin(callback: (tx) => void, options?: { silent?: boolean }): void`
+Execute mutations on the store. All mutations must be performed inside the callback. The transaction auto-commits when the callback completes, unless `tx.rollback()` is called.
 
 ```typescript
 // Insert items
-store.set(tx => {
-  const generatedId = tx.put({ name: "Alice", email: "alice@example.com" });
-  tx.put({ name: "Bob" }, { withId: "user-1" });
+store.begin((tx) => {
+  const generatedId = tx.add({ name: "Alice", email: "alice@example.com" });
+  tx.add({ name: "Bob" }, { withId: "user-1" });
 });
 
 // Update items
-store.set(tx => {
-  tx.patch("user-1", { email: "alice@newdomain.com" });
+store.begin((tx) => {
+  tx.update("user-1", { email: "alice@newdomain.com" });
 });
 
 // Delete items
-store.set(tx => {
+store.begin((tx) => {
   tx.del("user-1");
 });
 
 // Silent mutations (don't trigger hooks - useful for sync)
-store.set(tx => {
-  tx.put({ name: "Charlie" });
+store.begin((tx) => {
+  tx.add({ name: "Charlie" });
 }, { silent: true });
 
 // Rollback on error
-store.set(tx => {
-  tx.put({ name: "Dave" });
+store.begin((tx) => {
+  tx.add({ name: "Dave" });
   if (someCondition) {
     tx.rollback(); // Abort all changes
     return;
   }
-  tx.patch("user-1", { name: "Updated" });
+  tx.update("user-1", { name: "Updated" });
 });
 ```
 
@@ -182,11 +182,11 @@ const encodedState = store.snapshot();
 
 ### Transaction API
 
-The `set()` callback receives a transaction object with these methods:
+The `begin()` callback receives a transaction object with these methods:
 
-- `tx.put(value, options?)` – Insert a new document. Returns the generated or provided ID.
-- `tx.patch(key, partial)` – Merge a partial update into an existing document.
-- `tx.merge(document)` – Apply a previously encoded `Document.EncodedDocument` (used by sync and persistence plugins).
+- `tx.add(value, options?)` – Insert a new document. Returns the generated or provided ID.
+- `tx.update(key, partial)` – Merge a partial update into an existing document.
+- `tx.merge(document)` – Apply a previously encoded `EncodedDocument` (used by sync and persistence plugins).
 - `tx.del(key)` – Soft-delete a document by stamping `~deletedAt`.
 - `tx.get(key)` – Get a document by key if it exists (ignores soft-deleted docs).
 - `tx.rollback()` – Abort the transaction and discard all changes.
@@ -196,30 +196,28 @@ The `set()` callback receives a transaction object with these methods:
 Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
 
 ```typescript
-import type { Store } from "@byearlybird/starling";
+import { createStore, type Plugin } from "@byearlybird/starling";
 
 // Create a custom plugin with hooks
-const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => ({
-  init: (store) => {
-    console.log("Logging plugin initialized with store");
-  },
-  dispose: () => {
-    console.log("Logging plugin disposed");
-  },
+const loggingPlugin = <T extends Record<string, unknown>>(): Plugin<T> => ({
   hooks: {
+    onInit: () => {
+      console.log("Logging plugin initialized");
+    },
+    onDispose: () => {
+      console.log("Logging plugin disposed");
+    },
     // Hooks receive batched entries after mutations commit
-    onPut: (entries) => {
+    onAdd: (entries) => {
       for (const [key, value] of entries) {
         console.log(`Put ${key}:`, value);
       }
     },
-
-    onPatch: (entries) => {
+    onUpdate: (entries) => {
       for (const [key, value] of entries) {
-        console.log(`Patched ${key}:`, value); // Full merged value
+        console.log(`Patched ${key}:`, value);
       }
     },
-
     onDelete: (keys) => {
       for (const key of keys) {
         console.log(`Deleted ${key}`);
@@ -229,7 +227,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): Store.Plugin<T> => 
 });
 
 // Use the plugin
-const store = await Store.create<{ name: string }>()
+const store = await createStore<{ name: string }>()
   .use(loggingPlugin())
   .init();
 ```
@@ -243,14 +241,14 @@ Starling ships with optional packages that extend the core store. Each plugin ha
 One of Starling's most powerful features is the ability to register multiple plugins seamlessly. Thanks to CRDT-like merging, conflicts resolve automatically based on eventstamps:
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
 
 // Register multiple storage backends - they work together automatically
-const store = await Store.create<Todo>()
+const store = await createStore<Todo>()
   .use(
     unstoragePlugin(
       "todos",

@@ -1,4 +1,4 @@
-import { type Document, Store } from "@byearlybird/starling";
+import { createStore, type EncodedDocument } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
@@ -10,7 +10,7 @@ const fileStorage = unstoragePlugin(
 	}),
 );
 
-const store = Store.create().use(fileStorage);
+const store = createStore().use(fileStorage);
 
 await store.init();
 
@@ -45,10 +45,10 @@ const server = Bun.serve({
 		// PUT /api/todos - Merge incoming todos
 		if (url.pathname === "/api/todos" && req.method === "PUT") {
 			try {
-				const incomingDocs: Document.EncodedDocument[] = await req.json();
+				const incomingDocs: EncodedDocument[] = await req.json();
 
 				// Merge incoming documents using store transaction
-				store.set((tx) => {
+				store.begin((tx) => {
 					for (const doc of incomingDocs) {
 						tx.merge(doc);
 					}

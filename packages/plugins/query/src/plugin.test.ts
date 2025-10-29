@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Store } from "@byearlybird/starling";
+import { createStore, Store } from "@byearlybird/starling";
 import { queryPlugin } from "./plugin";
 
 type User = {
@@ -7,21 +7,21 @@ type User = {
 	active: boolean;
 };
 
-const createStore = () => Store.create<User>().use(queryPlugin()).init();
+const makeStore = () => createStore<User>().use(queryPlugin()).init();
 
 describe("QueryPlugin", () => {
-	let store: Awaited<ReturnType<typeof createStore>>;
+	let store: Awaited<ReturnType<typeof makeStore>>;
 
 	beforeEach(async () => {
-		store = await createStore();
+		store = await makeStore();
 	});
 
 	it("returns matching items", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
-			tx.put({ name: "Bob", active: false }, { withId: "user2" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		const results = activeUsers.results();
@@ -32,14 +32,14 @@ describe("QueryPlugin", () => {
 	it("updates query results when items are patched", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: false }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: false }, { withId: "user1" });
 		});
 
 		expect(activeUsers.results().size).toBe(0);
 
-		store.set((tx) => {
-			tx.patch("user1", { active: true });
+		store.begin((tx) => {
+			tx.update("user1", { active: true });
 		});
 
 		expect(activeUsers.results().size).toBe(1);
@@ -48,13 +48,13 @@ describe("QueryPlugin", () => {
 	it("removes items when they are deleted", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUsers.results().size).toBe(1);
 
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user1");
 		});
 
@@ -69,8 +69,8 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
@@ -80,9 +80,9 @@ describe("QueryPlugin", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 		const inactiveUsers = store.query({ where: (user) => !user.active });
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
-			tx.put({ name: "Bob", active: false }, { withId: "user2" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		expect(activeUsers.results().size).toBe(1);
@@ -97,16 +97,16 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
 
 		activeUsers.dispose();
 
-		store.set((tx) => {
-			tx.put({ name: "Bob", active: true }, { withId: "user2" });
+		store.begin((tx) => {
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		expect(callCount).toBe(1);
@@ -120,16 +120,16 @@ describe("QueryPlugin", () => {
 			callCount++;
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
 
 		unsubscribe();
 
-		store.set((tx) => {
-			tx.put({ name: "Bob", active: true }, { withId: "user2" });
+		store.begin((tx) => {
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		expect(callCount).toBe(1);
@@ -141,9 +141,9 @@ describe("QueryPlugin", () => {
 			select: (user) => user.name,
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
-			tx.put({ name: "Bob", active: false }, { withId: "user2" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		const results = activeUserNames.results();
@@ -157,14 +157,14 @@ describe("QueryPlugin", () => {
 			select: (user) => user.name,
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUserNames.results().get("user1")).toBe("Alice");
 
-		store.set((tx) => {
-			tx.patch("user1", { name: "Alicia" });
+		store.begin((tx) => {
+			tx.update("user1", { name: "Alicia" });
 		});
 
 		expect(activeUserNames.results().get("user1")).toBe("Alicia");
@@ -176,14 +176,14 @@ describe("QueryPlugin", () => {
 			select: (user) => user.name,
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice", active: true }, { withId: "user1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUserNames.results().size).toBe(1);
 
-		store.set((tx) => {
-			tx.patch("user1", { active: false });
+		store.begin((tx) => {
+			tx.update("user1", { active: false });
 		});
 
 		expect(activeUserNames.results().size).toBe(0);

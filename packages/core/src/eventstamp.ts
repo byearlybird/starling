@@ -1,9 +1,12 @@
-const encode = (timestampMs: number, counter: number): string => {
+export const encodeEventstamp = (
+	timestampMs: number,
+	counter: number,
+): string => {
 	const isoString = new Date(timestampMs).toISOString();
 	return `${isoString}|${counter.toString(16).padStart(8, "0")}`;
 };
 
-const decode = (
+export const decodeEventstamp = (
 	eventstamp: string,
 ): { timestampMs: number; counter: number } => {
 	const pipeIndex = eventstamp.indexOf("|");
@@ -15,5 +18,3 @@ const decode = (
 		counter: parseInt(hexCounter, 16),
 	};
 };
-
-export { encode, decode };

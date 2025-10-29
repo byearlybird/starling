@@ -15,24 +15,24 @@ function App() {
 	const completedTodos = createQuerySignal(completedTodosQuery);
 
 	const addTodo = (text: string) => {
-		todoStore.set((tx) => tx.put({ text, completed: false }));
+		todoStore.add({ text, completed: false });
 	};
 
 	const toggleTodo = (id: string) => {
-		todoStore.set((tx) => {
+		todoStore.begin((tx) => {
 			const todo = tx.get(id);
 			if (todo) {
-				tx.patch(id, { completed: !todo.completed });
+				tx.update(id, { completed: !todo.completed });
 			}
 		});
 	};
 
 	const deleteTodo = (id: string) => {
-		todoStore.set((tx) => tx.del(id));
+		todoStore.del(id);
 	};
 
 	const clearCompleted = () => {
-		todoStore.set((tx) => {
+		todoStore.begin((tx) => {
 			for (const id of completedTodos().keys()) {
 				tx.del(id);
 			}

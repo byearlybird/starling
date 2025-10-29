@@ -1,12 +1,12 @@
-import * as Eventstamp from "./eventstamp";
+import { decodeEventstamp, encodeEventstamp } from "./eventstamp";
 
-type Clock = {
+export type Clock = {
 	now: () => string;
 	latest: () => string;
 	forward: (eventstamp: string) => void;
 };
 
-const create = (): Clock => {
+export const createClock = (): Clock => {
 	let counter = 0;
 	let lastMs = Date.now();
 
@@ -21,21 +21,18 @@ const create = (): Clock => {
 				counter = 0;
 			}
 
-			return Eventstamp.encode(nowMs, counter);
+			return encodeEventstamp(nowMs, counter);
 		},
 		latest() {
-			return Eventstamp.encode(lastMs, counter);
+			return encodeEventstamp(lastMs, counter);
 		},
 		forward(eventstamp: string): void {
 			const latest = this.latest();
 			if (eventstamp > latest) {
-				const newer = Eventstamp.decode(eventstamp);
+				const newer = decodeEventstamp(eventstamp);
 				lastMs = newer.timestampMs;
 				counter = newer.counter;
 			}
 		},
 	};
 };
-
-export type { Clock };
-export { create };

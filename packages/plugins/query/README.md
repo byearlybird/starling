@@ -11,10 +11,10 @@ bun add @byearlybird/starling-plugin-query
 ## Usage
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { queryPlugin } from "@byearlybird/starling-plugin-query";
 
-const store = await Store.create<{ text: string; completed: boolean }>()
+const store = await createStore<{ text: string; completed: boolean }>()
 	.use(queryPlugin())
 	.init();
 
@@ -49,7 +49,7 @@ await store.dispose();
 
 ### `queryPlugin<T>()`
 
-Returns a Starling plugin that adds query functionality to the store. The plugin wires `onPut`, `onPatch`, and `onDelete` hooks to keep queries synchronized.
+Returns a Starling plugin that adds query functionality to the store. The plugin wires `onAdd`, `onUpdate`, and `onDelete` hooks to keep queries synchronized.
 
 **Added Methods:**
 

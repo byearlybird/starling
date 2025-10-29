@@ -53,24 +53,24 @@ Stores are extensible via plugins that provide lifecycle hooks and optional meth
 
 ```typescript
 type Plugin<T, M extends PluginMethods = {}> = {
-  init: (store: Store<T>) => Promise<void> | void;
-  dispose: () => Promise<void> | void;
-  hooks?: StoreHooks<T>;
+  hooks: {
+    onInit: (store: Store<T>) => Promise<void> | void;
+    onDispose: () => Promise<void> | void;
+    onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+    onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+    onDelete?: (keys: ReadonlyArray<string>) => void;
+  };
   methods?: M;
 };
 
 // Usage
-const store = Store.create<T>()
+const store = await createStore<T>()
   .use(plugin1)
-  .use(plugin2);
-
-await store.init();
+  .use(plugin2)
+  .init();
 ```
 
-**Key changes from the old plugin system:**
-- Plugins now return objects directly instead of factory functions
-- `init` receives the store as a parameter
-- Optional `methods` object gets injected directly into the store (e.g., `queryPlugin` adds a `query()` method)
+Plugins can opt into whichever hooks they need and may expose additional store methods by returning them via the optional `methods` object (for example, `queryPlugin` adds a `query()` helper).
 
 ## Modules at a Glance
 
@@ -86,8 +86,8 @@ await store.init();
 
 Starling is organized as a monorepo with three packages:
 
-- **`@byearlybird/starling`** – Core library (stores, CRDT operations, transactions)
-  - Exports: `Store`, `Document`, `Eventstamp`, `Clock`, `KV`, `Record`, `Value`
+- **`@byearlybird/starling`** – Core library (store lifecycle, transactions, plugin orchestration)
+  - Exports: `createStore`, `Store`, `Plugin`, `PluginHooks`, `PluginMethods`, `EncodedDocument`
   - Zero dependencies
 
 - **`@byearlybird/starling-plugin-query`** – Query plugin for reactive filtered views

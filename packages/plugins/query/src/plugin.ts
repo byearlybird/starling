@@ -1,4 +1,4 @@
-import type { Store } from "@byearlybird/starling";
+import type { Plugin, PluginHooks, Store } from "@byearlybird/starling";
 
 type QueryConfig<T, U = T> = {
 	where: (data: T) => boolean;
@@ -22,9 +22,9 @@ type QueryMethods<T> = {
 	query: <U = T>(config: QueryConfig<T, U>) => Query<U>;
 };
 
-const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
+const queryPlugin = <T>(): Plugin<T, QueryMethods<T>> => {
 	const queries = new Set<QueryInternal<T, any>>();
-	let store: Store.StarlingStore<T> | null = null;
+	let store: Store<T> | null = null;
 
 	const hydrateQuery = (query: QueryInternal<T, any>) => {
 		if (!store) return;
@@ -46,7 +46,7 @@ const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
 		dirtyQueries.clear();
 	};
 
-	const onPut: Store.StoreOnPut<T> = (
+	const onAdd: PluginHooks<T>["onAdd"] = (
 		entries: ReadonlyArray<readonly [string, T]>,
 	) => {
 		const dirtyQueries = new Set<QueryInternal<T, any>>();
@@ -64,7 +64,7 @@ const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
 		runCallbacks(dirtyQueries);
 	};
 
-	const onPatch: Store.StoreOnPatch<T> = (
+	const onUpdate: PluginHooks<T>["onUpdate"] = (
 		entries: ReadonlyArray<readonly [string, T]>,
 	) => {
 		const dirtyQueries = new Set<QueryInternal<T, any>>();
@@ -95,7 +95,9 @@ const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
 		runCallbacks(dirtyQueries);
 	};
 
-	const onDelete: Store.StoreOnDelete = (keys: ReadonlyArray<string>) => {
+	const onDelete: PluginHooks<T>["onDelete"] = (
+		keys: ReadonlyArray<string>,
+	) => {
 		const dirtyQueries = new Set<QueryInternal<T, any>>();
 
 		for (const key of keys) {
@@ -111,20 +113,20 @@ const queryPlugin = <T>(): Store.Plugin<T, QueryMethods<T>> => {
 	};
 
 	return {
-		init: (s) => {
-			store = s;
-			// Populate queries with existing store entries on initialization
-			for (const q of queries) {
-				hydrateQuery(q);
-			}
-		},
-		dispose: () => {
-			queries.clear();
-			store = null;
-		},
 		hooks: {
-			onPut,
-			onPatch,
+			onInit: (s) => {
+				store = s;
+				// Populate queries with existing store entries on initialization
+				for (const q of queries) {
+					hydrateQuery(q);
+				}
+			},
+			onDispose: () => {
+				queries.clear();
+				store = null;
+			},
+			onAdd,
+			onUpdate,
 			onDelete,
 		},
 		methods: {

@@ -1,26 +1,39 @@
-import * as Record from "./record";
-import * as Value from "./value";
+import {
+	decodeRecord,
+	type EncodedRecord,
+	encodeRecord,
+	mergeRecords,
+	processRecord,
+} from "./record";
+import { isObject } from "./utils";
+import {
+	decodeValue,
+	type EncodedValue,
+	encodeValue,
+	isEncodedValue,
+	mergeValues,
+} from "./value";
 
-type EncodedDocument = {
+export type EncodedDocument = {
 	"~id": string;
-	"~data": Value.EncodedValue<unknown> | Record.EncodedRecord;
+	"~data": EncodedValue<unknown> | EncodedRecord;
 	"~deletedAt": string | null;
 };
 
-const encode = <T>(
+export const encodeDoc = <T>(
 	id: string,
 	obj: T,
 	eventstamp: string,
 	deletedAt: string | null = null,
 ): EncodedDocument => ({
 	"~id": id,
-	"~data": Record.isObject(obj)
-		? Record.encode(obj as Record<string, unknown>, eventstamp)
-		: Value.encode(obj, eventstamp),
+	"~data": isObject(obj)
+		? encodeRecord(obj as Record<string, unknown>, eventstamp)
+		: encodeValue(obj, eventstamp),
 	"~deletedAt": deletedAt,
 });
 
-const decode = <T>(
+export const decodeDoc = <T>(
 	doc: EncodedDocument,
 ): {
 	"~id": string;
@@ -28,18 +41,18 @@ const decode = <T>(
 	"~deletedAt": string | null;
 } => ({
 	"~id": doc["~id"],
-	"~data": (Value.isEncoded(doc["~data"])
-		? Value.decode(doc["~data"] as Value.EncodedValue<T>)
-		: Record.decode(doc["~data"] as Record.EncodedRecord)) as T,
+	"~data": (isEncodedValue(doc["~data"])
+		? decodeValue(doc["~data"] as EncodedValue<T>)
+		: decodeRecord(doc["~data"] as EncodedRecord)) as T,
 	"~deletedAt": doc["~deletedAt"],
 });
 
-const merge = (
+export const mergeDocs = (
 	into: EncodedDocument,
 	from: EncodedDocument,
 ): EncodedDocument => {
-	const intoIsValue = Value.isEncoded(into["~data"]);
-	const fromIsValue = Value.isEncoded(from["~data"]);
+	const intoIsValue = isEncodedValue(into["~data"]);
+	const fromIsValue = isEncodedValue(from["~data"]);
 
 	// Type mismatch: cannot merge primitive with object
 	if (intoIsValue !== fromIsValue) {
@@ -48,13 +61,13 @@ const merge = (
 
 	const mergedData =
 		intoIsValue && fromIsValue
-			? Value.merge(
-					into["~data"] as Value.EncodedValue<unknown>,
-					from["~data"] as Value.EncodedValue<unknown>,
+			? mergeValues(
+					into["~data"] as EncodedValue<unknown>,
+					from["~data"] as EncodedValue<unknown>,
 				)
-			: Record.merge(
-					into["~data"] as Record.EncodedRecord,
-					from["~data"] as Record.EncodedRecord,
+			: mergeRecords(
+					into["~data"] as EncodedRecord,
+					from["~data"] as EncodedRecord,
 				);
 
 	const mergedDeletedAt =
@@ -71,11 +84,26 @@ const merge = (
 	};
 };
 
-const del = (doc: EncodedDocument, eventstamp: string): EncodedDocument => ({
+export const deleteDoc = (
+	doc: EncodedDocument,
+	eventstamp: string,
+): EncodedDocument => ({
 	"~id": doc["~id"],
 	"~data": doc["~data"],
 	"~deletedAt": eventstamp,
 });
 
-export type { EncodedDocument };
-export { encode, decode, merge, del };
+export const processDocument = (
+	doc: EncodedDocument,
+	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
+): EncodedDocument => {
+	const processedData = isEncodedValue(doc["~data"])
+		? process(doc["~data"] as EncodedValue<unknown>)
+		: processRecord(doc["~data"] as EncodedRecord, process);
+
+	return {
+		"~id": doc["~id"],
+		"~data": processedData,
+		"~deletedAt": doc["~deletedAt"],
+	};
+};

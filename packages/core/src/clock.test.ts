@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import * as Clock from "./clock";
-import * as Eventstamp from "./eventstamp";
+import { createClock } from "./clock";
+import { decodeEventstamp, encodeEventstamp } from "./eventstamp";
 
 test("now() returns ISO string with counter suffix", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 	const eventstamp = clock.now();
 
 	// Format: ISO|hexCounter
@@ -13,7 +13,7 @@ test("now() returns ISO string with counter suffix", () => {
 });
 
 test("now() returns monotonically increasing eventstamps", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	const stamp1 = clock.now();
 	const stamp2 = clock.now();
@@ -24,7 +24,7 @@ test("now() returns monotonically increasing eventstamps", () => {
 });
 
 test("counter increments when called multiple times in same millisecond", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	const stamps = [];
 	for (let i = 0; i < 5; i++) {
@@ -59,13 +59,13 @@ test("counter increments when called multiple times in same millisecond", () => 
 });
 
 test("counter increments when real time hasn't caught up to forwarded time", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	// Get initial eventstamp
 	clock.now();
 
 	// Move clock forward to a future eventstamp
-	const futureEventstamp = Eventstamp.encode(Date.now() + 1000, 0);
+	const futureEventstamp = encodeEventstamp(Date.now() + 1000, 0);
 	clock.forward(futureEventstamp);
 
 	// Real time hasn't advanced that much yet, so counter increments
@@ -79,7 +79,7 @@ test("counter increments when real time hasn't caught up to forwarded time", () 
 });
 
 test("latest() returns last recorded eventstamp", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	const stamp = clock.now();
 	const latest = clock.latest();
@@ -91,11 +91,11 @@ test("latest() returns last recorded eventstamp", () => {
 });
 
 test("forward() updates lastMs when eventstamp is greater", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	const initialStamp = clock.latest();
-	const { timestampMs } = Eventstamp.decode(initialStamp);
-	const newEventstamp = Eventstamp.encode(timestampMs + 1000, 0);
+	const { timestampMs } = decodeEventstamp(initialStamp);
+	const newEventstamp = encodeEventstamp(timestampMs + 1000, 0);
 
 	clock.forward(newEventstamp);
 
@@ -103,13 +103,13 @@ test("forward() updates lastMs when eventstamp is greater", () => {
 });
 
 test("forward() does not update lastMs when eventstamp is not greater", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	clock.now();
 	const currentStamp = clock.latest();
 
-	const { timestampMs } = Eventstamp.decode(currentStamp);
-	const olderEventstamp = Eventstamp.encode(timestampMs - 100, 0);
+	const { timestampMs } = decodeEventstamp(currentStamp);
+	const olderEventstamp = encodeEventstamp(timestampMs - 100, 0);
 
 	clock.forward(olderEventstamp);
 
@@ -117,15 +117,15 @@ test("forward() does not update lastMs when eventstamp is not greater", () => {
 });
 
 test("forward() updates lastMs to allow counter reset when real time catches up", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	// Generate an eventstamp first
 	clock.now();
 
 	// Move clock forward to a much later time
 	const currentStamp = clock.latest();
-	const { timestampMs } = Eventstamp.decode(currentStamp);
-	const futureEventstamp = Eventstamp.encode(timestampMs + 1000, 0);
+	const { timestampMs } = decodeEventstamp(currentStamp);
+	const futureEventstamp = encodeEventstamp(timestampMs + 1000, 0);
 	clock.forward(futureEventstamp);
 
 	// Verify eventstamp was updated
@@ -138,7 +138,7 @@ test("forward() updates lastMs to allow counter reset when real time catches up"
 });
 
 test("eventstamp format is consistent with padding", () => {
-	const clock = Clock.create();
+	const clock = createClock();
 
 	// Generate many eventstamps to potentially exceed single hex digit
 	for (let i = 0; i < 20; i++) {

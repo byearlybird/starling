@@ -1,7 +1,7 @@
 import type { EncodedDocument } from "./document";
-import * as Document from "./document";
+import { deleteDoc, mergeDocs } from "./document";
 
-const create = (
+export const createKV = (
 	iterable?: Iterable<readonly [string, EncodedDocument]> | null,
 ) => {
 	let readMap = new Map<string, EncodedDocument>(iterable); // published state
@@ -9,9 +9,6 @@ const create = (
 	const kv = {
 		get(key: string) {
 			return readMap.get(key) ?? null;
-		},
-		has(key: string) {
-			return readMap.has(key);
 		},
 		values() {
 			return readMap.values();
@@ -22,45 +19,46 @@ const create = (
 		get size() {
 			return readMap.size;
 		},
-
-		// Begin an atomic batch
-		begin() {
+		// Begin an atomic batch with callback
+		begin(callback: (tx: {
+			get: (key: string) => EncodedDocument | null;
+			set: (key: string, value: EncodedDocument, opts?: { replace: boolean }) => void;
+			del: (key: string, eventstamp: string) => void;
+			rollback: () => void;
+		}) => void) {
 			const staging = new Map(readMap);
-			let committed = false;
+			let rolledBack = false;
 
 			const tx = {
 				get(key: string) {
 					return staging.get(key) ?? null;
 				},
-				put(key: string, value: EncodedDocument) {
-					staging.set(key, value);
-				},
-				patch(key: string, value: EncodedDocument) {
-					const prev = staging.get(key);
-					staging.set(key, prev ? Document.merge(prev, value) : value);
+				set(key: string, value: EncodedDocument, opts?: { replace: boolean }) {
+					if (opts?.replace) {
+						staging.set(key, value);
+					} else {
+						const prev = staging.get(key);
+						staging.set(key, prev ? mergeDocs(prev, value) : value);
+					}
 				},
 				del(key: string, eventstamp: string) {
 					const prev = staging.get(key);
-					if (prev) staging.set(key, Document.del(prev, eventstamp));
-				},
-				has(key: string) {
-					const doc = staging.get(key);
-					return doc !== undefined;
-				},
-				// Atomically publish everything
-				commit() {
-					if (committed) return;
-					committed = true;
-					readMap = staging; // single atomic swap
+					if (prev) staging.set(key, deleteDoc(prev, eventstamp));
 				},
 				rollback() {
-					committed = true; /* drop staging */
+					rolledBack = true; /* drop staging */
 				},
 			};
-			return tx;
+
+			callback(tx);
+
+			// Auto-commit unless rollback was explicitly called
+			if (!rolledBack) {
+				readMap = staging; // single atomic swap
+			}
+			// If callback throws, staging is implicitly discarded (auto-rollback)
 		},
 	};
 
 	return kv;
 };
-export { create };

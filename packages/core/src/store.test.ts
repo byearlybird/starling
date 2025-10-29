@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import * as Store from "./store";
+import { createStore, type Store } from "./store";
 
 type TestUser = {
 	name: string;
@@ -11,11 +11,46 @@ type TestUser = {
 	};
 };
 
+describe("Store - Convenience Methods", () => {
+	test("add should persist values and return provided id", () => {
+		const store = createStore<TestUser>();
+
+		const id = store.add({ name: "Alice" }, { withId: "user-add-1" });
+
+		expect(id).toBe("user-add-1");
+		expect(store.get("user-add-1")).toEqual({ name: "Alice" });
+	});
+
+	test("update should apply partial changes via convenience method", () => {
+		const store = createStore<TestUser>();
+
+		const id = store.add(
+			{ name: "Bob", email: "bob@example.com" },
+			{ withId: "user-update-1" },
+		);
+		store.update(id, { email: "newbob@example.com" });
+
+		expect(store.get("user-update-1")).toEqual({
+			name: "Bob",
+			email: "newbob@example.com",
+		});
+	});
+
+	test("del should remove records when using convenience method", () => {
+		const store = createStore<TestUser>();
+
+		const id = store.add({ name: "Charlie" }, { withId: "user-del-1" });
+		store.del(id);
+
+		expect(store.get("user-del-1")).toBeNull();
+	});
+});
+
 describe("Store - Put Operations", () => {
 	test("should insert item with auto-generated ID", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		const insertedId = store.set((tx) => tx.put({ name: "Alice" }));
+		const insertedId = store.begin((tx) => tx.add({ name: "Alice" }));
 
 		expect(insertedId).toBeDefined();
 		expect(typeof insertedId).toBe("string");
@@ -23,21 +58,21 @@ describe("Store - Put Operations", () => {
 	});
 
 	test("should insert item with custom ID using withId option", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Bob" }, { withId: "user-1" });
+		store.begin((tx) => {
+			tx.add({ name: "Bob" }, { withId: "user-1" });
 		});
 
 		expect(store.get("user-1")).toEqual({ name: "Bob" });
 	});
 
 	test("should return the ID after putting an item", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		const [autoId, customId] = store.set((tx) => [
-			tx.put({ name: "Charlie" }),
-			tx.put({ name: "Bob" }, { withId: "user-2" }),
+		const [autoId, customId] = store.begin((tx) => [
+			tx.add({ name: "Charlie" }),
+			tx.add({ name: "Bob" }, { withId: "user-2" }),
 		]);
 
 		expect(autoId).toBeDefined();
@@ -45,17 +80,17 @@ describe("Store - Put Operations", () => {
 	});
 
 	test("should overwrite item when putting with same ID", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put(
+		store.begin((tx) => {
+			tx.add(
 				{ name: "Original", email: "old@example.com" },
 				{ withId: "user-1" },
 			);
 		});
 
-		store.set((tx) => {
-			tx.put(
+		store.begin((tx) => {
+			tx.add(
 				{ name: "Updated", email: "new@example.com" },
 				{ withId: "user-1" },
 			);
@@ -67,16 +102,16 @@ describe("Store - Put Operations", () => {
 });
 
 describe("Store - Get/Has Operations", () => {
-	let store: Store.StarlingStore<TestUser>;
+	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = Store.create<TestUser>();
-		store.set((tx) => {
-			tx.put(
+		store = createStore<TestUser>();
+		store.begin((tx) => {
+			tx.add(
 				{ name: "Alice", email: "alice@example.com" },
 				{ withId: "user-1" },
 			);
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 		});
 	});
 
@@ -93,7 +128,7 @@ describe("Store - Get/Has Operations", () => {
 	});
 
 	test("should return null/false for deleted items", () => {
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user-1");
 		});
 
@@ -102,12 +137,12 @@ describe("Store - Get/Has Operations", () => {
 });
 
 describe("Store - Patch Operations", () => {
-	let store: Store.StarlingStore<TestUser>;
+	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = Store.create<TestUser>();
-		store.set((tx) => {
-			tx.put(
+		store = createStore<TestUser>();
+		store.begin((tx) => {
+			tx.add(
 				{
 					name: "Alice",
 					email: "alice@example.com",
@@ -120,8 +155,8 @@ describe("Store - Patch Operations", () => {
 	});
 
 	test("should update item with partial data", () => {
-		store.set((tx) => {
-			tx.put(
+		store.begin((tx) => {
+			tx.add(
 				{
 					name: "Alice",
 					email: "alice@example.com",
@@ -131,8 +166,8 @@ describe("Store - Patch Operations", () => {
 			);
 		});
 
-		store.set((tx) => {
-			tx.patch("user-1", { age: 31 });
+		store.begin((tx) => {
+			tx.update("user-1", { age: 31 });
 		});
 
 		const user = store.get("user-1");
@@ -141,8 +176,8 @@ describe("Store - Patch Operations", () => {
 	});
 
 	test("should merge nested objects correctly", () => {
-		store.set((tx) => {
-			tx.patch("user-1", { profile: { bio: "Senior developer" } });
+		store.begin((tx) => {
+			tx.update("user-1", { profile: { bio: "Senior developer" } });
 		});
 
 		const user = store.get("user-1");
@@ -151,8 +186,8 @@ describe("Store - Patch Operations", () => {
 	});
 
 	test("should preserve unchanged fields when patching", () => {
-		store.set((tx) => {
-			tx.patch("user-1", { email: "newemail@example.com" });
+		store.begin((tx) => {
+			tx.update("user-1", { email: "newemail@example.com" });
 		});
 
 		const user = store.get("user-1");
@@ -166,18 +201,18 @@ describe("Store - Patch Operations", () => {
 });
 
 describe("Store - Delete Operations", () => {
-	let store: Store.StarlingStore<TestUser>;
+	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = Store.create<TestUser>();
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+		store = createStore<TestUser>();
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 		});
 	});
 
 	test("should soft-delete an item", () => {
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user-1");
 		});
 
@@ -185,7 +220,7 @@ describe("Store - Delete Operations", () => {
 	});
 
 	test("should not return deleted items via get()", () => {
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user-1");
 		});
 
@@ -194,14 +229,14 @@ describe("Store - Delete Operations", () => {
 });
 
 describe("Store - Iteration & State", () => {
-	let store: Store.StarlingStore<TestUser>;
+	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = Store.create<TestUser>();
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
-			tx.put({ name: "Charlie" }, { withId: "user-3" });
+		store = createStore<TestUser>();
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
+			tx.add({ name: "Charlie" }, { withId: "user-3" });
 		});
 	});
 
@@ -216,7 +251,7 @@ describe("Store - Iteration & State", () => {
 	});
 
 	test("should include deleted items in snapshot()", () => {
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user-1");
 		});
 
@@ -231,22 +266,22 @@ describe("Store - Iteration & State", () => {
 
 describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	test("should auto-commit transaction when callback completes", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
 		});
 
 		expect(store.get("user-1")).toEqual({ name: "Alice" });
 	});
 
 	test("should apply multiple operations atomically", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
-			tx.patch("user-1", { email: "alice@example.com" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
+			tx.update("user-1", { email: "alice@example.com" });
 		});
 
 		expect(store.get("user-1")).toEqual({
@@ -257,14 +292,14 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should rollback all changes when tx.rollback() is called", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+		store.begin((tx) => {
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 			tx.del("user-1");
 			tx.rollback();
 		});
@@ -274,15 +309,15 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should rollback on error and re-throw", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
 		});
 
 		expect(() => {
-			store.set((tx) => {
-				tx.put({ name: "Bob" }, { withId: "user-2" });
+			store.begin((tx) => {
+				tx.add({ name: "Bob" }, { withId: "user-2" });
 				tx.del("user-1");
 				throw new Error("Transaction failed");
 			});
@@ -293,10 +328,10 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should not commit after rollback", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		const result = store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
+		const result = store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
 			tx.rollback();
 			return "completed";
 		});
@@ -308,21 +343,21 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 
 describe("Store - Transaction Behavior - Transaction Isolation", () => {
 	test("should stage changes visible within transaction", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
 			expect(tx.get("user-1")).not.toBe(null);
 		});
 	});
 
 	test("should not apply changes until commit", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 		let hasUserDuringTx = false;
 
 		try {
-			store.set((tx) => {
-				tx.put({ name: "Alice" }, { withId: "user-1" });
+			store.begin((tx) => {
+				tx.add({ name: "Alice" }, { withId: "user-1" });
 				hasUserDuringTx = store.get("user-1") !== null; // Check from outside tx
 				throw new Error("Cancel transaction");
 			});
@@ -336,25 +371,27 @@ describe("Store - Transaction Behavior - Transaction Isolation", () => {
 });
 
 describe("Store - Plugin System - Hook Registration", () => {
-	test("should call onPut hooks with batched entries", () => {
-		const store = Store.create<TestUser>();
-		const onPutMock = mock(
+	test("should call onAdd hooks with batched entries", () => {
+		const store = createStore<TestUser>();
+		const onAddMock = mock(
 			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			init: () => {},
-			dispose: () => {},
-			hooks: { onPut: onPutMock },
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onAdd: onAddMock,
+			},
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 		});
 
-		expect(onPutMock).toHaveBeenCalledTimes(1);
-		const calls = onPutMock.mock.calls[0];
+		expect(onAddMock).toHaveBeenCalledTimes(1);
+		const calls = onAddMock.mock.calls[0];
 		const entries = calls?.[0];
 		expect(entries?.length).toBe(2);
 
@@ -363,31 +400,33 @@ describe("Store - Plugin System - Hook Registration", () => {
 		expect(entriesMap.get("user-2")).toEqual({ name: "Bob" });
 	});
 
-	test("should call onPatch hooks with merged values", () => {
-		const store = Store.create<TestUser>();
-		const onPatchMock = mock(
+	test("should call onUpdate hooks with merged values", () => {
+		const store = createStore<TestUser>();
+		const onUpdateMock = mock(
 			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			init: () => {},
-			dispose: () => {},
-			hooks: { onPatch: onPatchMock },
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onUpdate: onUpdateMock,
+			},
 		});
 
-		store.set((tx) => {
-			tx.put(
+		store.begin((tx) => {
+			tx.add(
 				{ name: "Alice", email: "alice@example.com" },
 				{ withId: "user-1" },
 			);
 		});
 
-		store.set((tx) => {
-			tx.patch("user-1", { age: 30 });
+		store.begin((tx) => {
+			tx.update("user-1", { age: 30 });
 		});
 
-		expect(onPatchMock).toHaveBeenCalledTimes(1);
-		const entries = onPatchMock.mock.calls[0]?.[0];
+		expect(onUpdateMock).toHaveBeenCalledTimes(1);
+		const entries = onUpdateMock.mock.calls[0]?.[0];
 		expect(entries?.length).toBe(1);
 		expect(entries?.[0]?.[0]).toBe("user-1");
 		expect(entries?.[0]?.[1]).toEqual({
@@ -398,21 +437,23 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should call onDelete hooks with deleted keys", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 		const onDeleteMock = mock((keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			init: () => {},
-			dispose: () => {},
-			hooks: { onDelete: onDeleteMock },
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onDelete: onDeleteMock,
+			},
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 		});
 
-		store.set((tx) => {
+		store.begin((tx) => {
 			tx.del("user-1");
 			tx.del("user-2");
 		});
@@ -425,69 +466,71 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should batch multiple operations in single hook call", () => {
-		const store = Store.create<TestUser>();
-		const onPutMock = mock(
+		const store = createStore<TestUser>();
+		const onAddMock = mock(
 			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
-		const onPatchMock = mock(
+		const onUpdateMock = mock(
 			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 		const onDeleteMock = mock((keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			init: () => {},
-			dispose: () => {},
+			onInit: () => {},
+			onDispose: () => {},
 			hooks: {
-				onPut: onPutMock,
-				onPatch: onPatchMock,
+				onAdd: onAddMock,
+				onUpdate: onUpdateMock,
 				onDelete: onDeleteMock,
 			},
 		});
 
-		store.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
-			tx.put({ name: "Charlie" }, { withId: "user-3" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
+			tx.add({ name: "Charlie" }, { withId: "user-3" });
 		});
 
-		expect(onPutMock).toHaveBeenCalledTimes(1);
-		expect(onPutMock.mock.calls[0]?.[0].length).toBe(3);
+		expect(onAddMock).toHaveBeenCalledTimes(1);
+		expect(onAddMock.mock.calls[0]?.[0].length).toBe(3);
 	});
 
 	test("should not fire hooks when silent: true", () => {
-		const store = Store.create<TestUser>();
-		const onPutMock = mock(
+		const store = createStore<TestUser>();
+		const onAddMock = mock(
 			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			init: () => {},
-			dispose: () => {},
-			hooks: { onPut: onPutMock },
+			onInit: () => {},
+			onDispose: () => {},
+			hooks: { onAdd: onAddMock },
 		});
 
-		store.set(
+		store.begin(
 			(tx) => {
-				tx.put({ name: "Alice" }, { withId: "user-1" });
+				tx.add({ name: "Alice" }, { withId: "user-1" });
 			},
 			{ silent: true },
 		);
 
-		expect(onPutMock).not.toHaveBeenCalled();
+		expect(onAddMock).not.toHaveBeenCalled();
 	});
 });
 
 describe("Store - Plugin System - Plugin Methods", () => {
 	test("should inject plugin methods into store", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
 		type CustomMethods = {
 			customMethod: () => string;
 		};
 
 		const extendedStore = store.use<CustomMethods>({
-			init: () => {},
-			dispose: () => {},
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+			},
 			methods: {
 				customMethod: () => "custom result",
 			},
@@ -497,25 +540,27 @@ describe("Store - Plugin System - Plugin Methods", () => {
 	});
 
 	test("should make plugin methods accessible via store", () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 
 		type CountMethods = {
 			getActiveCount: () => number;
 		};
 
 		const extendedStore = store.use<CountMethods>({
-			init: () => {},
-			dispose: () => {},
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+			},
 			methods: {
-				getActiveCount: function (this: Store.StarlingStore<TestUser>) {
+				getActiveCount: function (this: Store<TestUser>) {
 					return Array.from(this.entries()).length;
 				},
 			},
 		});
 
-		extendedStore.set((tx) => {
-			tx.put({ name: "Alice" }, { withId: "user-1" });
-			tx.put({ name: "Bob" }, { withId: "user-2" });
+		extendedStore.begin((tx) => {
+			tx.add({ name: "Alice" }, { withId: "user-1" });
+			tx.add({ name: "Bob" }, { withId: "user-2" });
 		});
 
 		expect(extendedStore.getActiveCount()).toBe(2);
@@ -524,12 +569,14 @@ describe("Store - Plugin System - Plugin Methods", () => {
 
 describe("Store - Plugin System - Lifecycle", () => {
 	test("should call plugin init() during store.init()", async () => {
-		const store = Store.create<TestUser>();
-		const initMock = mock((s: Store.StarlingStore<TestUser>) => {});
+		const store = createStore<TestUser>();
+		const initMock = mock((s: Store<TestUser>) => {});
 
 		store.use({
-			init: initMock,
-			dispose: () => {},
+			hooks: {
+				onInit: initMock,
+				onDispose: () => {},
+			},
 		});
 
 		await store.init();
@@ -539,28 +586,34 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call multiple plugin inits in registration order", async () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 		const callOrder: number[] = [];
 
 		store.use({
-			init: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {
+					callOrder.push(1);
+				},
+				onDispose: () => {},
 			},
-			dispose: () => {},
 		});
 
 		store.use({
-			init: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {
+					callOrder.push(2);
+				},
+				onDispose: () => {},
 			},
-			dispose: () => {},
 		});
 
 		store.use({
-			init: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {
+					callOrder.push(3);
+				},
+				onDispose: () => {},
 			},
-			dispose: () => {},
 		});
 
 		await store.init();
@@ -569,12 +622,14 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call plugin dispose() during store.dispose()", async () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 		const disposeMock = mock(() => {});
 
 		store.use({
-			init: () => {},
-			dispose: disposeMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: disposeMock,
+			},
 		});
 
 		await store.init();
@@ -584,27 +639,33 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call multiple plugin disposes in reverse order", async () => {
-		const store = Store.create<TestUser>();
+		const store = createStore<TestUser>();
 		const callOrder: number[] = [];
 
 		store.use({
-			init: () => {},
-			dispose: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(1);
+				},
 			},
 		});
 
 		store.use({
-			init: () => {},
-			dispose: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(2);
+				},
 			},
 		});
 
 		store.use({
-			init: () => {},
-			dispose: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(3);
+				},
 			},
 		});
 

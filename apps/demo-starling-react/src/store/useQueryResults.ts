@@ -1,7 +1,7 @@
 import type { Query } from "@byearlybird/starling-plugin-query";
 import { useEffect, useState } from "react";
 
-export function useQueryResults<T extends Record<string, unknown>>(
+export function useQueryResults<T>(
 	query: Query<T>,
 ): Map<string, T> {
 	const [snapshot, setSnapshot] = useState(() => query.results());

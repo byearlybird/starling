@@ -9,9 +9,9 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@byearlybird/starling": "^0.5.0",
-		"@byearlybird/starling-plugin-query": "^0.5.0",
-		"@byearlybird/starling-plugin-unstorage": "^0.5.0",
+		"@byearlybird/starling": "v0.6.1",
+		"@byearlybird/starling-plugin-query": "^0.6.0",
+		"@byearlybird/starling-plugin-unstorage": "^0.6.0",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
 		"unstorage": "^1.17.1"

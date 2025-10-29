@@ -11,7 +11,7 @@ bun add @byearlybird/starling-plugin-unstorage unstorage
 ## Usage
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -20,20 +20,20 @@ const storage = createStorage({
 	driver: localStorageDriver({ base: "app:" }),
 });
 
-const store = await Store.create<{ text: string }>()
+const store = await createStore<{ text: string }>()
 	.use(unstoragePlugin("todos", storage, { debounceMs: 300 }))
 	.init();
 
 // Automatic persistence on every mutation
-store.set(tx => {
-  tx.put({ text: "Buy milk" }, { withId: "todo1" }); // automatically schedules a snapshot write
+store.begin((tx) => {
+  tx.add({ text: "Buy milk" }, { withId: "todo1" }); // automatically schedules a snapshot write
 });
 
-store.set(tx => {
-  tx.patch("todo1", { text: "Buy almond milk" }); // automatically persists
+store.begin((tx) => {
+  tx.update("todo1", { text: "Buy almond milk" }); // automatically persists
 });
 
-store.set(tx => {
+store.begin((tx) => {
   tx.del("todo1"); // automatically persists
 });
 ```
@@ -47,7 +47,7 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 **Parameters:**
 
 - `namespace` – Unique key for the dataset inside your storage backend.
-- `storage` – Any `Storage<Document.EncodedDocument[]>` instance returned by `createStorage()`.
+- `storage` – Any `Storage<EncodedDocument[]>` instance returned by `createStorage()`.
 - `config.debounceMs` – Optional delay (in ms) used to collapse rapid mutations into a single persistence call. Defaults to `0` (write immediately).
 - `config.pollIntervalMs` – Optional interval (in ms) to poll storage for external changes. When set, the plugin will periodically check storage and merge any external updates. Useful for multi-process or shared storage scenarios.
 - `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives a readonly array of encoded documents and must return (or resolve to) the array that should be written.
@@ -56,7 +56,7 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 ## Behavior
 
 - During `init`, the plugin loads `storage.get(namespace)` and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
-- `onPut`, `onPatch`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
+- `onAdd`, `onUpdate`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
 - `onBeforeSet` fires right before a snapshot write, enabling custom serialization or filtering.
 - When `pollIntervalMs` is set, the plugin will periodically poll storage and merge any external changes.
 - `dispose()` clears any pending debounce timer and polling interval. Call it when the surrounding store shuts down to avoid writes after teardown.
@@ -74,15 +74,14 @@ const httpStorage = createStorage({
   driver: httpDriver({ base: "https://api.example.com" }),
 });
 
-const store = Store.create<Todo>()
+const store = await createStore<Todo>()
   .use(unstoragePlugin('todos', localStorage))
-  .use(unstoragePlugin('todos', httpStorage, { pollIntervalMs: 5000 }));
-
-await store.init(); // Hydrates from both storages, CRDT merge handles conflicts
+  .use(unstoragePlugin('todos', httpStorage, { pollIntervalMs: 5000 }))
+  .init();
 
 // Every mutation automatically persists to BOTH storages
-store.set(tx => {
-  tx.put({ text: 'Learn Starling' }, { withId: 'todo-1' }); // → localStorage + httpStorage
+store.begin((tx) => {
+  tx.add({ text: 'Learn Starling' }, { withId: 'todo-1' }); // → localStorage + httpStorage
 });
 ```
 
