@@ -3,6 +3,7 @@ import type { Plugin, PluginHooks, Store } from "@byearlybird/starling";
 type QueryConfig<T, U = T> = {
 	where: (data: T) => boolean;
 	select?: (data: T) => U;
+	order?: (a: U, b: U) => number;
 };
 
 type Query<U> = {
@@ -14,6 +15,7 @@ type Query<U> = {
 type QueryInternal<T, U> = {
 	where: (data: T) => boolean;
 	select?: (data: T) => U;
+	order?: (a: U, b: U) => number;
 	results: Map<string, U>;
 	callbacks: Set<() => void>;
 };
@@ -134,6 +136,7 @@ const queryPlugin = <T>(): Plugin<T, QueryMethods<T>> => {
 				const query: QueryInternal<T, U> = {
 					where: config.where,
 					...(config.select && { select: config.select }),
+					...(config.order && { order: config.order }),
 					results: new Map(),
 					callbacks: new Set(),
 				};
@@ -142,7 +145,17 @@ const queryPlugin = <T>(): Plugin<T, QueryMethods<T>> => {
 				hydrateQuery(query);
 
 				return {
-					results: () => new Map(query.results),
+					results: () => {
+						if (query.order) {
+							const orderFn = query.order;
+							const sorted = Array.from(query.results).sort(([, a], [, b]) =>
+								orderFn(a, b),
+							);
+							return new Map(sorted);
+						} else {
+							return new Map(query.results);
+						}
+					},
 					onChange: (callback: () => void) => {
 						query.callbacks.add(callback);
 						return () => {
