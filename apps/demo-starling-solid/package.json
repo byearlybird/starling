@@ -9,9 +9,9 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@byearlybird/starling": "^0.6.1",
-		"@byearlybird/starling-plugin-query": "^0.6.0",
-		"@byearlybird/starling-plugin-unstorage": "^0.6.0",
+		"@byearlybird/starling": "^0.7.0",
+		"@byearlybird/starling-plugin-query": "^0.7.0",
+		"@byearlybird/starling-plugin-unstorage": "^0.7.0",
 		"solid-js": "^1.9.9",
 		"unstorage": "^1.17.1"
 	},

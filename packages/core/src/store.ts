@@ -35,6 +35,16 @@ export type Plugin<T, M extends PluginMethods = {}> = {
 	methods?: M;
 };
 
+/**
+ * Complete persistent state of a store.
+ * Contains all encoded documents (including deleted ones with ~deletedAt metadata)
+ * and the latest eventstamp for clock synchronization during merges.
+ */
+export type StoreSnapshot = {
+	docs: EncodedDocument[];
+	latestEventstamp: string;
+};
+
 export type Store<T, Extended = {}> = {
 	get: (key: string) => T | null;
 	begin: <R = void>(
@@ -45,12 +55,14 @@ export type Store<T, Extended = {}> = {
 	update: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	entries: () => IterableIterator<readonly [string, T]>;
-	snapshot: () => EncodedDocument[];
+	snapshot: () => StoreSnapshot;
 	use: <M extends PluginMethods>(
 		plugin: Plugin<T, M>,
 	) => Store<T, Extended & M>;
 	init: () => Promise<Store<T, Extended>>;
 	dispose: () => Promise<void>;
+	latestEventstamp: () => string;
+	forwardClock: (eventstamp: string) => void;
 } & Extended;
 
 export const createStore = <T>(
@@ -94,7 +106,10 @@ export const createStore = <T>(
 			return iterator();
 		},
 		snapshot() {
-			return Array.from(kv.values());
+			return {
+				docs: Array.from(kv.values()),
+				latestEventstamp: clock.latest(),
+			};
 		},
 		begin<R = void>(
 			callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
@@ -207,6 +222,12 @@ export const createStore = <T>(
 			for (const fn of disposerArray) {
 				await fn();
 			}
+		},
+		latestEventstamp() {
+			return clock.latest();
+		},
+		forwardClock(eventstamp: string) {
+			clock.forward(eventstamp);
 		},
 	};
 

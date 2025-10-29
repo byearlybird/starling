@@ -88,10 +88,15 @@ export const decodeRecord = <T extends Record<string, unknown>>(
 export const mergeRecords = (
 	into: EncodedRecord,
 	from: EncodedRecord,
-): EncodedRecord => {
+): [EncodedRecord, string | null] => {
 	const result: EncodedRecord = {};
+	let greatestEventstamp: string | null = null;
 
-	const step = (v1: EncodedRecord, v2: EncodedRecord, output: EncodedRecord) => {
+	const step = (
+		v1: EncodedRecord,
+		v2: EncodedRecord,
+		output: EncodedRecord,
+	) => {
 		// Process all keys from v1
 		for (const key in v1) {
 			if (!Object.hasOwn(v1, key)) continue;
@@ -100,17 +105,31 @@ export const mergeRecords = (
 
 			if (isEncodedValue(value1) && isEncodedValue(value2)) {
 				// Both are EncodedValues - merge using value merge
-				output[key] = mergeValues(
+				const [win, eventstamp] = mergeValues(
 					value1 as EncodedValue<unknown>,
 					value2 as EncodedValue<unknown>,
 				);
+				output[key] = win;
+
+				// keep the greatest eventstamp
+				if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+					greatestEventstamp = eventstamp;
+				}
 			} else if (isEncodedValue(value1)) {
 				// Only v1 is encoded
 				output[key] = value1 as EncodedValue<unknown>;
+				const eventstamp = (value1 as EncodedValue<unknown>)["~eventstamp"];
+				if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+					greatestEventstamp = eventstamp;
+				}
 			} else if (isObject(value1) && isObject(value2)) {
 				// Both are nested objects - recurse
 				output[key] = {};
-				step(value1 as EncodedRecord, value2 as EncodedRecord, output[key] as EncodedRecord);
+				step(
+					value1 as EncodedRecord,
+					value2 as EncodedRecord,
+					output[key] as EncodedRecord,
+				);
 			} else if (value1) {
 				// Use v1's value
 				output[key] = value1;
@@ -123,10 +142,17 @@ export const mergeRecords = (
 			const value = v2[key];
 			if (value !== undefined) {
 				output[key] = value;
+				if (isEncodedValue(value)) {
+					const eventstamp = (value as EncodedValue<unknown>)["~eventstamp"];
+					if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+						greatestEventstamp = eventstamp;
+					}
+				}
 			}
 		}
 	};
 
 	step(into, from, result);
-	return result;
+
+	return [result, greatestEventstamp];
 };

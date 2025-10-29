@@ -16,7 +16,10 @@ export const decodeValue = <T>(value: EncodedValue<T>): T => value["~value"];
 export const mergeValues = <T>(
 	into: EncodedValue<T>,
 	from: EncodedValue<T>,
-): EncodedValue<T> => (into["~eventstamp"] > from["~eventstamp"] ? into : from);
+): [EncodedValue<T>, string] =>
+	into["~eventstamp"] > from["~eventstamp"]
+		? [into, into["~eventstamp"]]
+		: [from, from["~eventstamp"]];
 
 export const isEncodedValue = (value: unknown): boolean =>
 	!!(

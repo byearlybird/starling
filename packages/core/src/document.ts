@@ -50,7 +50,7 @@ export const decodeDoc = <T>(
 export const mergeDocs = (
 	into: EncodedDocument,
 	from: EncodedDocument,
-): EncodedDocument => {
+): [EncodedDocument, string | null] => {
 	const intoIsValue = isEncodedValue(into["~data"]);
 	const fromIsValue = isEncodedValue(from["~data"]);
 
@@ -59,7 +59,7 @@ export const mergeDocs = (
 		throw new Error("Merge error: Incompatible types");
 	}
 
-	const mergedData =
+	const [mergedData, dataEventstamp] =
 		intoIsValue && fromIsValue
 			? mergeValues(
 					into["~data"] as EncodedValue<unknown>,
@@ -77,11 +77,22 @@ export const mergeDocs = (
 				: from["~deletedAt"]
 			: into["~deletedAt"] || from["~deletedAt"] || null;
 
-	return {
-		"~id": into["~id"],
-		"~data": mergedData,
-		"~deletedAt": mergedDeletedAt,
-	};
+	// Bubble up the greatest eventstamp from both data and deletion timestamp
+	let greatestEventstamp: string | null = dataEventstamp;
+	if (mergedDeletedAt) {
+		if (!greatestEventstamp || mergedDeletedAt > greatestEventstamp) {
+			greatestEventstamp = mergedDeletedAt;
+		}
+	}
+
+	return [
+		{
+			"~id": into["~id"],
+			"~data": mergedData,
+			"~deletedAt": mergedDeletedAt,
+		},
+		greatestEventstamp,
+	];
 };
 
 export const deleteDoc = (

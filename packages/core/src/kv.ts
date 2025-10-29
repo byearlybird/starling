@@ -20,12 +20,18 @@ export const createKV = (
 			return readMap.size;
 		},
 		// Begin an atomic batch with callback
-		begin(callback: (tx: {
-			get: (key: string) => EncodedDocument | null;
-			set: (key: string, value: EncodedDocument, opts?: { replace: boolean }) => void;
-			del: (key: string, eventstamp: string) => void;
-			rollback: () => void;
-		}) => void) {
+		begin(
+			callback: (tx: {
+				get: (key: string) => EncodedDocument | null;
+				set: (
+					key: string,
+					value: EncodedDocument,
+					opts?: { replace: boolean },
+				) => void;
+				del: (key: string, eventstamp: string) => void;
+				rollback: () => void;
+			}) => void,
+		) {
 			const staging = new Map(readMap);
 			let rolledBack = false;
 
@@ -33,12 +39,24 @@ export const createKV = (
 				get(key: string) {
 					return staging.get(key) ?? null;
 				},
-				set(key: string, value: EncodedDocument, opts?: { replace: boolean }) {
+				set(
+					key: string,
+					value: EncodedDocument,
+					opts?: { replace: boolean },
+				): string | null {
 					if (opts?.replace) {
 						staging.set(key, value);
+						return null;
 					} else {
 						const prev = staging.get(key);
-						staging.set(key, prev ? mergeDocs(prev, value) : value);
+						if (prev) {
+							const [merged, eventstamp] = mergeDocs(prev, value);
+							staging.set(key, merged);
+							return eventstamp;
+						} else {
+							staging.set(key, value);
+							return null;
+						}
 					}
 				},
 				del(key: string, eventstamp: string) {

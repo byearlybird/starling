@@ -1,8 +1,8 @@
 # @byearlybird/starling
 
-**Local-first reactive sync. Zero dependencies, no ceremony.**
+**Local-first reactive sync with minimal ceremony.**
 
-A reactive, framework-agnostic data synchronization library with CRDT-like merge capabilities. Starling provides a simple yet powerful way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution.
+A reactive and framework-agnostic data synchronization library with CRDT-like merge capabilities. Starling provides a simple way to manage, query, and synchronize application state across clients and servers with automatic conflict resolution. It uses LWW and H
 
 For a record of project-wide decisions, see the [Architecture Decision Log](docs/decision-log.md).
 

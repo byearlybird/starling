@@ -37,22 +37,24 @@ const remoteStore = unstoragePlugin<Todo>(
 	}),
 	{
 		pollIntervalMs: 5000,
-		onBeforeSet: (data) => {
-			return data.map((doc) =>
+		onBeforeSet: (data) => ({
+			...data,
+			docs: data.docs.map((doc) =>
 				processDocument(doc, (value) => ({
 					...value,
 					"~value": pseudoEncrypt(value["~value"]),
 				})),
-			);
-		},
-		onAfterGet: (data) => {
-			return data.map((doc) =>
+			),
+		}),
+		onAfterGet: (data) => ({
+			...data,
+			docs: data.docs.map((doc) =>
 				processDocument(doc, (value) => ({
 					...value,
 					"~value": pseudoDecrypt(value["~value"]),
 				})),
-			);
-		},
+			),
+		}),
 	},
 );
 

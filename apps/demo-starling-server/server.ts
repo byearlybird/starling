@@ -1,18 +1,21 @@
-import { createStore, type EncodedDocument } from "@byearlybird/starling";
+import { createStore, type StoreSnapshot } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 
-const fileStorage = unstoragePlugin(
+type Todo = {
+	text: string;
+	completed: boolean;
+};
+
+const fileStorage = unstoragePlugin<Todo>(
 	"todos",
-	createStorage({
+	createStorage<StoreSnapshot>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
 );
 
-const store = createStore().use(fileStorage);
-
-await store.init();
+const store = await createStore<Todo>().use(fileStorage).init();
 
 const server = Bun.serve({
 	port: 3001,
@@ -31,10 +34,10 @@ const server = Bun.serve({
 			return new Response(null, { headers: corsHeaders });
 		}
 
-		// GET /api/todos - Return all todos
+		// GET /api/todos - Return complete persisted snapshot
 		if (url.pathname === "/api/todos" && req.method === "GET") {
-			const todos = store.snapshot();
-			return new Response(JSON.stringify(todos), {
+			const snapshot = store.snapshot();
+			return new Response(JSON.stringify(snapshot), {
 				headers: {
 					"Content-Type": "application/json",
 					...corsHeaders,
@@ -42,10 +45,14 @@ const server = Bun.serve({
 			});
 		}
 
-		// PUT /api/todos - Merge incoming todos
+		// PUT /api/todos - Merge incoming snapshot data
 		if (url.pathname === "/api/todos" && req.method === "PUT") {
 			try {
-				const incomingDocs: EncodedDocument[] = await req.json();
+				const incoming = (await req.json()) as StoreSnapshot;
+				const incomingDocs = incoming.docs ?? [];
+
+				// Forward clock to incoming timestamp before merging
+				store.forwardClock(incoming.latestEventstamp);
 
 				// Merge incoming documents using store transaction
 				store.begin((tx) => {

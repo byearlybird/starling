@@ -269,7 +269,7 @@ group("Test 13: MERGE 1000 documents", () => {
 	bench("batch merge x1000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot.forEach((doc) => {
+			snapshot.docs.forEach((doc) => {
 				tx.merge(doc);
 			});
 		});
@@ -292,7 +292,7 @@ group("Test 14: MERGE 25000 documents", () => {
 	bench("batch merge x25000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot.forEach((doc) => {
+			snapshot.docs.forEach((doc) => {
 				tx.merge(doc);
 			});
 		});

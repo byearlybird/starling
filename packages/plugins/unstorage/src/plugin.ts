@@ -1,15 +1,13 @@
-import type { EncodedDocument, Plugin, Store } from "@byearlybird/starling";
+import type { Plugin, Store, StoreSnapshot } from "@byearlybird/starling";
 import type { Storage } from "unstorage";
 
 type MaybePromise<T> = T | Promise<T>;
 
 type UnstorageOnBeforeSet = (
-	docs: EncodedDocument[],
-) => MaybePromise<EncodedDocument[]>;
+	data: StoreSnapshot,
+) => MaybePromise<StoreSnapshot>;
 
-type UnstorageOnAfterGet = (
-	docs: EncodedDocument[],
-) => MaybePromise<EncodedDocument[]>;
+type UnstorageOnAfterGet = (data: StoreSnapshot) => MaybePromise<StoreSnapshot>;
 
 type UnstorageConfig = {
 	debounceMs?: number;
@@ -20,7 +18,7 @@ type UnstorageConfig = {
 
 const unstoragePlugin = <T>(
 	key: string,
-	storage: Storage<EncodedDocument[]>,
+	storage: Storage<StoreSnapshot>,
 	config: UnstorageConfig = {},
 ): Plugin<T> => {
 	const { debounceMs = 0, pollIntervalMs, onBeforeSet, onAfterGet } = config;
@@ -30,10 +28,10 @@ const unstoragePlugin = <T>(
 
 	const persistSnapshot = async () => {
 		if (!store) return;
-		const snapshot = store.snapshot();
-		const docs =
-			onBeforeSet !== undefined ? await onBeforeSet(snapshot) : snapshot;
-		await storage.set(key, docs);
+		const data = store.snapshot();
+		const persisted =
+			onBeforeSet !== undefined ? await onBeforeSet(data) : data;
+		await storage.set(key, persisted);
 	};
 
 	const schedulePersist = () => {
@@ -56,18 +54,22 @@ const unstoragePlugin = <T>(
 
 	const pollStorage = async () => {
 		if (!store) return;
-		const persisted = await storage.get<EncodedDocument[]>(key);
+		const persisted = await storage.get<StoreSnapshot>(key);
 
 		if (!persisted) return;
 
-		const docs =
+		const data =
 			onAfterGet !== undefined ? await onAfterGet(persisted) : persisted;
 
-		if (!docs || docs.length === 0) return;
+		if (!data || !data.docs || data.docs.length === 0) return;
+
+		// Forward the clock to the persisted timestamp before merging
+		// This ensures new writes get higher timestamps than remote data
+		store.forwardClock(data.latestEventstamp);
 
 		store.begin(
 			(tx) => {
-				for (const doc of docs) {
+				for (const doc of data.docs) {
 					tx.merge(doc);
 				}
 			},

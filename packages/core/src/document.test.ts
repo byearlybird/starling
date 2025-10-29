@@ -46,9 +46,10 @@ test("mergeDocs both deleted - keeps greater timestamp", () => {
 	const doc2 = encodeDoc("doc-2", { name: "Bob" }, eventstamp2);
 	doc2["~deletedAt"] = "2025-01-02T12:00:00.000Z|2";
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
 	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|2");
+	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|2");
 });
 
 test("mergeDocs both deleted - keeps greater timestamp (reverse order)", () => {
@@ -66,9 +67,10 @@ test("mergeDocs both deleted - keeps greater timestamp (reverse order)", () => {
 	);
 	doc2["~deletedAt"] = "2025-01-01T12:00:00.000Z|1";
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
 	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|2");
+	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|2");
 });
 
 test("mergeDocs one deleted - keeps the deleted one", () => {
@@ -86,9 +88,10 @@ test("mergeDocs one deleted - keeps the deleted one", () => {
 	);
 	doc2["~deletedAt"] = null;
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
 	expect(merged["~deletedAt"]).toBe("2025-01-01T12:00:00.000Z|1");
+	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0");
 });
 
 test("mergeDocs one deleted (from) - keeps the deleted one", () => {
@@ -106,9 +109,10 @@ test("mergeDocs one deleted (from) - keeps the deleted one", () => {
 	);
 	doc2["~deletedAt"] = "2025-01-02T12:00:00.000Z|2";
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
 	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|2");
+	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|2");
 });
 
 test("mergeDocs neither deleted - returns null", () => {
@@ -123,9 +127,10 @@ test("mergeDocs neither deleted - returns null", () => {
 		"2025-01-02T00:00:00.000Z|0",
 	);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
 	expect(merged["~deletedAt"]).toBe(null);
+	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0");
 });
 
 test("mergeDocs preserves ~id from into document", () => {
@@ -141,7 +146,7 @@ test("mergeDocs preserves ~id from into document", () => {
 		"2025-01-02T00:00:00.000Z|0",
 	);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged] = mergeDocs(doc1, doc2);
 
 	expect(merged["~id"]).toBe("doc-1");
 });
@@ -158,11 +163,12 @@ test("mergeDocs merges ~data using object mergeDocs", () => {
 		"2025-01-02T00:00:00.000Z|0",
 	);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 	const decoded = decodeDoc(merged);
 
 	expect(decoded["~data"]).toBeDefined();
 	expect(merged["~data"]).toBeDefined();
+	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0");
 });
 
 test("deleteDoc marks document as deleted with eventstamp", () => {
@@ -266,11 +272,12 @@ test("mergeDocs primitives - newer eventstamp wins", () => {
 		"2025-01-02T00:00:00.000Z|0", // newer
 	);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 	const decoded = decodeDoc<number>(merged);
 
 	// Newer value (200) should win
 	expect(decoded["~data"]).toBe(200);
+	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0");
 });
 
 test("mergeDocs primitives - newer eventstamp wins (reverse order)", () => {
@@ -285,11 +292,12 @@ test("mergeDocs primitives - newer eventstamp wins (reverse order)", () => {
 		"2025-01-01T00:00:00.000Z|0", // older
 	);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 	const decoded = decodeDoc<string>(merged);
 
 	// Newer value ("new message") should win
 	expect(decoded["~data"]).toBe("new message");
+	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0");
 });
 
 test("mergeDocs primitives with equal eventstamps uses from value", () => {
@@ -297,11 +305,12 @@ test("mergeDocs primitives with equal eventstamps uses from value", () => {
 	const doc1 = encodeDoc("key-1", "first", eventstamp);
 	const doc2 = encodeDoc("key-1", "second", eventstamp);
 
-	const merged = mergeDocs(doc1, doc2);
+	const [merged, returnedEventstamp] = mergeDocs(doc1, doc2);
 	const decoded = decodeDoc<string>(merged);
 
 	// With equal timestamps, from value (second parameter) is used
 	expect(decoded["~data"]).toBe("second");
+	expect(returnedEventstamp).toBe(eventstamp);
 });
 
 test("deleteDoc primitive document works correctly", () => {
@@ -348,4 +357,73 @@ test("mergeDocs throws error when merging object with primitive", () => {
 	expect(() => mergeDocs(objectDoc, primitiveDoc)).toThrow(
 		"Merge error: Incompatible types",
 	);
+});
+
+test("mergeDocs bubbles newest eventstamp from nested object fields", () => {
+	const doc1 = encodeDoc(
+		"doc-1",
+		{ user: { name: "Alice", email: "alice@old.com" } },
+		"2025-01-01T00:00:00.000Z|0",
+	);
+	const doc2 = encodeDoc(
+		"doc-1",
+		{ user: { email: "alice@new.com" } },
+		"2025-01-05T00:00:00.000Z|0", // Much newer
+	);
+
+	const [merged, eventstamp] = mergeDocs(doc1, doc2);
+	const decoded = decodeDoc<{
+		user: { name: string; email: string };
+	}>(merged);
+
+	// The newest eventstamp should bubble up to mergeDocs
+	expect(eventstamp).toBe("2025-01-05T00:00:00.000Z|0");
+	// And the merge should work correctly
+	expect(decoded["~data"].user.name).toBe("Alice");
+	expect(decoded["~data"].user.email).toBe("alice@new.com");
+});
+
+test("mergeDocs returns newest eventstamp even with multiple nested changes", () => {
+	const doc1 = encodeDoc(
+		"doc-1",
+		{
+			profile: {
+				personal: { name: "Alice" },
+				settings: { theme: "dark" },
+			},
+		},
+		"2025-01-01T00:00:00.000Z|0",
+	);
+	const doc2 = encodeDoc(
+		"doc-1",
+		{
+			profile: {
+				personal: { name: "Alice Updated" },
+				settings: { theme: "light" },
+			},
+		},
+		"2025-01-10T00:00:00.000Z|0", // Much newer timestamp
+	);
+
+	const [, eventstamp] = mergeDocs(doc1, doc2);
+
+	// Even with multiple nested changes, newest eventstamp bubbles up
+	expect(eventstamp).toBe("2025-01-10T00:00:00.000Z|0");
+});
+
+test("mergeDocs returns newest eventstamp when adding new fields", () => {
+	const doc1 = encodeDoc(
+		"doc-1",
+		{ name: "Alice", age: 30 },
+		"2025-01-01T00:00:00.000Z|0",
+	);
+	const doc2 = encodeDoc(
+		"doc-1",
+		{ email: "alice@example.com", phone: "555-1234" },
+		"2025-01-08T00:00:00.000Z|0", // Newer
+	);
+
+	const [, eventstamp] = mergeDocs(doc1, doc2);
+
+	expect(eventstamp).toBe("2025-01-08T00:00:00.000Z|0");
 });
