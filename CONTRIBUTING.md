@@ -17,6 +17,8 @@ bun install
 
 For a detailed overview of the repository layout, architecture, eventstamps, CRDT-like merging, and module organization, see [Architecture](docs/architecture.md).
 
+For a record of project-wide decisions, see the [Architecture Decision Log](docs/decision-log.md).
+
 ## Running Tests
 
 ```bash

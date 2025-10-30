@@ -1,6 +1,6 @@
 # Starling Architecture
 
-This document covers the design and internals of Starling, including eventstamps, CRDT-like merging, the plugin system, and module organization.
+This document covers the design and internals of Starling, including the Last-Write-Wins merge strategy, eventstamps, CRDT-like merging, the plugin system, and module organization.
 
 ## Repository Layout
 
@@ -31,6 +31,14 @@ This enables:
 - **Monotonic timestamps**: Later events always have higher eventstamps
 - **Conflict resolution**: When two clients update the same field, the update with the higher eventstamp wins (Last-Write-Wins)
 - **Distributed consistency**: Multiple clients can sync without coordination
+- **Wall-clock dependency**: Timestamps are derived from `Date.now()`; when the clock stalls we increment the hex counter, and whenever we observe a newer remote stamp we fast-forward the local clock.
+- **Hybrid logical clock behavior**: The pair `(timestamp, counter)` behaves like a lightweight hybrid logical clock. It stays simple but inherits the accuracy limits of the wall clock.
+
+### Trade-offs
+
+- Clock skew directly affects merge results. If two peers disagree on wall time, whichever produces the “newer” stamp wins regardless of user intent.
+- There is no causal tracking beyond the stamp ordering. Divergent edits that land at the same wall time rely on the counter and may still interleave unexpectedly.
+- Starling currently persists the latest observed eventstamp through the `unstorage` plugin and forwards the clock before applying remote data.
 
 ## CRDT-like Merging
 
@@ -46,6 +54,12 @@ When merging states, Starling compares eventstamps at the field level:
 // Merged result: email takes precedence due to higher eventstamp
 { name: "Alice", email: "alice@new.com" }
 ```
+
+## Sync Strategy Caveats
+
+- Last-Write-Wins is the only conflict strategy implemented. If you need tombstone compaction, vector clocks, or per-field CRDTs, you may choose to use another library with, or instead of, Starling.
+- Deletions are soft (`~deletedAt`) and keep their eventstamp. Restoring a record requires writing a newer stamp to the relevant fields.
+- Because merges depend on stamps alone, simultaneous conflicting edits can silently overwrite each other. Capture intent in the application layer if that matters to you.
 
 ## Plugin System
 

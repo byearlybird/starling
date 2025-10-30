@@ -60,6 +60,7 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 
 - During `init`, the plugin loads `storage.get(namespace)`, forwards the store's clock to the persisted `latestEventstamp`, and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
 - Clock forwarding ensures new writes receive timestamps higher than any remote data, preventing eventstamp collisions across sync boundaries.
+- Without this plugin (or an equivalent), the store only keeps the latest clock in memory. A cold start will reset to the current wall clock.
 - `onAdd`, `onUpdate`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
 - Each snapshot includes both the documents and the store's latest clock timestamp (`store.latest()`).
 - `onBeforeSet` fires right before a snapshot write, enabling custom serialization or filtering.
