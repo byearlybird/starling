@@ -1,41 +1,32 @@
 # @byearlybird/starling
 
-**Local-first reactive sync for plain JavaScript apps.**
+**Lightweight Local-first reactive data store sync for JavaScript apps.**
 
-Starling is a lightweight data store for building offline-capable tools without dragging in heavy infrastructure. It keeps replicas in sync using field-level Last-Write-Wins powered by a hybrid logical clock, so documents converge automatically while staying approachable to read and extend.
+Starling is a lightweight data store for building offline-capable tools without dragging in heavy infrastructure. It keeps replicas in sync using field-level Last-Write-Wins powered by a hybrid logical clock, so documents converge automatically.
 
 ## Highlights
 
-- ~4KB core build with zero runtime dependencies
+- Simple Store API
 - Plain JavaScript predicates instead of a custom query language
 - Chainable plugins for persistence, querying, and custom hooks
-- Works across React, Solid, Vue, Node, Bun, Deno, and vanilla JavaScript
-- Transactional API with batched notifications for predictable reactivity
+- Framework agnostic -- works anything that JavaScript runs
+- Transactional API with batched notifications
+- ~4KB core build with zero required runtime dependencies
 
 ## Project Status
 
 - Starling is in its earliest phase; expect the API and internal implementations to shift quickly.
-- The scope and guiding philosophy are firm: cover the 80/20 of sync, avoid manual merge logic, skip DSLs, and keep the mental model simple — hand complex cases and real-time collaboration to specialized systems.
-- The current sync layer is intentionally minimal, shipping entire store snapshots over HTTP and leaving plenty of room to optimize cadence, transport, and diffing.
-- Near-term work focuses on richer sync plugins (e.g. WebSocket transports) and smarter change detection so only incremental updates travel over the wire.
+- The scope and guiding philosophy are firm: cover the 80/20 of sync, avoid manual merge logic, skip Domain-Specific-Languages, and keep the mental model simple, handing complex cases and real-time collaboration to specialized systems.
+- The current sync layer is intentionally minimal, shipping entire store snapshots over HTTP, leaving plenty of room to optimize cadence, transport, and diffing.
+- Near-term work focuses on richer sync plugins (e.g. WebSocket transports), smarter change detection so only incremental updates travel over the wire, and beginning framework integrations.
 
 ## Sync model overview
 
-- Conflict resolution is Last-Write-Wins at the field level—newer eventstamps win.
+- Conflict resolution recursively merges each field of a plain JavaScript object, applying Last-Write-Wins at the field level — newer eventstamps win.
 - Eventstamps combine ISO8601 timestamps with a hex counter (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter`), ensuring monotonicity even when wall clocks stall or skew across clients.
 - The `unstorage` plugin persists both documents and the latest eventstamp so fresh instances resume from the newest clock value.
-- If you need strict causal guarantees or immutable audit trails, consider using one of the other great CRDT libraries with, or instead of, Starling.
-
-## Core features
-
-- **No runtime deps** – Core package is roughly 4KB once bundled.
-- **Plain predicate queries** – `query({ where: (todo) => !todo.completed })` is the happy path.
-- **Field-level LWW merges** – Eventstamps combine ISO strings with a hex counter so newer data wins without custom merge code.
-- **Tiny plugin surface** – Hooks usually fit in ~10 lines for persistence, logging, validation, etc.
-- **Reactive stores** – Hooks batch per transaction so listeners only run once per commit.
-- **Storage multiplexing** – `unstorage` lets me layer localStorage, HTTP, S3, Redis, or anything else that implements its driver API.
-- **Transactions** – Mutations happen inside `begin()` and either commit as a unit or roll back.
-- **Strict TypeScript** – Everything ships with types and expects `strict` mode.
+- Starling works best with Records and Primitives, with Arrays preserved as one unit for safety -- consider using keyed records instead.
+- If you need *strict* causal guarantees or support for mergable Array operations, consider using one of several the great CRDT libraries with, or instead of, Starling.
 
 ## Installation
 
@@ -58,21 +49,25 @@ const todoStore = await createStore<{ text: string; completed: boolean }>()
   .use(queryPlugin())
   .init();
 
-// Insert items using begin()
+// Mutate data using store operations
+const id = todoStore.add({ text: "Learn Starling", completed: false });
+todoStore.update(id, { completed: true });
+todoStore.del(id);
+
+// Start a transaction using begin()
 const todo1Id = todoStore.begin((tx) => {
   const generatedId = tx.add({ text: "Learn Starling", completed: false });
   tx.add({ text: "Build an app", completed: false }, { withId: "todo-2" });
   return generatedId; // capture generated ID
 });
 
-// Query with plain JavaScript predicates - direct method access!
+// Query with plain JavaScript predicates
 const activeTodos = todoStore.query({ where: (todo) => !todo.completed });
 console.log(activeTodos.results()); // Map of incomplete todos
 
-// Updates automatically trigger query re-evaluation
-todoStore.begin((tx) => {
-  tx.update(todo1Id, { completed: true });
-});
+// Updates automatically trigger query re-evaluation for impacted records
+todoStore.update(todo1Id, { completed: true });
+
 console.log(activeTodos.results()); // Now only contains todo-2
 ```
 
@@ -292,10 +287,6 @@ Attach predicate-based, reactive views that stay synchronized with store mutatio
 Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Option descriptions live in [`docs/plugins/unstorage.md`](docs/plugins/unstorage.md).
 
 For details about the repository structure, architecture, and package exports, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Inspiration and background
-
-This codebase grew out of rewatching James Long’s **“CRDTs for Mortals”** talk and wanting to see those ideas play out on top of a plain JavaScript object. Most of the design choices—field-level stamps, hybrid logical clocks, tiny plugins—follow directly from that exercise. Starling stays small on purpose so it remains understandable; the flip side is that it inherits all the sharp edges of LWW systems.
 
 ## Development
 
