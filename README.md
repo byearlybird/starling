@@ -1,6 +1,6 @@
 # @byearlybird/starling
 
-**Local-first reactive sync for plain JavaScript apps.**
+**Local-first reactive sync for JavaScript apps.**
 
 Starling is a lightweight data store for building offline-capable tools without dragging in heavy infrastructure. It keeps replicas in sync using field-level Last-Write-Wins powered by a hybrid logical clock, so documents converge automatically while staying approachable to read and extend.
 
