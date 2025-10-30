@@ -37,6 +37,7 @@ const remoteStore = unstoragePlugin<Todo>(
 	}),
 	{
 		pollIntervalMs: 1000,
+		skip: () => !navigator.onLine,
 		onBeforeSet: (data) => ({
 			...data,
 			docs: data.docs.map((doc) =>

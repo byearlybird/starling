@@ -36,6 +36,7 @@ const remoteStorage = unstoragePlugin<Todo>(
 		driver: httpDriver({ base: "http://localhost:3001/api" }),
 	}),
 	{
+		skip: () => !navigator.onLine,
 		pollIntervalMs: 5000,
 		onBeforeSet: (data) => ({
 			...data,

@@ -14,6 +14,7 @@ type UnstorageConfig = {
 	pollIntervalMs?: number;
 	onBeforeSet?: UnstorageOnBeforeSet;
 	onAfterGet?: UnstorageOnAfterGet;
+	skip?: () => boolean;
 };
 
 const unstoragePlugin = <T>(
@@ -21,7 +22,13 @@ const unstoragePlugin = <T>(
 	storage: Storage<StoreSnapshot>,
 	config: UnstorageConfig = {},
 ): Plugin<T> => {
-	const { debounceMs = 0, pollIntervalMs, onBeforeSet, onAfterGet } = config;
+	const {
+		debounceMs = 0,
+		pollIntervalMs,
+		onBeforeSet,
+		onAfterGet,
+		skip,
+	} = config;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let store: Store<T> | null = null;
@@ -35,6 +42,8 @@ const unstoragePlugin = <T>(
 	};
 
 	const schedulePersist = () => {
+		if (skip?.()) return;
+
 		const runPersist = () => {
 			debounceTimer = null;
 			void persistSnapshot();
@@ -54,6 +63,8 @@ const unstoragePlugin = <T>(
 
 	const pollStorage = async () => {
 		if (!store) return;
+		if (skip?.()) return;
+
 		const persisted = await storage.get<StoreSnapshot>(key);
 
 		if (!persisted) return;
