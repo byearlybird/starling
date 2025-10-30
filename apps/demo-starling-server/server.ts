@@ -49,17 +49,8 @@ const server = Bun.serve({
 		if (url.pathname === "/api/todos" && req.method === "PUT") {
 			try {
 				const incoming = (await req.json()) as StoreSnapshot;
-				const incomingDocs = incoming.docs ?? [];
 
-				// Forward clock to incoming timestamp before merging
-				store.forwardClock(incoming.latestEventstamp);
-
-				// Merge incoming documents using store transaction
-				store.begin((tx) => {
-					for (const doc of incomingDocs) {
-						tx.merge(doc);
-					}
-				});
+				store.merge(incoming);
 
 				return new Response(JSON.stringify({ success: true }), {
 					headers: {

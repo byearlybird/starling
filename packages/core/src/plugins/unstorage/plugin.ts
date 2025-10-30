@@ -72,17 +72,7 @@ const unstoragePlugin = <T>(
 		const data =
 			onAfterGet !== undefined ? await onAfterGet(persisted) : persisted;
 
-		if (!data || !data.docs || data.docs.length === 0) return;
-
-		// Forward the clock to the persisted timestamp before merging
-		// This ensures new writes get higher timestamps than remote data
-		store.forwardClock(data.latestEventstamp);
-
-		store.begin((tx) => {
-			for (const doc of data.docs) {
-				tx.merge(doc);
-			}
-		});
+		store.merge(data);
 	};
 
 	return {

@@ -56,6 +56,7 @@ export type Store<T, Extended = {}> = {
 	del: (key: string) => void;
 	entries: () => IterableIterator<readonly [string, T]>;
 	snapshot: () => StoreSnapshot;
+	merge: (snapshot: StoreSnapshot) => void;
 	use: <M extends PluginMethods>(
 		plugin: Plugin<T, M>,
 	) => Store<T, Extended & M>;
@@ -110,6 +111,14 @@ export const createStore = <T>(
 				docs: Array.from(kv.values()),
 				latestEventstamp: clock.latest(),
 			};
+		},
+		merge(snapshot: StoreSnapshot) {
+			clock.forward(snapshot.latestEventstamp);
+			this.begin((tx) => {
+				for (const doc of snapshot.docs) {
+					tx.merge(doc);
+				}
+			});
 		},
 		begin<R = void>(
 			callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
