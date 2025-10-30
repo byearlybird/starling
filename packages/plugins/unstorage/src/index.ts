@@ -1,1 +1,0 @@
-export { unstoragePlugin } from "./plugin";

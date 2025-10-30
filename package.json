@@ -9,27 +9,20 @@
 		"packages/**"
 	],
 	"scripts": {
-		"build:all": "bun run build:core && bun run build:plugin-query && bun run build:plugin-unstorage",
+		"build:all": "bun run build:core",
 		"build:core": "cd packages/core && bun run build.ts",
-		"build:plugin-query": "cd packages/plugins/query && bun run build.ts",
-		"build:plugin-unstorage": "cd packages/plugins/unstorage && bun run build.ts",
 		"demo:react": "bun scripts/demo-react.ts",
 		"demo:solid": "bun scripts/demo-solid.ts",
 		"version:core:patch": "cd packages/core && bun pm version patch",
 		"version:core:minor": "cd packages/core && bun pm version minor",
-		"version:plugin:query:patch": "cd packages/plugins/query && bun pm version patch",
-		"version:plugin:query:minor": "cd packages/plugins/query && bun pm version minor",
-		"version:plugin:unstorage:patch": "cd packages/plugins/unstorage && bun pm version patch",
-		"version:plugin:unstorage:minor": "cd packages/plugins/unstorage && bun pm version minor",
-		"publish:core": "cd packages/core && bun publish --access public",
-		"publish:plugin:query": "cd packages/plugins/query && bun publish --access public",
-		"publish:plugin:unstorage": "cd packages/plugins/unstorage && bun publish --access public"
+		"publish:core": "cd packages/core && bun publish --access public"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",
 		"@types/bun": "latest",
 		"mitata": "^1.0.34",
 		"tsdown": "^0.15.9",
-		"typescript": "^5"
+		"typescript": "^5",
+		"unstorage": "^1.17.1"
 	}
 }

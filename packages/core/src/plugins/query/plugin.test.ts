@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { createStore } from "@byearlybird/starling";
+import { createStore } from "../../store";
 import { queryPlugin } from "./plugin";
 
 type User = {

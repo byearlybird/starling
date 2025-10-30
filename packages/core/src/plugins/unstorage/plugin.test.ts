@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
-import { createStore, type EncodedDocument } from "@byearlybird/starling";
+import { createStore, type EncodedDocument } from "../../store";
 import { createStorage } from "unstorage";
 import { unstoragePlugin } from "./plugin";
 

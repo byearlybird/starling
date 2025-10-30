@@ -1,6 +1,6 @@
 import { createStore, processDocument } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling-plugin-query";
-import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
+import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import httpDriver from "unstorage/drivers/http";
 import localStorageDriver from "unstorage/drivers/localstorage";

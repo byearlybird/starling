@@ -1,18 +1,20 @@
-# @byearlybird/starling-plugin-query
+# Query Plugin
 
 Reactive query helpers for Starling stores. The plugin listens to store hooks and keeps filtered `Map` snapshots synchronized with your predicates. With the improved plugin system, query methods are available directly on the store.
 
 ## Installation
 
+No additional package is required—`@byearlybird/starling` exposes the plugin via the `@byearlybird/starling/plugin-query` subpath. Install the core package as usual:
+
 ```bash
-bun add @byearlybird/starling-plugin-query
+bun add @byearlybird/starling
 ```
 
 ## Usage
 
 ```typescript
 import { createStore } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling-plugin-query";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
 
 const store = await createStore<{ text: string; completed: boolean }>()
 	.use(queryPlugin())

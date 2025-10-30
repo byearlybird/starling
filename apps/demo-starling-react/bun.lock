@@ -5,11 +5,9 @@
       "name": "demo-starling-react",
       "dependencies": {
         "@byearlybird/starling": "^0.3.0",
-        "@byearlybird/starling-plugin-query": "^0.3.0",
-        "@byearlybird/starling-plugin-unstorage": "^0.3.0",
         "react": "^19.1.1",
         "react-dom": "^19.1.1",
-        "unstorage": "^1.17.1",
+        "unstorage": "^1.17.1"
       },
       "devDependencies": {
         "@types/node": "^24.6.0",
@@ -17,7 +15,7 @@
         "@types/react-dom": "^19.1.9",
         "@vitejs/plugin-react": "^5.0.4",
         "typescript": "~5.9.3",
-        "vite": "npm:rolldown-vite@7.1.14",
+        "vite": "npm:rolldown-vite@7.1.14"
       },
     },
   },
@@ -65,9 +63,6 @@
 
     "@byearlybird/starling": ["@byearlybird/starling@0.3.0", "", {}, "sha512-u4Yw0W011NscJ/6wVtDbn10U3KK3Tcdt1JA3+7/MfeVUO/i8u2iQdAq6iew8D6X7IHW7UBbw7i252zBFu4Kz4w=="],
 
-    "@byearlybird/starling-plugin-query": ["@byearlybird/starling-plugin-query@0.3.0", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0" } }, "sha512-2KQKAGBuNgl7yfiCDh3RQww/Du9UXAZy5QfKKhCcWOdjTLHuAmrZR5rS7QxDIP47dCZOkdFXSqzekWaKbqaBNg=="],
-
-    "@byearlybird/starling-plugin-unstorage": ["@byearlybird/starling-plugin-unstorage@0.3.0", "", { "peerDependencies": { "@byearlybird/starling": "^0.2.0", "unstorage": "^1.17.1" } }, "sha512-NBielf95wpGxjBfi4/maRGYToV4eNW6iiaiTu5HlupwRUh0TuhXzgOWGX2euY7sw6J756oTCgpEQ3lgu1o2Eaw=="],
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
 

@@ -1,5 +1,5 @@
-import type { Plugin, Store, StoreSnapshot } from "@byearlybird/starling";
 import type { Storage } from "unstorage";
+import type { Plugin, Store, StoreSnapshot } from "../../store";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -67,14 +67,11 @@ const unstoragePlugin = <T>(
 		// This ensures new writes get higher timestamps than remote data
 		store.forwardClock(data.latestEventstamp);
 
-		store.begin(
-			(tx) => {
-				for (const doc of data.docs) {
-					tx.merge(doc);
-				}
-			},
-			{ silent: true },
-		);
+		store.begin((tx) => {
+			for (const doc of data.docs) {
+				tx.merge(doc);
+			}
+		});
 	};
 
 	return {

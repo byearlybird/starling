@@ -1,4 +1,4 @@
-import type { Plugin, PluginHooks, Store } from "@byearlybird/starling";
+import type { Plugin, PluginHooks, Store } from "../../store";
 
 type QueryConfig<T, U = T> = {
 	where: (data: T) => boolean;

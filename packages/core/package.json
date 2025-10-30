@@ -1,16 +1,41 @@
 {
 	"name": "@byearlybird/starling",
-	"version": "0.7.0",
+	"version": "0.7.2",
 	"type": "module",
 	"license": "MIT",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./plugin-query": {
+			"types": "./dist/plugin-query.d.ts",
+			"import": "./dist/plugin-query.js",
+			"default": "./dist/plugin-query.js"
+		},
+		"./plugin-unstorage": {
+			"types": "./dist/plugin-unstorage.d.ts",
+			"import": "./dist/plugin-unstorage.js",
+			"default": "./dist/plugin-unstorage.js"
+		}
+	},
 	"files": [
 		"dist"
 	],
 	"scripts": {
 		"build": "bun run build.ts",
 		"prepublishOnly": "bun run build.ts"
+	},
+	"peerDependencies": {
+		"unstorage": "^1.17.1"
+	},
+	"peerDependenciesMeta": {
+		"unstorage": {
+			"optional": true
+		}
 	},
 	"publishConfig": {
 		"access": "public"

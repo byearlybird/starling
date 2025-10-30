@@ -48,15 +48,8 @@ bun biome lint .
 ## Builds
 
 ```bash
-# Build core package
+# Build core package (includes plugin entrypoints)
 bun run build:core
-
-# Build plugin packages
-cd packages/plugins/query && bun run build.ts
-or bun run build:plugin:query
-
-cd packages/plugins/unstorage && bun run build.ts
-or bun run build:plugin:unstorage
 ```
 
 Use `bun run build:all` at the workspace root to build every package in sequence.
@@ -77,7 +70,7 @@ Publishing to npm is restricted to project maintainers.
 ## Documentation
 
 - Keep README sections focused on user-facing workflows. Implementation details, changelogs, and contributor tips belong here or in package-specific docs.
-- Update the plugin READMEs when you add new options or operational details so consumers can discover them without diving into code.
+- Update the plugin docs in `docs/plugins/*` when you add new options or operational details so consumers can discover them without diving into code.
 
 ## Pull Request Checklist
 

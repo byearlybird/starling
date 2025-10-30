@@ -36,16 +36,15 @@ Perfect for apps that sync across devices, offline-first apps, or any tool that 
 # Core package
 bun add @byearlybird/starling
 
-# Optional plugins
-bun add @byearlybird/starling-plugin-query
-bun add @byearlybird/starling-plugin-unstorage unstorage
+# Optional peer dependency for persistence plugin
+bun add unstorage
 ```
 
 ## Quick Start
 
 ```typescript
 import { createStore } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling-plugin-query";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
 
 // Create a store with reactive queries
 const todoStore = await createStore<{ text: string; completed: boolean }>()
@@ -234,7 +233,7 @@ const store = await createStore<{ name: string }>()
 
 ## Official Plugins
 
-Starling ships with optional packages that extend the core store. Each plugin has its own README inside `packages/plugins/*` with in-depth examples.
+Starling ships with optional plugins that live inside the core package. They are exposed via subpath exports so you can tree-shake what you use.
 
 ### Multiple Plugin Registration
 
@@ -242,7 +241,7 @@ One of Starling's most powerful features is the ability to register multiple plu
 
 ```typescript
 import { createStore } from "@byearlybird/starling";
-import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
+import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
@@ -275,13 +274,13 @@ This example demonstrates seamless **cross-device sync with offline support**:
 - When back online, conflicts auto-resolve via eventstamps
 - No manual conflict resolution code needed
 
-### Query (`@byearlybird/starling-plugin-query`)
+### Query (`@byearlybird/starling/plugin-query`)
 
-Attach predicate-based, reactive views that stay synchronized with store mutations. The manager exposes a `query()` helper and a store plugin. See [`packages/plugins/query/README.md`](packages/plugins/query/README.md) for usage patterns and API notes.
+Attach predicate-based, reactive views that stay synchronized with store mutations. The plugin exposes a `query()` helper and a store method. See [`docs/plugins/query.md`](docs/plugins/query.md) for usage patterns and API notes.
 
-### Unstorage (`@byearlybird/starling-plugin-unstorage`)
+### Unstorage (`@byearlybird/starling/plugin-unstorage`)
 
-Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Installation instructions and option descriptions are in [`packages/plugins/unstorage/README.md`](packages/plugins/unstorage/README.md).
+Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Option descriptions live in [`docs/plugins/unstorage.md`](docs/plugins/unstorage.md).
 
 For details about the repository structure, architecture, and package exports, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

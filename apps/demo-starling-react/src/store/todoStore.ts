@@ -1,6 +1,6 @@
 import { createStore, processDocument } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling-plugin-query";
-import { unstoragePlugin } from "@byearlybird/starling-plugin-unstorage";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
+import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import httpDriver from "unstorage/drivers/http";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -12,14 +12,14 @@ export type Todo = {
 
 const pseudoEncrypt = (data: unknown): string => {
 	const jsonString = JSON.stringify(data);
-	return Buffer.from(jsonString).toString("base64");
+	return btoa(jsonString);
 };
 
 const pseudoDecrypt = (encrypted: unknown): unknown => {
 	if (typeof encrypted !== "string") {
 		throw new Error("Expected encrypted data to be a string");
 	}
-	const jsonString = Buffer.from(encrypted, "base64").toString("utf-8");
+	const jsonString = atob(encrypted);
 	return JSON.parse(jsonString);
 };
 
@@ -36,7 +36,7 @@ const remoteStore = unstoragePlugin<Todo>(
 		driver: httpDriver({ base: "http://localhost:3001/api" }),
 	}),
 	{
-		pollIntervalMs: 5000,
+		pollIntervalMs: 1000,
 		onBeforeSet: (data) => ({
 			...data,
 			docs: data.docs.map((doc) =>

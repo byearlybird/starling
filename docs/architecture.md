@@ -7,14 +7,14 @@ This document covers the design and internals of Starling, including eventstamps
 | Path | Notes |
 | --- | --- |
 | `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
-| `packages/plugins/query` | Reactive query manager (`createQueryManager`) that listens to store hooks to keep filtered `Map`s in sync. |
-| `packages/plugins/unstorage` | Persistence bridge (`unstoragePlugin`) that replays snapshots on boot and debounces writes. |
+| `packages/core/src/plugins/query` | Reactive query plugin that listens to store hooks to keep filtered `Map`s in sync. |
+| `packages/core/src/plugins/unstorage` | Persistence plugin that replays snapshots on boot and debounces writes. |
 
 Additional pointers:
 
-- Core logic lives under `packages/core`; plugin packages live in `packages/plugins/*`.
+- Core logic lives under `packages/core`; official plugins live alongside the store in `packages/core/src/plugins/*`.
 - All packages are TypeScript modules bundled via `tsdown`.
-- Tests inhabit `packages/core/src/*.test.ts`. Plugins currently rely on targeted integration tests that you can author beside the plugin code.
+- Tests inhabit `packages/core/src/**/*.test.ts`, including plugin coverage.
 
 ## Eventstamps
 
@@ -90,9 +90,9 @@ Starling is organized as a monorepo with three packages:
   - Exports: `createStore`, `Store`, `Plugin`, `PluginHooks`, `PluginMethods`, `EncodedDocument`
   - Zero dependencies
 
-- **`@byearlybird/starling-plugin-query`** – Query plugin for reactive filtered views
+- **`@byearlybird/starling/plugin-query`** – Query plugin for reactive filtered views
   - Exports: `queryPlugin`
 
-- **`@byearlybird/starling-plugin-unstorage`** – Persistence plugin
+- **`@byearlybird/starling/plugin-unstorage`** – Persistence plugin
   - Exports: `unstoragePlugin`
   - Peer dependency: `unstorage@^1.17.1`

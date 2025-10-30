@@ -1,4 +1,4 @@
-import type { Query } from "@byearlybird/starling-plugin-query";
+import type { Query } from "@byearlybird/starling/plugin-query";
 import type { Accessor } from "solid-js";
 import { createSignal, onCleanup } from "solid-js";
 

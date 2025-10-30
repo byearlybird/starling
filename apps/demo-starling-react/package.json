@@ -1,5 +1,5 @@
 {
-	"name": "demo-starling-solid",
+	"name": "demo-starling-react",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
@@ -9,15 +9,18 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@byearlybird/starling": "^0.7.0",
-		"solid-js": "^1.9.9",
+		"@byearlybird/starling": "v0.7.1",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1",
 		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.6.0",
+		"@types/react": "^19.1.16",
+		"@types/react-dom": "^19.1.9",
+		"@vitejs/plugin-react": "^5.0.4",
 		"typescript": "~5.9.3",
-		"vite": "npm:rolldown-vite@7.1.14",
-		"vite-plugin-solid": "^2.11.8"
+		"vite": "npm:rolldown-vite@7.1.14"
 	},
 	"overrides": {
 		"vite": "npm:rolldown-vite@7.1.14"

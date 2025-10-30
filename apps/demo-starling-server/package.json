@@ -8,7 +8,6 @@
 	},
 	"dependencies": {
 		"@byearlybird/starling": "^0.7.0",
-		"@byearlybird/starling-plugin-unstorage": "^0.7.0",
 		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
