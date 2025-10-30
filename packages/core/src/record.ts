@@ -1,9 +1,9 @@
-import { isObject } from "./utils";
+import { MIN_EVENTSTAMP } from "./eventstamp";
+import { isEncodedValue, isObject } from "./utils";
 import {
 	decodeValue,
 	type EncodedValue,
 	encodeValue,
-	isEncodedValue,
 	mergeValues,
 } from "./value";
 
@@ -88,9 +88,9 @@ export const decodeRecord = <T extends Record<string, unknown>>(
 export const mergeRecords = (
 	into: EncodedRecord,
 	from: EncodedRecord,
-): [EncodedRecord, string | null] => {
+): [EncodedRecord, string] => {
 	const result: EncodedRecord = {};
-	let greatestEventstamp: string | null = null;
+	let greatestEventstamp: string = MIN_EVENTSTAMP;
 
 	const step = (
 		v1: EncodedRecord,
@@ -112,14 +112,14 @@ export const mergeRecords = (
 				output[key] = win;
 
 				// keep the greatest eventstamp
-				if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+				if (eventstamp > greatestEventstamp) {
 					greatestEventstamp = eventstamp;
 				}
 			} else if (isEncodedValue(value1)) {
 				// Only v1 is encoded
 				output[key] = value1 as EncodedValue<unknown>;
 				const eventstamp = (value1 as EncodedValue<unknown>)["~eventstamp"];
-				if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+				if (eventstamp > greatestEventstamp) {
 					greatestEventstamp = eventstamp;
 				}
 			} else if (isObject(value1) && isObject(value2)) {
@@ -144,7 +144,7 @@ export const mergeRecords = (
 				output[key] = value;
 				if (isEncodedValue(value)) {
 					const eventstamp = (value as EncodedValue<unknown>)["~eventstamp"];
-					if (!greatestEventstamp || eventstamp > greatestEventstamp) {
+					if (eventstamp > greatestEventstamp) {
 						greatestEventstamp = eventstamp;
 					}
 				}

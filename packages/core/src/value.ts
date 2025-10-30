@@ -20,11 +20,3 @@ export const mergeValues = <T>(
 	into["~eventstamp"] > from["~eventstamp"]
 		? [into, into["~eventstamp"]]
 		: [from, from["~eventstamp"]];
-
-export const isEncodedValue = (value: unknown): boolean =>
-	!!(
-		typeof value === "object" &&
-		value !== null &&
-		"~value" in value &&
-		"~eventstamp" in value
-	);

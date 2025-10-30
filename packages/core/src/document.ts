@@ -1,3 +1,4 @@
+import { MIN_EVENTSTAMP } from "./eventstamp";
 import {
 	decodeRecord,
 	type EncodedRecord,
@@ -5,12 +6,11 @@ import {
 	mergeRecords,
 	processRecord,
 } from "./record";
-import { isObject } from "./utils";
+import { isEncodedValue, isObject } from "./utils";
 import {
 	decodeValue,
 	type EncodedValue,
 	encodeValue,
-	isEncodedValue,
 	mergeValues,
 } from "./value";
 
@@ -50,7 +50,7 @@ export const decodeDoc = <T>(
 export const mergeDocs = (
 	into: EncodedDocument,
 	from: EncodedDocument,
-): [EncodedDocument, string | null] => {
+): [EncodedDocument, string] => {
 	const intoIsValue = isEncodedValue(into["~data"]);
 	const fromIsValue = isEncodedValue(from["~data"]);
 
@@ -78,11 +78,9 @@ export const mergeDocs = (
 			: into["~deletedAt"] || from["~deletedAt"] || null;
 
 	// Bubble up the greatest eventstamp from both data and deletion timestamp
-	let greatestEventstamp: string | null = dataEventstamp;
-	if (mergedDeletedAt) {
-		if (!greatestEventstamp || mergedDeletedAt > greatestEventstamp) {
-			greatestEventstamp = mergedDeletedAt;
-		}
+	let greatestEventstamp: string = dataEventstamp;
+	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
+		greatestEventstamp = mergedDeletedAt;
 	}
 
 	return [

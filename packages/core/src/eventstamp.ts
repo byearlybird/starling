@@ -27,3 +27,5 @@ export const decodeEventstamp = (
 		nonce,
 	};
 };
+
+export const MIN_EVENTSTAMP = encodeEventstamp(0, 0, "0000");
