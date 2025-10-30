@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { decodeEventstamp, encodeEventstamp } from "./eventstamp";
+import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
 
 test("decode() extracts timestamp and counter correctly", () => {
-	const eventstamp = encodeEventstamp(1234567890123, 42);
+	const nonce = generateNonce();
+	const eventstamp = encodeEventstamp(1234567890123, 42, nonce);
 	const { timestampMs, counter } = decodeEventstamp(eventstamp);
 
 	expect(timestampMs).toBe(1234567890123);
@@ -10,7 +11,8 @@ test("decode() extracts timestamp and counter correctly", () => {
 });
 
 test("encode() decode() handles large counters", () => {
-	const eventstamp = encodeEventstamp(Date.now(), 0xffffffff);
+	const nonce = generateNonce();
+	const eventstamp = encodeEventstamp(Date.now(), 0xffffffff, nonce);
 	const { timestampMs, counter } = decodeEventstamp(eventstamp);
 
 	expect(counter).toBe(0xffffffff);
@@ -21,10 +23,12 @@ test("encode() decode() handles large counters", () => {
 test("encode() and decode() are inverses", () => {
 	const originalTimestampMs = Date.now();
 	const originalCounter = 12345;
+	const originalNonce = generateNonce();
 
-	const eventstamp = encodeEventstamp(originalTimestampMs, originalCounter);
-	const { timestampMs, counter } = decodeEventstamp(eventstamp);
+	const eventstamp = encodeEventstamp(originalTimestampMs, originalCounter, originalNonce);
+	const { timestampMs, counter, nonce } = decodeEventstamp(eventstamp);
 
 	expect(timestampMs).toBe(originalTimestampMs);
 	expect(counter).toBe(originalCounter);
+	expect(nonce).toBe(originalNonce);
 });

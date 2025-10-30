@@ -1,6 +1,6 @@
 # @byearlybird/starling
 
-**Lightweight Local-first reactive data store sync for JavaScript apps.**
+**Lightweight local-first reactive data store sync for JavaScript apps.**
 
 Starling is a lightweight data store for building offline-capable tools without dragging in heavy infrastructure. It keeps replicas in sync using field-level Last-Write-Wins powered by a hybrid logical clock, so documents converge automatically.
 
@@ -9,24 +9,9 @@ Starling is a lightweight data store for building offline-capable tools without 
 - Simple Store API
 - Plain JavaScript predicates instead of a custom query language
 - Chainable plugins for persistence, querying, and custom hooks
-- Framework agnostic -- works anything that JavaScript runs
+- Framework agnostic -- works with anything that JavaScript runs
 - Transactional API with batched notifications
 - ~4KB core build with zero required runtime dependencies
-
-## Project Status
-
-- Starling is in its earliest phase; expect the API and internal implementations to shift quickly.
-- The scope and guiding philosophy are firm: cover the 80/20 of sync, avoid manual merge logic, skip Domain-Specific-Languages, and keep the mental model simple, handing complex cases and real-time collaboration to specialized systems.
-- The current sync layer is intentionally minimal, shipping entire store snapshots over HTTP, leaving plenty of room to optimize cadence, transport, and diffing.
-- Near-term work focuses on richer sync plugins (e.g. WebSocket transports), smarter change detection so only incremental updates travel over the wire, and beginning framework integrations.
-
-## Sync model overview
-
-- Conflict resolution recursively merges each field of a plain JavaScript object, applying Last-Write-Wins at the field level — newer eventstamps win.
-- Eventstamps combine ISO8601 timestamps with a hex counter (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter`), ensuring monotonicity even when wall clocks stall or skew across clients.
-- The `unstorage` plugin persists both documents and the latest eventstamp so fresh instances resume from the newest clock value.
-- Starling works best with Records and Primitives, with Arrays preserved as one unit for safety -- consider using keyed records instead.
-- If you need *strict* causal guarantees or support for mergable Array operations, consider using one of several the great CRDT libraries with, or instead of, Starling.
 
 ## Installation
 
@@ -49,16 +34,16 @@ const todoStore = await createStore<{ text: string; completed: boolean }>()
   .use(queryPlugin())
   .init();
 
-// Mutate data using store operations
+// Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
 todoStore.update(id, { completed: true });
 todoStore.del(id);
 
-// Start a transaction using begin()
+// Transactions for multiple operations or rollback support
 const todo1Id = todoStore.begin((tx) => {
   const generatedId = tx.add({ text: "Learn Starling", completed: false });
   tx.add({ text: "Build an app", completed: false }, { withId: "todo-2" });
-  return generatedId; // capture generated ID
+  return generatedId; // Return value becomes begin()'s return value
 });
 
 // Query with plain JavaScript predicates
@@ -71,33 +56,41 @@ todoStore.update(todo1Id, { completed: true });
 console.log(activeTodos.results()); // Now only contains todo-2
 ```
 
-**Want to see more?** Check out the [full examples](#examples) below for cross-device sync with storage multiplexing.
+**Want to see more?** Check out the [examples](#examples) below for cross-device sync with storage multiplexing.
 
-## Examples
+## How Sync Works
 
-- **[React Todo App](apps/demo-starling-react)** - Todo app that syncs across devices using localStorage + HTTP
-- **[SolidJS Todo App](apps/demo-starling-solid)** - Todo app that syncs across devices using localStorage + HTTP
-- **[Server](apps/demo-starling-server)** - Simple Bun server that merges updates and persists to disk
+Starling's sync model is designed to handle the common case: multiple clients editing the same data without manual merge logic.
 
-Each example demonstrate simple sync:
-- **Storage multiplexing** - Register localStorage + HTTP plugins, conflicts auto-resolve
-- **Works offline** - Local changes persist immediately, sync when connection returns
-- **Reactive queries** - Filter data with plain JavaScript predicates
-- **Minimal config** - No schema definitions, no event declarations, etc
+### Field-Level Last-Write-Wins
 
-What to expect:
-- Storage multiplexing is just multiple plugins; the newest eventstamp wins the merge.
-- Offline edits stay local until the HTTP driver syncs.
-- Queries are plain predicates, so no extra schema or migration layer shows up here.
+Conflict resolution recursively merges each field of a plain JavaScript object, applying Last-Write-Wins at the field level—newer eventstamps win. This means if Client A updates `user.name` and Client B updates `user.email`, both changes are preserved.
 
-Run them locally:
-```bash
-# Start React demo
-bun run demo:react
+### Eventstamps
 
-# Or start SolidJS demo
-bun run demo:solid
+Eventstamps combine ISO8601 timestamps with a hex counter (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter`). This ensures that even if two clients have identical system clocks—or one clock drifts backward—each write gets a unique, comparable timestamp. The counter increments locally when the timestamp doesn't advance, guaranteeing monotonicity.
+
+The `unstorage` plugin persists both documents and the latest eventstamp so fresh instances resume from the newest clock value.
+
+### Data Type Support
+
+Starling works best with **Records** and **Primitives**:
+
+```typescript
+✅ Good: { name: "Alice", settings: { theme: "dark", notifications: true } }
+✅ Good: { count: 42, active: true, tags: ["work", "urgent"] }
 ```
+
+**Arrays are treated atomically**: If two clients modify the same array field, Last-Write-Wins applies to the entire array—there's no element-level merging. For lists that need concurrent edits (e.g., todo items), use keyed records instead:
+
+```typescript
+❌ Avoid: { todos: [{ text: "..." }, { text: "..." }] }
+✅ Better: { todos: { "id1": { text: "..." }, "id2": { text: "..." } } }
+```
+
+### When to Use Something Else
+
+If you need *strict* causal guarantees, operational transformation, or support for mergeable array operations, consider using CRDT libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/) with, or instead of, Starling.
 
 ## Core API
 
@@ -125,63 +118,74 @@ const deterministicStore = createStore<YourType>({
 
 ### Store Methods
 
-#### `begin(callback: (tx) => void, options?: { silent?: boolean }): void`
-Execute mutations on the store. All mutations must be performed inside the callback. The transaction auto-commits when the callback completes, unless `tx.rollback()` is called.
+#### Direct Mutations
+
+These methods are shortcuts for single operations:
+
+- `add(value, options?)` – Insert a new document. Returns the generated or provided ID.
+- `update(key, partial)` – Merge a partial update into an existing document.
+- `del(key)` – Soft-delete a document by stamping `~deletedAt`.
 
 ```typescript
-// Insert items
-store.begin((tx) => {
+const id = store.add({ name: "Alice", email: "alice@example.com" });
+store.update(id, { email: "alice@newdomain.com" });
+store.del(id);
+```
+
+#### Transactions with `begin()`
+
+For multiple operations or rollback support, use `begin()`. The callback's return value becomes `begin()`'s return value:
+
+```typescript
+// Multiple operations
+const userId = store.begin((tx) => {
   const generatedId = tx.add({ name: "Alice", email: "alice@example.com" });
   tx.add({ name: "Bob" }, { withId: "user-1" });
+  return generatedId; // This value is returned by begin()
 });
 
-// Update items
+// Rollback on validation failure
 store.begin((tx) => {
-  tx.update("user-1", { email: "alice@newdomain.com" });
-});
-
-// Delete items
-store.begin((tx) => {
-  tx.del("user-1");
-});
-
-// Silent mutations (don't trigger hooks - useful for sync)
-store.begin((tx) => {
-  tx.add({ name: "Charlie" });
-}, { silent: true });
-
-// Rollback on error
-store.begin((tx) => {
-  tx.add({ name: "Dave" });
-  if (someCondition) {
-    tx.rollback(); // Abort all changes
+  const id = tx.add({ name: "Dave", email: "invalid" });
+  
+  if (!validateEmail(tx.get(id)?.email)) {
+    tx.rollback(); // Abort all changes in this transaction
     return;
   }
-  tx.update("user-1", { name: "Updated" });
+  
+  tx.update(id, { verified: true });
 });
-```
 
-#### `get(key: string): T | null`
-Get a single item by key if it is not deleted.
-
-```typescript
-const user = store.get("user-1");
-```
-
-#### `entries(): IterableIterator<[string, T]>`
-Get all key-value pairs (excluding deleted items).
-
-```typescript
-for (const [key, value] of store.entries()) {
-  console.log(key, value);
+// Rollback on API error
+try {
+  store.begin((tx) => {
+    const id = tx.add({ name: "Eve" });
+    
+    // If validation fails, we can rollback
+    if (!isValidTodo(tx.get(id))) {
+      tx.rollback();
+      return;
+    }
+  });
+} catch (error) {
+  console.error("Transaction failed:", error);
 }
 ```
 
-#### `snapshot(): EncodedDocument[]`
-Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
+#### Reading Data
+
+- `get(key: string): T | null` – Get a single item by key if it is not deleted.
+- `entries(): IterableIterator<[string, T]>` – Get all key-value pairs (excluding deleted items).
+- `snapshot(): StoreSnapshot` – Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
 
 ```typescript
-const encodedState = store.snapshot();
+const user = store.get("user-1");
+
+for (const [key, value] of store.entries()) {
+  console.log(key, value);
+}
+
+const encodedState = store.snapshot(); // For sync/persistence
 ```
 
 ### Transaction API
@@ -238,11 +242,19 @@ const store = await createStore<{ name: string }>()
 
 ## Official Plugins
 
-Starling comes with a couple of plugins that live beside the core store. They ship as subpath exports so you can pull in only what you need.
+Starling comes with plugins that live beside the core store. They ship as subpath exports so you can pull in only what you need.
 
-### Registering multiple plugins
+### Query (`@byearlybird/starling/plugin-query`)
 
-You can stack plugins as long as each one understands the store hooks. In practice that means you can wire multiple persistence layers without extra glue:
+Attach predicate-based, reactive views that stay synchronized with store mutations. The plugin exposes a `query()` helper and a store method. See [`docs/plugins/query.md`](docs/plugins/query.md) for usage patterns and API notes.
+
+### Unstorage (`@byearlybird/starling/plugin-unstorage`)
+
+Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies. Option descriptions live in [`docs/plugins/unstorage.md`](docs/plugins/unstorage.md).
+
+### Storage Multiplexing
+
+You can stack multiple storage plugins—each one operates independently, and Starling's field-level LWW automatically resolves conflicts:
 
 ```typescript
 import { createStore } from "@byearlybird/starling";
@@ -278,15 +290,30 @@ What happens here:
 - The HTTP driver polls every 5 seconds and merges whatever the server returns.
 - If two sides disagree, the field with the newest eventstamp wins.
 
-### Query (`@byearlybird/starling/plugin-query`)
+## Examples
 
-Attach predicate-based, reactive views that stay synchronized with store mutations. The plugin exposes a `query()` helper and a store method. See [`docs/plugins/query.md`](docs/plugins/query.md) for usage patterns and API notes.
+Three demo apps show Starling in action:
 
-### Unstorage (`@byearlybird/starling/plugin-unstorage`)
+- **[React Todo App](apps/demo-starling-react)** - Cross-device sync with localStorage + HTTP
+- **[SolidJS Todo App](apps/demo-starling-solid)** - Same sync setup, different framework
+- **[Server](apps/demo-starling-server)** - Simple Bun server that merges and persists updates
 
-Persists snapshots to any `unstorage` backend, replays them during boot, and optionally debounces writes. Supports multiple instances for hybrid sync strategies (local + remote, multi-region, etc.). Option descriptions live in [`docs/plugins/unstorage.md`](docs/plugins/unstorage.md).
+Run them locally:
 
-For details about the repository structure, architecture, and package exports, see [CONTRIBUTING.md](CONTRIBUTING.md).
+```bash
+# Start React demo
+bun run demo:react
+
+# Or start SolidJS demo
+bun run demo:solid
+```
+
+## Project Status
+
+- Starling is in its earliest phase; expect the API and internal implementations to shift quickly.
+- The scope and guiding philosophy are firm: cover the 80/20 of sync, avoid manual merge logic, skip Domain-Specific-Languages, and keep the mental model simple, handing complex cases and real-time collaboration to specialized systems.
+- The current sync layer is intentionally minimal, shipping entire store snapshots over HTTP, leaving plenty of room to optimize cadence, transport, and diffing.
+- Near-term work focuses on richer sync plugins (e.g. WebSocket transports), smarter change detection so only incremental updates travel over the wire, and beginning framework integrations.
 
 ## Development
 
@@ -300,6 +327,6 @@ MIT (see [`LICENSE`](LICENSE))
 
 💖 Made [@byearlybird](https://github.com/byearlybird)
 
-Very much inspired by Tinybase and so many other excellent libraries in the local-first community, Starling aims to implement a simple sync solution for personal apps, inspired by the method described in James Longs' CRDTs for Mortals talk.
+Very much inspired by [Tinybase](https://tinybase.org/) and so many other excellent libraries in the local-first community, Starling aims to implement a simple sync solution for personal apps, inspired by the method described in [James Long's CRDTs for Mortals talk](https://www.dotconferences.com/2019/12/james-long-crdts-for-mortals).
 
 Thanks for checking out Starling!

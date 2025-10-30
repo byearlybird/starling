@@ -1,4 +1,4 @@
-import { decodeEventstamp, encodeEventstamp } from "./eventstamp";
+import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
 
 export type Clock = {
 	now: () => string;
@@ -9,6 +9,7 @@ export type Clock = {
 export const createClock = (): Clock => {
 	let counter = 0;
 	let lastMs = Date.now();
+	let lastNonce = generateNonce();
 
 	return {
 		now: (): string => {
@@ -17,14 +18,16 @@ export const createClock = (): Clock => {
 			if (wallMs > lastMs) {
 				lastMs = wallMs;
 				counter = 0;
+				lastNonce = generateNonce();
 			} else {
 				counter++;
+				lastNonce = generateNonce();
 			}
 
-			return encodeEventstamp(lastMs, counter);
+			return encodeEventstamp(lastMs, counter, lastNonce);
 		},
 		latest() {
-			return encodeEventstamp(lastMs, counter);
+			return encodeEventstamp(lastMs, counter, lastNonce);
 		},
 		forward(eventstamp: string): void {
 			const latest = this.latest();
@@ -32,6 +35,7 @@ export const createClock = (): Clock => {
 				const newer = decodeEventstamp(eventstamp);
 				lastMs = newer.timestampMs;
 				counter = newer.counter;
+				lastNonce = newer.nonce;
 			}
 		},
 	};

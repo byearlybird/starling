@@ -1,65 +1,140 @@
 # Starling Architecture
 
-This document covers the design and internals of Starling, including the Last-Write-Wins merge strategy, eventstamps, CRDT-like merging, the plugin system, and module organization.
+Status: Draft
+
+This document covers the design and internals of Starling, including the state-based Last-Write-Wins merge strategy, eventstamps, the plugin system, and module organization.
 
 ## Repository Layout
 
-| Path | Notes |
+| Path | Description |
 | --- | --- |
-| `packages/core` | Core CRDT store (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus exhaustive unit tests. |
-| `packages/core/src/plugins/query` | Reactive query plugin that listens to store hooks to keep filtered `Map`s in sync. |
-| `packages/core/src/plugins/unstorage` | Persistence plugin that replays snapshots on boot and debounces writes. |
+| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus unit tests |
+| `packages/core/src/plugins/query` | Reactive query plugin that filters and tracks store changes |
+| `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
 
-Additional pointers:
+**Key points:**
 
-- Core logic lives under `packages/core`; official plugins live alongside the store in `packages/core/src/plugins/*`.
-- All packages are TypeScript modules bundled via `tsdown`.
-- Tests inhabit `packages/core/src/**/*.test.ts`, including plugin coverage.
+- Core logic lives under `packages/core`; official plugins are co-located in `packages/core/src/plugins/*`
+- All packages are TypeScript modules bundled via `tsdown`
+- Tests live alongside implementation: `packages/core/src/**/*.test.ts`
 
 ## Eventstamps
 
-Every value in Starling is encoded with eventstamps for conflict resolution. The eventstamp format is:
+Eventstamps power Starling's conflict resolution. Each value is stamped with:
 
 ```
-YYYY-MM-DDTHH:mm:ss.SSSZ|hexCounter
+YYYY-MM-DDTHH:mm:ss.SSSZ|hexCounter|hexNonce
 ```
 
-Example: `2025-10-26T10:00:00.000Z|00000001`
+Example: `2025-10-26T10:00:00.000Z|0001|a7f2`
 
-This enables:
+### How They Work
 
-- **Monotonic timestamps**: Later events always have higher eventstamps
-- **Conflict resolution**: When two clients update the same field, the update with the higher eventstamp wins (Last-Write-Wins)
-- **Distributed consistency**: Multiple clients can sync without coordination
-- **Wall-clock dependency**: Timestamps are derived from `Date.now()`; when the clock stalls we increment the hex counter, and whenever we observe a newer remote stamp we fast-forward the local clock.
-- **Hybrid logical clock behavior**: The pair `(timestamp, counter)` behaves like a lightweight hybrid logical clock. It stays simple but inherits the accuracy limits of the wall clock.
+**Monotonic ordering**: The hex counter increments whenever the OS clock stalls (same millisecond) or goes backward. The nonce is a random 4-character hex value that serves as a final tie-breaker, ensuring every write gets a unique, sortable stamp even when timestamp and counter are identical.
 
-### Trade-offs
+**Clock forwarding**: When a client receives a remote eventstamp newer than its local clock, it fast-forwards to that time. This keeps clocks loosely synchronized across devices without requiring a time server.
 
-- Clock skew directly affects merge results. If two peers disagree on wall time, whichever produces the “newer” stamp wins regardless of user intent.
-- There is no causal tracking beyond the stamp ordering. Divergent edits that land at the same wall time rely on the counter and may still interleave unexpectedly.
-- Starling currently persists the latest observed eventstamp through the `unstorage` plugin and forwards the clock before applying remote data.
+**Last-Write-Wins**: During merge, the field with the higher eventstamp wins. If Client A writes `name: "Alice"` at `T1` and Client B writes `name: "Bob"` at `T2`, Bob's value persists because `T2 > T1`.
 
-## CRDT-like Merging
+### Design Characteristics
 
-When merging states, Starling compares eventstamps at the field level:
+This approach provides predictable, deterministic merging:
+
+**Automatic conflict resolution**: No merge callbacks or conflict detection needed—the newest write always wins. This makes reasoning about state simple and keeps the mental model lightweight.
+
+**Self-synchronizing clocks**: When devices observe newer remote eventstamps, they fast-forward their local clocks. This loosely synchronizes devices without requiring a time server or coordination protocol.
+
+**Graceful clock handling**: The hex counter ensures monotonicity even when system clocks stall, drift backward, or multiple writes happen in the same millisecond.
+
+**Boundaries to consider:**
+
+For apps where devices sync regularly (personal tools, small teams), wall-clock-based ordering works well. However:
+
+- **Clock skew influences merge outcomes**: A device with a clock running ahead will have its writes prevail over logically newer writes from devices with accurate clocks. In practice, modern devices maintain reasonable clock accuracy via NTP.
+
+- **No explicit causality**: Starling tracks time-based ordering but doesn't capture "happened-before" relationships. Concurrent edits rely on timestamp comparison rather than causal dependencies.
+
+- **Requires eventstamp persistence**: Devices must save the highest eventstamp they've seen to prevent clock regression after restarts. The `unstorage` plugin handles this automatically.
+
+## State-Based Merging
+
+Starling uses **state-based replication**: it syncs full document snapshots, not operation logs. When merging states, Starling compares eventstamps at the field level:
 
 ```typescript
-// Client A updates
-{ name: "Alice", email: "alice@old.com" }
+// Client A's state
+{ 
+  name: ["Alice", "2025-10-26T10:00:00.000Z|00000001"],
+  email: ["alice@old.com", "2025-10-26T10:00:00.000Z|00000001"]
+}
 
-// Client B updates (newer eventstamp for email only)
-{ email: "alice@new.com" }
+// Client B's state (newer eventstamp for email only)
+{ 
+  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|00000001"]
+}
 
-// Merged result: email takes precedence due to higher eventstamp
-{ name: "Alice", email: "alice@new.com" }
+// Merged result: email wins due to higher eventstamp, name preserved from Client A
+{ 
+  name: ["Alice", "2025-10-26T10:00:00.000Z|00000001"],
+  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|00000001"]
+}
 ```
 
-## Sync Strategy Caveats
+**Why state-based?**
 
-- Last-Write-Wins is the only conflict strategy implemented. If you need tombstone compaction, vector clocks, or per-field CRDTs, you may choose to use another library with, or instead of, Starling.
-- Deletions are soft (`~deletedAt`) and keep their eventstamp. Restoring a record requires writing a newer stamp to the relevant fields.
-- Because merges depend on stamps alone, simultaneous conflicting edits can silently overwrite each other. Capture intent in the application layer if that matters to you.
+State-based replication keeps the implementation focused and efficient:
+
+- **Simple to reason about**: Syncing is just "send current state, merge on arrival"—no operation logs to manage
+- **Small codebase**: Eliminates transformation functions, causality tracking, and replay logic
+- **Merge idempotency**: Applying the same state multiple times produces the same result—natural retry safety
+- **Works everywhere**: Any transport that can move JSON works—HTTP, WebSocket, filesystem, USB stick
+
+**Current implementation**: Starling ships entire snapshots over the wire. Near-term work focuses on delta compression to send only changed fields while maintaining the state-based model.
+
+### Merge Behavior
+
+**Primitives and objects**: Merge recursively at the field level. Each nested field carries its own eventstamp, enabling fine-grained conflict resolution:
+
+```typescript
+// Both clients edit different fields simultaneously
+Client A: { name: "Alice Smith" }  // Updates name
+Client B: { email: "alice@new.com" }  // Updates email
+
+// Both changes preserved
+Merged: { name: "Alice Smith", email: "alice@new.com" }
+```
+
+**Arrays**: Treated as atomic values—the entire array is replaced rather than merged element-by-element. This provides predictable behavior and avoids ambiguous merge scenarios. For collections that need concurrent edits, use keyed records:
+
+```typescript
+// Array (atomic replacement)
+{ tags: ["work", "urgent"] }  // Entire array wins/loses as a unit
+
+// Keyed record (field-level merging)
+{ todos: { "id1": { text: "..." }, "id2": { text: "..." } } }  // Each todo merges independently
+```
+
+**Deletions**: Soft-deleted via `~deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
+
+## Design Scope
+
+Starling focuses on the 80/20 of sync for personal and small-team apps:
+
+**What Starling provides:**
+
+- **Automatic convergence**: Field-level Last-Write-Wins ensures all replicas eventually agree
+- **Simple mental model**: "Newest write wins" is easy to explain and reason about
+- **Embeddable**: Tiny footprint (~4KB core) with zero required dependencies
+- **Framework-agnostic**: Works with React, SolidJS, Vue, Svelte, or vanilla JavaScript
+
+**Specialized use cases:**
+
+For real-time collaboration, strict causal ordering, or complex operational transforms, consider specialized libraries:
+
+- **Collaborative text editing**: [Yjs](https://docs.yjs.dev/) or [Diamond Types](https://github.com/josephg/diamond-types) provide mergeable text CRDTs
+- **Rich document collaboration**: [Automerge](https://automerge.org/) offers a full CRDT suite with causal consistency
+- **Distributed systems with high clock skew**: Vector clock-based systems like [Riak](https://riak.com/) handle multi-datacenter scenarios
+
+Starling can complement these tools—use it for application state while delegating collaborative data structures to specialized CRDTs.
 
 ## Plugin System
 
@@ -76,37 +151,108 @@ type Plugin<T, M extends PluginMethods = {}> = {
   };
   methods?: M;
 };
+```
+
+### Hook Execution
+
+Plugins tap into the store lifecycle at specific points:
+
+- **`onInit`**: Setup phase during `store.init()` (hydrate snapshots, start pollers, establish connections)
+- **`onDispose`**: Cleanup phase during `store.dispose()` (flush pending work, close connections)
+- **Mutation hooks** (`onAdd`, `onUpdate`, `onDelete`): React to changes after transactions commit, receiving batched entries by mutation type
+
+Mutation hooks are **optional**—implement only what your plugin needs. For example, a read-only analytics plugin might only use `onInit` and `onAdd`.
+
+### Plugin Methods
+
+Plugins can extend the store API by returning methods:
+
+```typescript
+const queryPlugin = <T>(): Plugin<T, { query: (opts) => Query<T> }> => ({
+  hooks: { /* ... */ },
+  methods: {
+    query: (opts) => { /* implementation */ }
+  }
+});
 
 // Usage
 const store = await createStore<T>()
-  .use(plugin1)
-  .use(plugin2)
+  .use(queryPlugin())
+  .init();
+
+store.query({ where: (doc) => doc.active }); // Method added by plugin
+```
+
+### Plugin Composition
+
+Plugins stack cleanly—each operates independently:
+
+```typescript
+const store = await createStore<Todo>()
+  .use(queryPlugin())
+  .use(unstoragePlugin("todos", localStorageBackend))
+  .use(unstoragePlugin("todos", httpBackend, { pollIntervalMs: 5000 }))
   .init();
 ```
 
-Plugins can opt into whichever hooks they need and may expose additional store methods by returning them via the optional `methods` object (for example, `queryPlugin` adds a `query()` helper).
+**Execution order:**
+1. `onInit` hooks run sequentially (first registered, first executed)
+2. Mutation hooks run sequentially after each transaction commits
+3. `onDispose` hooks run sequentially during teardown
 
-## Modules at a Glance
+## Module Overview
 
-- [`clock.ts`](../packages/core/src/clock.ts) – monotonic logical clock that increments a hex counter whenever the OS clock stalls and can `forward` itself when it sees newer remote stamps.
-- [`eventstamp.ts`](../packages/core/src/eventstamp.ts) – encoder/decoder for the sortable `YYYY-MM-DDTHH:mm:ss.sssZ|counter` strings.
-- [`value.ts`](../packages/core/src/value.ts) – wraps primitives with their eventstamp and merges values by comparing stamps.
-- [`record.ts`](../packages/core/src/record.ts) – walks nested objects, encoding/decoding each field and recursively merging sub-records.
-- [`document.ts`](../packages/core/src/document.ts) – attaches metadata (`~id`, `~deletedAt`) and knows how to tombstone or merge entire documents.
-- [`kv.ts`](../packages/core/src/kv.ts) – immutable map plus transactional staging used by the store to guarantee atomic commits.
-- [`store.ts`](../packages/core/src/store.ts) – user-facing API layer plus plugin orchestration and hook batching.
+Each module handles a distinct responsibility in the state-based replication model:
+
+| Module | Responsibility |
+| --- | --- |
+| [`clock.ts`](../packages/core/src/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, generates random nonces for tie-breaking, and forwards itself when observing newer remote stamps |
+| [`eventstamp.ts`](../packages/core/src/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
+| [`value.ts`](../packages/core/src/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
+| [`record.ts`](../packages/core/src/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
+| [`document.ts`](../packages/core/src/document.ts) | Attaches system metadata (`~id`, `~deletedAt`) and handles soft-deletion |
+| [`kv.ts`](../packages/core/src/kv.ts) | Immutable map with transactional staging for atomic commits |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, plugin orchestration, and transaction management |
+
+### Data Flow
+
+```
+User mutation → Store → KV staging → Transaction commit → Plugin hooks
+                                    ↓
+                            Eventstamp application
+                                    ↓
+                            Document/Record/Value merge
+```
 
 ## Package Exports
 
-Starling is organized as a monorepo with three packages:
+Starling ships as a monorepo with subpath exports:
 
-- **`@byearlybird/starling`** – Core library (store lifecycle, transactions, plugin orchestration)
-  - Exports: `createStore`, `Store`, `Plugin`, `PluginHooks`, `PluginMethods`, `EncodedDocument`
-  - Zero dependencies
+### `@byearlybird/starling` (Core)
 
-- **`@byearlybird/starling/plugin-query`** – Query plugin for reactive filtered views
-  - Exports: `queryPlugin`
+**Exports**: `createStore`, `Store`, `Plugin`, `PluginHooks`, `PluginMethods`, `EncodedDocument`  
+**Dependencies**: Zero runtime dependencies
 
-- **`@byearlybird/starling/plugin-unstorage`** – Persistence plugin
-  - Exports: `unstoragePlugin`
-  - Peer dependency: `unstorage@^1.17.1`
+Provides the core store implementation and plugin system.
+
+### `@byearlybird/starling/plugin-query`
+
+**Exports**: `queryPlugin`  
+**Dependencies**: None (uses core hooks)
+
+Reactive filtered views that re-evaluate when matching documents change.
+
+### `@byearlybird/starling/plugin-unstorage`
+
+**Exports**: `unstoragePlugin`  
+**Peer dependency**: `unstorage@^1.17.1`
+
+Persistence layer supporting any `unstorage` backend (localStorage, HTTP, filesystem, etc.). Automatically persists the latest eventstamp to prevent clock regression.
+
+## Testing Strategy
+
+- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `kv`, `store`)
+- **Integration tests**: Verify plugin hooks fire correctly and multi-plugin composition works
+- **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
+
+Tests live alongside implementation: `packages/core/src/**/*.test.ts`

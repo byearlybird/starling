@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createClock } from "./clock";
-import { decodeEventstamp, encodeEventstamp } from "./eventstamp";
+import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
 
-test("now() returns ISO string with counter suffix", () => {
+test("now() returns ISO string with counter and nonce suffix", () => {
 	const clock = createClock();
 	const eventstamp = clock.now();
 
-	// Format: ISO|hexCounter
+	// Format: ISO|hexCounter|hexNonce
 	expect(eventstamp).toMatch(
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}$/,
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{4}\|[0-9a-f]{4}$/,
 	);
 });
 
@@ -65,7 +65,7 @@ test("counter increments when real time hasn't caught up to forwarded time", () 
 	clock.now();
 
 	// Move clock forward to a future eventstamp
-	const futureEventstamp = encodeEventstamp(Date.now() + 1000, 0);
+	const futureEventstamp = encodeEventstamp(Date.now() + 1000, 0, generateNonce());
 	clock.forward(futureEventstamp);
 
 	// Real time hasn't advanced that much yet, so counter increments
@@ -86,7 +86,7 @@ test("latest() returns last recorded eventstamp", () => {
 
 	expect(latest).toBe(stamp);
 	expect(latest).toMatch(
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{8}$/,
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{4}\|[0-9a-f]{4}$/,
 	);
 });
 
@@ -95,7 +95,7 @@ test("forward() updates lastMs when eventstamp is greater", () => {
 
 	const initialStamp = clock.latest();
 	const { timestampMs } = decodeEventstamp(initialStamp);
-	const newEventstamp = encodeEventstamp(timestampMs + 1000, 0);
+	const newEventstamp = encodeEventstamp(timestampMs + 1000, 0, generateNonce());
 
 	clock.forward(newEventstamp);
 
@@ -109,7 +109,7 @@ test("forward() does not update lastMs when eventstamp is not greater", () => {
 	const currentStamp = clock.latest();
 
 	const { timestampMs } = decodeEventstamp(currentStamp);
-	const olderEventstamp = encodeEventstamp(timestampMs - 100, 0);
+	const olderEventstamp = encodeEventstamp(timestampMs - 100, 0, generateNonce());
 
 	clock.forward(olderEventstamp);
 
@@ -125,7 +125,7 @@ test("forward() updates lastMs to allow counter reset when real time catches up"
 	// Move clock forward to a much later time
 	const currentStamp = clock.latest();
 	const { timestampMs } = decodeEventstamp(currentStamp);
-	const futureEventstamp = encodeEventstamp(timestampMs + 1000, 0);
+	const futureEventstamp = encodeEventstamp(timestampMs + 1000, 0, generateNonce());
 	clock.forward(futureEventstamp);
 
 	// Verify eventstamp was updated
@@ -145,10 +145,13 @@ test("eventstamp format is consistent with padding", () => {
 		const eventstamp = clock.now();
 		const parts = eventstamp.split("|");
 
-		expect(parts.length).toBe(2);
+		expect(parts.length).toBe(3);
 		expect(parts[1]).toBeDefined();
-		expect(parts[1]?.length).toBe(8);
+		expect(parts[1]?.length).toBe(4);
+		expect(parts[2]).toBeDefined();
+		expect(parts[2]?.length).toBe(4);
 		// Should be valid hex
-		expect(/^[0-9a-f]{8}$/.test(parts[1] || "")).toBe(true);
+		expect(/^[0-9a-f]{4}$/.test(parts[1] || "")).toBe(true);
+		expect(/^[0-9a-f]{4}$/.test(parts[2] || "")).toBe(true);
 	}
 });
