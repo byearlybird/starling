@@ -68,7 +68,8 @@ Conflict resolution recursively merges each field of a plain JavaScript object, 
 
 ### Eventstamps
 
-Eventstamps combine ISO8601 timestamps with a hex counter (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter`). This ensures that even if two clients have identical system clocks—or one clock drifts backward—each write gets a unique, comparable timestamp. The counter increments locally when the timestamp doesn't advance, guaranteeing monotonicity.
+Eventstamps capture a single operation using a Hybrid Logical Clock. They combine ISO8601 timestamps with a hex counter and random nonce (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter|nonce`). This ensures that even if two clients have identical system clocks—or one clock drifts backward—each write gets a unique, comparable timestamp. The counter increments locally when the timestamp doesn't advance, guaranteeing monotonicity. In the event that a conflict occurs, the nonce acts as a tie-breaker.
+To address clock drift, the latest eventstamp is persisted and shared with each data store, so nodes may fast forward clocks to match.
 
 The `unstorage` plugin persists both documents and the latest eventstamp so fresh instances resume from the newest clock value.
 
@@ -90,7 +91,7 @@ Starling works best with **Records** and **Primitives**:
 
 ### When to Use Something Else
 
-If you need *strict* causal guarantees, operational transformation, or support for mergeable array operations, consider using CRDT libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/) with, or instead of, Starling.
+If you need support for mergeable array operations, semantic operations, or sophisticated string merging, consider using CRDT libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/) with, or instead of, Starling.
 
 ## Core API
 
