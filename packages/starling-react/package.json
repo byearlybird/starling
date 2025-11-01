@@ -1,0 +1,42 @@
+{
+	"name": "@byearlybird/starling-react",
+	"version": "0.1.0",
+	"description": "React bindings for Starling stores",
+	"type": "module",
+	"license": "MIT",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts",
+		"prepublishOnly": "bun run build.ts"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "workspace:*",
+		"react": "^18.0.0 || ^19.0.0"
+	},
+	"devDependencies": {
+		"@types/react": "^18.3.18",
+		"react": "^19.0.0"
+	},
+	"keywords": [
+		"starling",
+		"react",
+		"local-first",
+		"sync",
+		"offline",
+		"crdt"
+	],
+	"publishConfig": {
+		"access": "public"
+	}
+}

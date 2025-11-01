@@ -1,0 +1,41 @@
+{
+	"name": "@byearlybird/starling-solid",
+	"version": "0.1.0",
+	"description": "SolidJS bindings for Starling stores",
+	"type": "module",
+	"license": "MIT",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts",
+		"prepublishOnly": "bun run build.ts"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "workspace:*",
+		"solid-js": "^1.8.0"
+	},
+	"devDependencies": {
+		"solid-js": "^1.9.9"
+	},
+	"keywords": [
+		"starling",
+		"solidjs",
+		"local-first",
+		"sync",
+		"offline",
+		"crdt"
+	],
+	"publishConfig": {
+		"access": "public"
+	}
+}

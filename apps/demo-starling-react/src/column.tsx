@@ -1,18 +1,21 @@
-import type { Query } from "@byearlybird/starling/plugin-query";
 import { useMemo } from "react";
 import { Card } from "./card";
-import type { Task } from "./store/task-store";
-import { taskStore } from "./store/task-store";
-import { useQueryResults } from "./store/useQueryResults";
+import { type Status, type Task, TaskStore } from "./store/task-store";
 
 export interface ColumnProps {
 	title: string;
-	query: Query<Task>;
+	status: Status;
 	searchQuery: string;
 }
 
-export const Column = ({ title, query, searchQuery }: ColumnProps) => {
-	const tasks = useQueryResults(query);
+export const Column = ({ title, status, searchQuery }: ColumnProps) => {
+	// Use the query hook from the store context
+	const tasks = TaskStore.useQuery({
+		where: (task) => task.status === status,
+	});
+
+	// Get mutations from the store context
+	const { update, del } = TaskStore.useMutations();
 
 	const filteredTasks = useMemo(() => {
 		const search = searchQuery.toLowerCase();
@@ -35,14 +38,14 @@ export const Column = ({ title, query, searchQuery }: ColumnProps) => {
 					<Card
 						key={id}
 						task={task}
-						onRemove={() => taskStore.del(id)}
+						onRemove={() => del(id)}
 						onMoveLeft={() =>
-							taskStore.update(id, {
+							update(id, {
 								status: task.status === "done" ? "doing" : "todo",
 							})
 						}
 						onMoveRight={() =>
-							taskStore.update(id, {
+							update(id, {
 								status: task.status === "todo" ? "doing" : "done",
 							})
 						}

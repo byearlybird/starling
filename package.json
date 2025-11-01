@@ -9,8 +9,10 @@
 		"packages/**"
 	],
 	"scripts": {
-		"build:all": "bun run build:core",
+		"build:all": "bun run build:core && bun run build:react && bun run build:solid",
 		"build:core": "cd packages/core && bun run build.ts",
+		"build:react": "cd packages/starling-react && bun run build.ts",
+		"build:solid": "cd packages/starling-solid && bun run build.ts",
 		"demo:react": "bun scripts/demo-react.ts",
 		"demo:solid": "bun scripts/demo-solid.ts",
 		"version:core:patch": "cd packages/core && bun pm version patch",

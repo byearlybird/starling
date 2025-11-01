@@ -1,6 +1,7 @@
 import { createStore, processDocument } from "@byearlybird/starling";
 import { queryPlugin } from "@byearlybird/starling/plugin-query";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
+import { createStoreContext } from "@byearlybird/starling-solid";
 import { createStorage } from "unstorage";
 import httpDriver from "unstorage/drivers/http";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -82,14 +83,5 @@ export const taskStore = await createStore<Task>()
 	.use(queryPlugin())
 	.init();
 
-export const todoTasksQuery = taskStore.query({
-	where: (task) => task.status === "todo",
-});
-
-export const doingTasksQuery = taskStore.query({
-	where: (task) => task.status === "doing",
-});
-
-export const doneTasksQuery = taskStore.query({
-	where: (task) => task.status === "done",
-});
+// Create typed store context for SolidJS components
+export const TaskStore = createStoreContext<Task>("TaskStore");

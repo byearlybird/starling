@@ -1,18 +1,21 @@
-import type { Query } from "@byearlybird/starling/plugin-query";
 import { type Accessor, createMemo, For } from "solid-js";
 import { Card } from "./card";
-import { createQuerySignal } from "./store/create-query-signal";
-import type { Task } from "./store/task-store";
-import { taskStore } from "./store/task-store";
+import { type Status, type Task, TaskStore } from "./store/task-store";
 
 export interface ColumnProps {
 	title: string;
-	query: Query<Task>;
+	status: Status;
 	searchQuery: Accessor<string>;
 }
 
 export const Column = (props: ColumnProps) => {
-	const tasks = createQuerySignal<Task>(props.query);
+	// Use the query primitive from the store context
+	const tasks = TaskStore.useQuery({
+		where: (task) => task.status === props.status,
+	});
+
+	// Get mutations from the store context
+	const { update, del } = TaskStore.useMutations();
 
 	const filteredTasks = createMemo(() => {
 		const search = props.searchQuery().toLowerCase();
@@ -35,14 +38,14 @@ export const Column = (props: ColumnProps) => {
 					{([id, task]) => (
 						<Card
 							task={task}
-							onRemove={() => taskStore.del(id)}
+							onRemove={() => del(id)}
 							onMoveLeft={() =>
-								taskStore.update(id, {
+								update(id, {
 									status: task.status === "done" ? "doing" : "todo",
 								})
 							}
 							onMoveRight={() =>
-								taskStore.update(id, {
+								update(id, {
 									status: task.status === "todo" ? "doing" : "done",
 								})
 							}
