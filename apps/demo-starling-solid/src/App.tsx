@@ -1,110 +1,48 @@
-import { createSignal, For, Show } from "solid-js";
-import "./App.css";
-import { createQuerySignal } from "./store/createQuerySignal";
+import { createSignal } from "solid-js";
+import { Column } from "./column";
+import { SearchInput } from "./search-input";
 import {
-	activeTodosQuery,
-	allTodosQuery,
-	completedTodosQuery,
-	todoStore,
-} from "./store/todoStore";
+	doingTasksQuery,
+	doneTasksQuery,
+	taskSchema,
+	taskStore,
+	todoTasksQuery,
+} from "./store/task-store";
+
+const createTask = (title: string) => {
+	const validated = taskSchema.parse({ title });
+	return taskStore.add(validated);
+};
 
 function App() {
-	const [inputValue, setInputValue] = createSignal("");
-	const todos = createQuerySignal(allTodosQuery);
-	const activeTodos = createQuerySignal(activeTodosQuery);
-	const completedTodos = createQuerySignal(completedTodosQuery);
+	const [searchQuery, setSearchQuery] = createSignal("");
 
-	const addTodo = (text: string) => {
-		todoStore.add({ text, completed: false });
-	};
-
-	const toggleTodo = (id: string) => {
-		todoStore.begin((tx) => {
-			const todo = tx.get(id);
-			if (todo) {
-				tx.update(id, { completed: !todo.completed });
-			}
-		});
-	};
-
-	const deleteTodo = (id: string) => {
-		todoStore.del(id);
-	};
-
-	const clearCompleted = () => {
-		todoStore.begin((tx) => {
-			for (const id of completedTodos().keys()) {
-				tx.del(id);
-			}
-		});
-	};
-
-	const handleAddTodo = (event: Event) => {
-		event.preventDefault();
-		const value = inputValue().trim();
-		if (!value) return;
-
-		addTodo(value);
-		setInputValue("");
+	const onAdd = () => {
+		const title = prompt("New task title");
+		if (!title) return;
+		createTask(title);
 	};
 
 	return (
-		<div class="app">
-			<h1>todos</h1>
-
-			<form onSubmit={handleAddTodo} class="todo-form">
-				<input
-					type="text"
-					class="todo-input"
-					placeholder="What needs to be done?"
-					value={inputValue()}
-					onInput={(event) => setInputValue(event.currentTarget.value)}
+		<div class="max-w-[1100px] mx-auto my-8">
+			<SearchInput
+				query={searchQuery()}
+				onQueryChange={setSearchQuery}
+				onAdd={onAdd}
+			/>
+			<div class="grid grid-cols-3 gap-6">
+				<Column
+					title="To Do"
+					query={todoTasksQuery}
+					searchQuery={searchQuery}
 				/>
-			</form>
-
-			<div class="todo-list">
-				<For each={Array.from(todos().entries())}>
-					{([id, todo]) => (
-						<div
-							class={`todo-item ${todo.completed ? "completed" : ""}`}
-							data-id={id}
-						>
-							<input
-								type="checkbox"
-								checked={todo.completed}
-								onChange={() => toggleTodo(id)}
-								class="todo-checkbox"
-							/>
-							<span class="todo-text">{todo.text}</span>
-							<button
-								type="button"
-								onClick={() => deleteTodo(id)}
-								class="todo-delete"
-							>
-								X
-							</button>
-						</div>
-					)}
-				</For>
+				<Column
+					title="Doing"
+					query={doingTasksQuery}
+					searchQuery={searchQuery}
+				/>
+				<Column title="Done" query={doneTasksQuery} searchQuery={searchQuery} />
 			</div>
-
-			<Show when={todos().size > 0}>
-				<div class="todo-footer">
-					<span class="todo-count">
-						{activeTodos().size} {activeTodos().size === 1 ? "item" : "items"}{" "}
-						left
-					</span>
-					<Show when={completedTodos().size > 0}>
-						<button
-							type="button"
-							onClick={clearCompleted}
-							class="clear-completed"
-						>
-							Clear completed
-						</button>
-					</Show>
-				</div>
-			</Show>
 		</div>
 	);
 }

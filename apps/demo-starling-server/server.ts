@@ -9,7 +9,7 @@ type Todo = {
 };
 
 const fileStorage = unstoragePlugin<Todo>(
-	"todos",
+	"tasks",
 	createStorage<StoreSnapshot>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
@@ -35,7 +35,7 @@ const server = Bun.serve({
 		}
 
 		// GET /api/todos - Return complete persisted snapshot
-		if (url.pathname === "/api/todos" && req.method === "GET") {
+		if (url.pathname === "/api/tasks" && req.method === "GET") {
 			const snapshot = store.snapshot();
 			return new Response(JSON.stringify(snapshot), {
 				headers: {
@@ -46,7 +46,7 @@ const server = Bun.serve({
 		}
 
 		// PUT /api/todos - Merge incoming snapshot data
-		if (url.pathname === "/api/todos" && req.method === "PUT") {
+		if (url.pathname === "/api/tasks" && req.method === "PUT") {
 			try {
 				const incoming = (await req.json()) as StoreSnapshot;
 

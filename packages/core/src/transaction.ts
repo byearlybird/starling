@@ -68,9 +68,15 @@ export const createTransaction = <T>(
 			}
 
 			const currentDoc = kvTx.get(doc["~id"]);
-			if (currentDoc && !currentDoc["~deletedAt"]) {
-				const merged = decodeDoc<T>(currentDoc)["~data"];
-				patchKeyValues.push([doc["~id"], merged] as const);
+			if (currentDoc) {
+				if (currentDoc["~deletedAt"]) {
+					// Document is deleted, add to deleteKeys for notification
+					deleteKeys.push(doc["~id"]);
+				} else {
+					// Document is active, add to patchKeyValues for notification
+					const merged = decodeDoc<T>(currentDoc)["~data"];
+					patchKeyValues.push([doc["~id"], merged] as const);
+				}
 			}
 		},
 		del(key: string) {

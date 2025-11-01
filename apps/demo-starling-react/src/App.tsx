@@ -1,106 +1,48 @@
-import { useCallback, useState } from "react";
-import "./App.css";
+import { useState } from "react";
+import { Column } from "./column";
+import { SearchInput } from "./search-input";
 import {
-	activeTodosQuery,
-	allTodosQuery,
-	completedTodosQuery,
-	todoStore,
-} from "./store/todoStore";
-import { useQueryResults } from "./store/useQueryResults";
+	doingTasksQuery,
+	doneTasksQuery,
+	taskSchema,
+	taskStore,
+	todoTasksQuery,
+} from "./store/task-store";
+
+const createTask = (title: string) => {
+	const validated = taskSchema.parse({ title });
+	return taskStore.add(validated);
+};
 
 function App() {
-	const [inputValue, setInputValue] = useState("");
-	const todos = useQueryResults(allTodosQuery);
-	const activeTodos = useQueryResults(activeTodosQuery);
-	const completedTodos = useQueryResults(completedTodosQuery);
+	const [searchQuery, setSearchQuery] = useState("");
 
-	const addTodo = useCallback((text: string) => {
-		todoStore.add({ text, completed: false });
-	}, []);
-
-	const toggleTodo = useCallback((id: string) => {
-		todoStore.begin((tx) => {
-			const todo = tx.get(id);
-			if (todo) {
-				tx.update(id, { completed: !todo.completed });
-			}
-		});
-	}, []);
-
-	const deleteTodo = useCallback((id: string) => {
-		todoStore.del(id);
-	}, []);
-
-	const clearCompleted = useCallback(() => {
-		todoStore.begin((tx) => {
-			for (const id of completedTodos.keys()) {
-				tx.del(id);
-			}
-		});
-	}, [completedTodos]);
-
-	const handleAddTodo = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!inputValue.trim()) return;
-
-		addTodo(inputValue);
-		setInputValue("");
+	const onAdd = () => {
+		const title = prompt("New task title");
+		if (!title) return;
+		createTask(title);
 	};
 
 	return (
-		<div className="app">
-			<h1>todos</h1>
-
-			<form onSubmit={handleAddTodo} className="todo-form">
-				<input
-					type="text"
-					className="todo-input"
-					placeholder="What needs to be done?"
-					value={inputValue}
-					onChange={(e) => setInputValue(e.target.value)}
+		<div className="max-w-[1100px] mx-auto my-8">
+			<SearchInput
+				query={searchQuery}
+				onQueryChange={setSearchQuery}
+				onAdd={onAdd}
+			/>
+			<div className="grid grid-cols-3 gap-6">
+				<Column
+					title="To Do"
+					query={todoTasksQuery}
+					searchQuery={searchQuery}
 				/>
-			</form>
-
-			<div className="todo-list">
-				{Array.from(todos.entries()).map(([id, todo]) => (
-					<div
-						key={id}
-						className={`todo-item ${todo.completed ? "completed" : ""}`}
-					>
-						<input
-							type="checkbox"
-							checked={todo.completed}
-							onChange={() => toggleTodo(id)}
-							className="todo-checkbox"
-						/>
-						<span className="todo-text">{todo.text}</span>
-						<button
-							type="button"
-							onClick={() => deleteTodo(id)}
-							className="todo-delete"
-						>
-							X
-						</button>
-					</div>
-				))}
+				<Column
+					title="Doing"
+					query={doingTasksQuery}
+					searchQuery={searchQuery}
+				/>
+				<Column title="Done" query={doneTasksQuery} searchQuery={searchQuery} />
 			</div>
-
-			{todos.size > 0 && (
-				<div className="todo-footer">
-					<span className="todo-count">
-						{activeTodos.size} {activeTodos.size === 1 ? "item" : "items"} left
-					</span>
-					{completedTodos.size > 0 && (
-						<button
-							type="button"
-							onClick={clearCompleted}
-							className="clear-completed"
-						>
-							Clear completed
-						</button>
-					)}
-				</div>
-			)}
 		</div>
 	);
 }

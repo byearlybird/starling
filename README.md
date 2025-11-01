@@ -297,6 +297,8 @@ What happens here:
 
 ## Examples
 
+![Demo GIF](demo.GIF)
+
 Three demo apps show Starling in action:
 
 - **[React Todo App](apps/demo-starling-react)** - Cross-device sync with localStorage + HTTP
