@@ -41,8 +41,8 @@ export type Plugin<T, M extends PluginMethods = {}> = {
  * and the latest eventstamp for clock synchronization during merges.
  */
 export type StoreSnapshot = {
-	docs: EncodedDocument[];
-	latestEventstamp: string;
+	"~docs": EncodedDocument[];
+	"~latestEventstamp": string;
 };
 
 export type Store<T, Extended = {}> = {
@@ -108,14 +108,14 @@ export const createStore = <T>(
 		},
 		snapshot() {
 			return {
-				docs: Array.from(kv.values()),
-				latestEventstamp: clock.latest(),
+				"~docs": Array.from(kv.values()),
+				"~latestEventstamp": clock.latest(),
 			};
 		},
 		merge(snapshot: StoreSnapshot) {
-			clock.forward(snapshot.latestEventstamp);
+			clock.forward(snapshot["~latestEventstamp"]);
 			this.begin((tx) => {
-				for (const doc of snapshot.docs) {
+				for (const doc of snapshot["~docs"]) {
 					tx.merge(doc);
 				}
 			});

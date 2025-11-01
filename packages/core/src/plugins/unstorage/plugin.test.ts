@@ -9,8 +9,8 @@ type Todo = {
 };
 
 type StoreSnapshot = {
-	docs: EncodedDocument[];
-	latestEventstamp: string;
+	"~docs": EncodedDocument[];
+	"~latestEventstamp": string;
 };
 
 let storage: ReturnType<typeof createStorage<StoreSnapshot>>;
@@ -65,9 +65,9 @@ test("persists put operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
-	expect(persisted?.docs[0]?.["~id"]).toBe("todo1");
-	expect(persisted?.latestEventstamp).toBeDefined();
+	expect(persisted?.["~docs"].length).toBe(1);
+	expect(persisted?.["~docs"][0]?.["~id"]).toBe("todo1");
+	expect(persisted?.["~latestEventstamp"]).toBeDefined();
 });
 
 test("persists patch operation to storage", async () => {
@@ -81,7 +81,7 @@ test("persists patch operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
+	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toEqual({ label: "Buy milk", completed: true });
 });
 
@@ -96,7 +96,7 @@ test("persists delete operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
+	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toBeNull();
 });
 
@@ -166,8 +166,8 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 
 	// Verify the persisted data included the eventstamp
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
-	expect(persisted?.latestEventstamp).toBeDefined();
-	expect(persisted?.docs.length).toBe(2);
+	expect(persisted?.["~latestEventstamp"]).toBeDefined();
+	expect(persisted?.["~docs"].length).toBe(2);
 
 	await store2.dispose();
 });

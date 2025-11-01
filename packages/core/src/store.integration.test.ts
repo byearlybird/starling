@@ -41,8 +41,8 @@ async function mergeStoreSnapshots<T extends Record<string, unknown>>(
 	// Find the highest eventstamp across all snapshots for clock synchronization
 	let maxEventstamp = "";
 	for (const snapshot of snapshots) {
-		if (snapshot.latestEventstamp > maxEventstamp) {
-			maxEventstamp = snapshot.latestEventstamp;
+		if (snapshot["~latestEventstamp"] > maxEventstamp) {
+			maxEventstamp = snapshot["~latestEventstamp"];
 		}
 	}
 
@@ -54,7 +54,7 @@ async function mergeStoreSnapshots<T extends Record<string, unknown>>(
 	for (const snapshot of snapshots) {
 		consolidated.begin(
 			(tx) => {
-				for (const doc of snapshot.docs) {
+				for (const doc of snapshot["~docs"]) {
 					tx.merge(doc);
 				}
 			},
@@ -136,9 +136,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Verify clock is forwarded to the highest eventstamp
 		// (eventstamps are ISO8601 strings, so lexicographic comparison works)
 		const stamps = [
-			snapshotA.latestEventstamp,
-			snapshotB.latestEventstamp,
-			snapshotC.latestEventstamp,
+			snapshotA["~latestEventstamp"],
+			snapshotB["~latestEventstamp"],
+			snapshotC["~latestEventstamp"],
 		];
 		const maxRemoteStamp = stamps.sort().pop() || "";
 		expect(consolidated.latestEventstamp()).toEqual(maxRemoteStamp);
@@ -327,7 +327,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// The snapshot should show the document as deleted (with ~deletedAt timestamp)
 		const snapshot = consolidated.snapshot();
-		const deletedDoc = snapshot.docs.find((doc) => doc["~id"] === "user-1");
+		const deletedDoc = snapshot["~docs"].find((doc) => doc["~id"] === "user-1");
 		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
 
 		// The consolidated store should have 0 active entries
@@ -337,8 +337,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should merge empty snapshots gracefully", async () => {
 		const emptySnapshot: StoreSnapshot = {
-			docs: [],
-			latestEventstamp: "2025-01-01T00:00:00.000Z|00000000",
+			"~docs": [],
+			"~latestEventstamp": "2025-01-01T00:00:00.000Z|0000|0000",
 		};
 
 		const consolidated = await mergeStoreSnapshots<TestUser>([emptySnapshot]);
@@ -469,7 +469,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[snapshotA2.latestEventstamp, snapshotB2.latestEventstamp].sort().pop() ||
+			[snapshotA2["~latestEventstamp"], snapshotB2["~latestEventstamp"]].sort().pop() ||
 			"";
 		const consolidatedClock = consolidated.latestEventstamp();
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
