@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from "bun:test";
-import { createStore, type EncodedDocument } from "../../store";
 import { createStorage } from "unstorage";
+import { createStore, type EncodedDocument } from "../../store";
 import { unstoragePlugin } from "./plugin";
 
 type Todo = {
@@ -9,8 +9,8 @@ type Todo = {
 };
 
 type StoreSnapshot = {
-	docs: EncodedDocument[];
-	latestEventstamp: string;
+	"~docs": EncodedDocument[];
+	"~eventstamp": string;
 };
 
 let storage: ReturnType<typeof createStorage<StoreSnapshot>>;
@@ -65,9 +65,9 @@ test("persists put operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
-	expect(persisted?.docs[0]?.["~id"]).toBe("todo1");
-	expect(persisted?.latestEventstamp).toBeDefined();
+	expect(persisted?.["~docs"].length).toBe(1);
+	expect(persisted?.["~docs"][0]?.["~id"]).toBe("todo1");
+	expect(persisted?.["~eventstamp"]).toBeDefined();
 });
 
 test("persists patch operation to storage", async () => {
@@ -81,7 +81,7 @@ test("persists patch operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
+	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toEqual({ label: "Buy milk", completed: true });
 });
 
@@ -96,7 +96,7 @@ test("persists delete operation to storage", async () => {
 
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
 	expect(persisted).toBeDefined();
-	expect(persisted?.docs.length).toBe(1);
+	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toBeNull();
 });
 
@@ -144,7 +144,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 
 	// Wait for persistence
 	await new Promise((resolve) => setTimeout(resolve, 10));
-	const persistedEventstamp = store1.latestEventstamp();
+	const persistedEventstamp = store1.eventstamp();
 	await store1.dispose();
 
 	// Create a new store that loads the data
@@ -153,7 +153,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 		.init();
 
 	// The new store's clock should have been forwarded to at least the persisted eventstamp
-	const store2Latest = store2.latestEventstamp();
+	const store2Latest = store2.eventstamp();
 	expect(store2Latest >= persistedEventstamp).toBe(true);
 
 	// New writes should have higher eventstamps than the loaded data
@@ -161,13 +161,13 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 	store2.begin((tx) => {
 		tx.add({ label: "Task 2", completed: false }, { withId: "todo2" });
 	});
-	const afterTimestamp = store2.latestEventstamp();
+	const afterTimestamp = store2.eventstamp();
 	expect(afterTimestamp > beforeTimestamp).toBe(true);
 
 	// Verify the persisted data included the eventstamp
 	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
-	expect(persisted?.latestEventstamp).toBeDefined();
-	expect(persisted?.docs.length).toBe(2);
+	expect(persisted?.["~eventstamp"]).toBeDefined();
+	expect(persisted?.["~docs"].length).toBe(2);
 
 	await store2.dispose();
 });

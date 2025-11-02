@@ -62,20 +62,20 @@ Starling uses **state-based replication**: it syncs full document snapshots, not
 
 ```typescript
 // Client A's state
-{ 
-  name: ["Alice", "2025-10-26T10:00:00.000Z|00000001"],
-  email: ["alice@old.com", "2025-10-26T10:00:00.000Z|00000001"]
+{
+  name: ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
+  email: ["alice@old.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
 }
 
 // Client B's state (newer eventstamp for email only)
-{ 
-  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|00000001"]
+{
+  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|0001|b3d4"]
 }
 
 // Merged result: email wins due to higher eventstamp, name preserved from Client A
-{ 
-  name: ["Alice", "2025-10-26T10:00:00.000Z|00000001"],
-  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|00000001"]
+{
+  name: ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
+  email: ["alice@new.com", "2025-10-26T10:05:00.000Z|0001|b3d4"]
 }
 ```
 
@@ -114,6 +114,42 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 ```
 
 **Deletions**: Soft-deleted via `~deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
+
+### Store Snapshot Format
+
+The `StoreSnapshot` type represents the complete persistent state of a store, following the tilde convention for system-reserved keys:
+
+```typescript
+export type StoreSnapshot = {
+  "~docs": EncodedDocument[];
+  "~eventstamp": string;
+};
+```
+
+**Design notes:**
+
+- **`~docs`**: Array of encoded documents, including soft-deleted items (those with `~deletedAt` set). This ensures deletion events propagate during sync.
+- **`~eventstamp`**: The highest eventstamp observed by the store. When merging snapshots, stores forward their clocks to this value to prevent eventstamp collisions across sync boundaries.
+
+Example snapshot:
+
+```typescript
+{
+  "~docs": [
+    {
+      "~id": "user-1",
+      "~data": {
+        "name": ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
+        "email": ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
+      },
+      "~deletedAt": null
+    }
+  ],
+  "~eventstamp": "2025-10-26T10:00:00.000Z|0001|a7f2"
+}
+```
+
+The tilde prefix (`~`) distinguishes system metadata from user-defined data, maintaining consistency with other system-reserved keys like `~id` and `~deletedAt` in encoded documents.
 
 ## Design Scope
 
