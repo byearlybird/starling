@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createClock } from "./clock";
-import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
+import {
+	decodeEventstamp,
+	encodeEventstamp,
+	generateNonce,
+} from "./eventstamp";
 
 test("now() returns ISO string with counter and nonce suffix", () => {
 	const clock = createClock();
@@ -65,7 +69,11 @@ test("counter increments when real time hasn't caught up to forwarded time", () 
 	clock.now();
 
 	// Move clock forward to a future eventstamp
-	const futureEventstamp = encodeEventstamp(Date.now() + 1000, 0, generateNonce());
+	const futureEventstamp = encodeEventstamp(
+		Date.now() + 1000,
+		0,
+		generateNonce(),
+	);
 	clock.forward(futureEventstamp);
 
 	// Real time hasn't advanced that much yet, so counter increments
@@ -95,7 +103,11 @@ test("forward() updates lastMs when eventstamp is greater", () => {
 
 	const initialStamp = clock.latest();
 	const { timestampMs } = decodeEventstamp(initialStamp);
-	const newEventstamp = encodeEventstamp(timestampMs + 1000, 0, generateNonce());
+	const newEventstamp = encodeEventstamp(
+		timestampMs + 1000,
+		0,
+		generateNonce(),
+	);
 
 	clock.forward(newEventstamp);
 
@@ -109,7 +121,11 @@ test("forward() does not update lastMs when eventstamp is not greater", () => {
 	const currentStamp = clock.latest();
 
 	const { timestampMs } = decodeEventstamp(currentStamp);
-	const olderEventstamp = encodeEventstamp(timestampMs - 100, 0, generateNonce());
+	const olderEventstamp = encodeEventstamp(
+		timestampMs - 100,
+		0,
+		generateNonce(),
+	);
 
 	clock.forward(olderEventstamp);
 
@@ -125,7 +141,11 @@ test("forward() updates lastMs to allow counter reset when real time catches up"
 	// Move clock forward to a much later time
 	const currentStamp = clock.latest();
 	const { timestampMs } = decodeEventstamp(currentStamp);
-	const futureEventstamp = encodeEventstamp(timestampMs + 1000, 0, generateNonce());
+	const futureEventstamp = encodeEventstamp(
+		timestampMs + 1000,
+		0,
+		generateNonce(),
+	);
 	clock.forward(futureEventstamp);
 
 	// Verify eventstamp was updated

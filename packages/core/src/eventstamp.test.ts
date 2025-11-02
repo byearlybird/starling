@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
+import {
+	decodeEventstamp,
+	encodeEventstamp,
+	generateNonce,
+} from "./eventstamp";
 
 test("decode() extracts timestamp and counter correctly", () => {
 	const nonce = generateNonce();
@@ -25,7 +29,11 @@ test("encode() and decode() are inverses", () => {
 	const originalCounter = 12345;
 	const originalNonce = generateNonce();
 
-	const eventstamp = encodeEventstamp(originalTimestampMs, originalCounter, originalNonce);
+	const eventstamp = encodeEventstamp(
+		originalTimestampMs,
+		originalCounter,
+		originalNonce,
+	);
 	const { timestampMs, counter, nonce } = decodeEventstamp(eventstamp);
 
 	expect(timestampMs).toBe(originalTimestampMs);

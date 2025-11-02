@@ -2,9 +2,9 @@
 @import "tailwindcss";
 
 body {
-  @apply m-0 font-sans text-sm leading-6 antialiased min-h-screen flex items-center justify-center bg-slate-900 text-slate-100 p-8;
+	@apply m-0 font-sans text-sm leading-6 antialiased min-h-screen flex items-center justify-center bg-slate-900 text-slate-100 p-8;
 }
 
 #root {
-  @apply w-full;
+	@apply w-full;
 }

@@ -1,4 +1,8 @@
-import { decodeEventstamp, encodeEventstamp, generateNonce } from "./eventstamp";
+import {
+	decodeEventstamp,
+	encodeEventstamp,
+	generateNonce,
+} from "./eventstamp";
 
 export type Clock = {
 	now: () => string;
