@@ -2,20 +2,29 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
 import { createClock } from "./clock";
 import type { EncodedDocument } from "./document";
-import { decodeDoc, encodeDoc } from "./document";
-import { createKV } from "./kv";
-import type {
-	DeepPartial,
-	StorePutOptions,
-	StoreSetTransaction,
-} from "./transaction";
-import { createTransaction } from "./transaction";
+import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
 
 /**
  * Type constraint to prevent Promise returns from set callbacks.
  * Transactions must be synchronous operations.
  */
 type NotPromise<T> = T extends Promise<any> ? never : T;
+
+// Internal transaction types
+type DeepPartial<T> = T extends object
+	? { [P in keyof T]?: DeepPartial<T[P]> }
+	: T;
+
+type StorePutOptions = { withId?: string };
+
+type StoreSetTransaction<T> = {
+	add: (value: T, options?: StorePutOptions) => string;
+	update: (key: string, value: DeepPartial<T>) => void;
+	merge: (doc: EncodedDocument) => void;
+	del: (key: string) => void;
+	get: (key: string) => T | null;
+	rollback: () => void;
+};
 
 /**
  * Plugin lifecycle and event hooks.
@@ -67,7 +76,7 @@ export type Store<T, Extended = {}> = {
 export const createStore = <T>(
 	config: { getId?: () => string } = {},
 ): Store<T, {}> => {
-	const kv = createKV();
+	let readMap = new Map<string, EncodedDocument>(); // published state
 	const clock = createClock();
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
@@ -92,11 +101,11 @@ export const createStore = <T>(
 
 	const store: Store<T> = {
 		get(key: string) {
-			return decodeActive(kv.get(key));
+			return decodeActive(readMap.get(key) ?? null);
 		},
 		entries() {
 			function* iterator() {
-				for (const [key, doc] of kv.entries()) {
+				for (const [key, doc] of readMap.entries()) {
 					const data = decodeActive(doc);
 					if (data !== null) yield [key, data] as const;
 				}
@@ -106,7 +115,7 @@ export const createStore = <T>(
 		},
 		snapshot() {
 			return {
-				"~docs": Array.from(kv.values()),
+				"~docs": Array.from(readMap.values()),
 				"~eventstamp": clock.latest(),
 			};
 		},
@@ -126,30 +135,64 @@ export const createStore = <T>(
 			const putKeyValues: Array<readonly [string, T]> = [];
 			const patchKeyValues: Array<readonly [string, T]> = [];
 			const deleteKeys: Array<string> = [];
-			let result: R | undefined;
-			let shouldNotify = false;
 
-			kv.begin((kvTx) => {
-				const tx = createTransaction(
-					kvTx,
-					clock,
-					getId,
-					encodeValue,
-					decodeActive,
-					putKeyValues,
-					patchKeyValues,
-					deleteKeys,
-				);
+			const staging = new Map(readMap);
+			let rolledBack = false;
 
-				result = callback(tx);
+			const tx: StoreSetTransaction<T> = {
+				add(value: T, options?: StorePutOptions) {
+					const key = options?.withId ?? getId();
+					staging.set(key, encodeValue(key, value));
+					putKeyValues.push([key, value] as const);
+					return key;
+				},
+				update(key: string, value: DeepPartial<T>) {
+					const doc = encodeDoc(key, value as T, clock.now());
+					const prev = staging.get(key);
+					const mergedDoc = prev ? mergeDocs(prev, doc)[0] : doc;
+					staging.set(key, mergedDoc);
+					const merged = decodeActive(mergedDoc);
+					if (merged) {
+						patchKeyValues.push([key, merged] as const);
+					}
+				},
+				merge(doc: EncodedDocument) {
+					const existing = staging.get(doc["~id"]);
+					const mergedDoc = existing ? mergeDocs(existing, doc)[0] : doc;
+					staging.set(doc["~id"], mergedDoc);
 
-				if (!tx.rolledBack && !silent) {
-					shouldNotify = true;
-				}
-			});
+					if (mergedDoc["~deletedAt"]) {
+						deleteKeys.push(doc["~id"]);
+					} else {
+						const merged = decodeDoc<T>(mergedDoc)["~data"];
+						patchKeyValues.push([doc["~id"], merged] as const);
+					}
+				},
+				del(key: string) {
+					const currentDoc = staging.get(key);
+					if (!currentDoc) return;
 
-			// Call hooks AFTER the transaction commits to kv
-			if (shouldNotify) {
+					staging.set(key, deleteDoc(currentDoc, clock.now()));
+					deleteKeys.push(key);
+				},
+				get(key: string) {
+					return decodeActive(staging.get(key) ?? null);
+				},
+				rollback() {
+					rolledBack = true;
+				},
+			};
+
+			const result = callback(tx);
+
+			// Auto-commit unless rollback was explicitly called
+			if (!rolledBack) {
+				readMap = staging; // single atomic swap
+			}
+			// If callback throws, staging is implicitly discarded (auto-rollback)
+
+			// Call hooks AFTER the transaction commits
+			if (!rolledBack && !silent) {
 				if (putKeyValues.length > 0) {
 					onAddHandlers.forEach((fn) => {
 						fn(putKeyValues);
@@ -181,28 +224,27 @@ export const createStore = <T>(
 		use<M extends PluginMethods>(plugin: Plugin<T, M>): Store<T, M> {
 			const { hooks: pluginHooks, methods } = plugin;
 
-			if (pluginHooks.onAdd || pluginHooks.onUpdate || pluginHooks.onDelete) {
-				if (pluginHooks.onAdd) {
-					const onAdd = pluginHooks.onAdd;
-					onAddHandlers.add(onAdd);
-					onDisposeHandlers.add(() => {
-						onAddHandlers.delete(onAdd);
-					});
-				}
-				if (pluginHooks.onUpdate) {
-					const onUpdate = pluginHooks.onUpdate;
-					onUpdateHandlers.add(onUpdate);
-					onDisposeHandlers.add(() => {
-						onUpdateHandlers.delete(onUpdate);
-					});
-				}
-				if (pluginHooks.onDelete) {
-					const onDelete = pluginHooks.onDelete;
-					onDeleteHandlers.add(onDelete);
-					onDisposeHandlers.add(() => {
-						onDeleteHandlers.delete(onDelete);
-					});
-				}
+			// Register mutation hooks
+			if (pluginHooks.onAdd) {
+				const onAdd = pluginHooks.onAdd;
+				onAddHandlers.add(onAdd);
+				onDisposeHandlers.add(() => {
+					onAddHandlers.delete(onAdd);
+				});
+			}
+			if (pluginHooks.onUpdate) {
+				const onUpdate = pluginHooks.onUpdate;
+				onUpdateHandlers.add(onUpdate);
+				onDisposeHandlers.add(() => {
+					onUpdateHandlers.delete(onUpdate);
+				});
+			}
+			if (pluginHooks.onDelete) {
+				const onDelete = pluginHooks.onDelete;
+				onDeleteHandlers.add(onDelete);
+				onDisposeHandlers.add(() => {
+					onDeleteHandlers.delete(onDelete);
+				});
 			}
 
 			// Inject plugin methods directly into store

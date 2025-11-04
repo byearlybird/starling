@@ -247,13 +247,12 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`value.ts`](../packages/core/src/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
 | [`document.ts`](../packages/core/src/document.ts) | Attaches system metadata (`~id`, `~deletedAt`) and handles soft-deletion |
-| [`kv.ts`](../packages/core/src/kv.ts) | Immutable map with transactional staging for atomic commits |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, plugin orchestration, and transaction management |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
 ### Data Flow
 
 ```
-User mutation → Store → KV staging → Transaction commit → Plugin hooks
+User mutation → Store → Transaction staging → Commit → Plugin hooks
                                     ↓
                             Eventstamp application
                                     ↓
