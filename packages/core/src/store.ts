@@ -62,8 +62,6 @@ export type Store<T, Extended = {}> = {
 	) => Store<T, Extended & M>;
 	init: () => Promise<Store<T, Extended>>;
 	dispose: () => Promise<void>;
-	eventstamp: () => string;
-	forwardClock: (eventstamp: string) => void;
 } & Extended;
 
 export const createStore = <T>(
@@ -231,12 +229,6 @@ export const createStore = <T>(
 			for (const fn of disposerArray) {
 				await fn();
 			}
-		},
-		eventstamp() {
-			return clock.latest();
-		},
-		forwardClock(eventstamp: string) {
-			clock.forward(eventstamp);
 		},
 	};
 

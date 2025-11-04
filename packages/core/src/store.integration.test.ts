@@ -38,28 +38,11 @@ async function mergeStoreSnapshots<T extends Record<string, unknown>>(
 		return consolidated;
 	}
 
-	// Find the highest eventstamp across all snapshots for clock synchronization
-	let maxEventstamp = "";
-	for (const snapshot of snapshots) {
-		if (snapshot["~eventstamp"] > maxEventstamp) {
-			maxEventstamp = snapshot["~eventstamp"];
-		}
-	}
-
-	// Forward the clock to ensure new writes don't collide with remote timestamps
-	consolidated.forwardClock(maxEventstamp);
-
 	// Merge all documents from all snapshots using silent transactions
 	// (silent to avoid triggering hooks during hydration)
+	// The merge() method automatically forwards the clock to the highest eventstamp
 	for (const snapshot of snapshots) {
-		consolidated.begin(
-			(tx) => {
-				for (const doc of snapshot["~docs"]) {
-					tx.merge(doc);
-				}
-			},
-			{ silent: true },
-		);
+		consolidated.merge(snapshot);
 	}
 
 	// Initialize any plugins (though this example doesn't use them)
@@ -141,7 +124,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 			snapshotC["~eventstamp"],
 		];
 		const maxRemoteStamp = stamps.sort().pop() || "";
-		expect(consolidated.eventstamp()).toEqual(maxRemoteStamp);
+		expect(consolidated.snapshot()["~eventstamp"]).toEqual(maxRemoteStamp);
 	});
 
 	test("should merge same document with different fields updated per store", async () => {
@@ -438,11 +421,15 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Create a timestamp 60 seconds in the future with max hex counter
 		const futureMs = Date.now() + 60000;
 		const isoString = new Date(futureMs).toISOString();
-		const futureTimestamp = `${isoString}|ffffffff`;
+		const futureTimestamp = `${isoString}|ffffffff|0000`;
 
-		const clockBeforeFwd = storeB.eventstamp();
-		storeB.forwardClock(futureTimestamp);
-		const clockAfterFwd = storeB.eventstamp();
+		const clockBeforeFwd = storeB.snapshot()["~eventstamp"];
+		// Forward the clock by merging a snapshot with the future timestamp
+		storeB.merge({
+			"~docs": [],
+			"~eventstamp": futureTimestamp,
+		});
+		const clockAfterFwd = storeB.snapshot()["~eventstamp"];
 
 		// Verify the clock was indeed forwarded (it should now reflect the future timestamp)
 		expect(clockAfterFwd > clockBeforeFwd).toBe(true);
@@ -470,7 +457,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
 			[snapshotA2["~eventstamp"], snapshotB2["~eventstamp"]].sort().pop() || "";
-		const consolidatedClock = consolidated.eventstamp();
+		const consolidatedClock = consolidated.snapshot()["~eventstamp"];
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 
 		// Now continue working: make new writes on both the consolidated store
@@ -515,7 +502,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the final merged store's clock is well past the forwarded time
 		// (since we made writes after forwarding)
-		const finalClock = finalMerged.eventstamp();
+		const finalClock = finalMerged.snapshot()["~eventstamp"];
 		expect(finalClock).toBeDefined();
 		expect(finalClock.length > 0).toBe(true);
 	});
