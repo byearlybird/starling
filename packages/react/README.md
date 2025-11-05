@@ -11,27 +11,27 @@ bun add @byearlybird/starling @byearlybird/starling-react
 ## Quick Start
 
 ```tsx
-import { createStore } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling/plugin-query";
-import { StoreProvider, useStore, useQuery } from "@byearlybird/starling-react";
+import { Store } from "@byearlybird/starling";
+import { createStoreHooks } from "@byearlybird/starling-react";
 
 // Create your store
-const todoStore = await createStore<Todo>()
-  .use(queryPlugin())
-  .init();
+const todoStore = await new Store<Todo>().init();
+
+// Create typed hooks from your store - do this once at module level
+export const { StoreProvider, useStore, useQuery } = createStoreHooks(todoStore);
 
 // Wrap your app with StoreProvider
 function App() {
   return (
-    <StoreProvider store={todoStore}>
+    <StoreProvider>
       <TodoList />
     </StoreProvider>
   );
 }
 
-// Use hooks in your components
+// Use hooks in your components - fully typed without type parameters!
 function TodoList() {
-  const store = useStore<Todo>();
+  const store = useStore(); // ✅ Fully typed, no type parameter needed
 
   // Access store methods
   const handleAdd = () => {
@@ -47,7 +47,7 @@ function TodoList() {
     <div>
       <button onClick={handleAdd}>Add Todo</button>
       <ul>
-        {Array.from(activeTodos.entries()).map(([id, todo]) => (
+        {activeTodos.map(([id, todo]) => (
           <li key={id}>{todo.text}</li>
         ))}
       </ul>
@@ -58,27 +58,44 @@ function TodoList() {
 
 ## API
 
-### `StoreProvider`
+### `createStoreHooks<T>(store)`
 
-Provides a Starling store to child components via React Context.
+Factory function that creates typed hooks for a Starling store. Call this once at module level to get fully typed hooks without needing type parameters in components.
 
 ```tsx
-<StoreProvider store={myStore}>
+export const { StoreProvider, useStore, useQuery } = createStoreHooks(todoStore);
+```
+
+**Parameters:**
+- `store` - Your Starling store instance
+
+**Returns:** Object with three items:
+- `StoreProvider` - Context provider component
+- `useStore` - Hook to access the store
+- `useQuery` - Hook to create reactive queries
+
+### `StoreProvider`
+
+Provides the Starling store to child components via React Context.
+
+```tsx
+<StoreProvider>
   <App />
 </StoreProvider>
 ```
 
 **Props:**
-- `store` - Starling store instance
-- `children` - React children
+- `children` - Child components that can access the store
 
-### `useStore<T, Extended>()`
+### `useStore()`
 
 Access the Starling store from React Context. Must be used within a `StoreProvider`.
 
+**No type parameters needed** - types are inferred from the factory function!
+
 ```tsx
 function MyComponent() {
-  const store = useStore<Todo>();
+  const store = useStore(); // ✅ Fully typed automatically
 
   const handleUpdate = (id: string) => {
     store.update(id, { completed: true });
@@ -90,7 +107,7 @@ function MyComponent() {
 
 **Returns:** Store instance with full API (add, update, del, get, entries, etc.)
 
-### `useQuery<T, U>(config)`
+### `useQuery<U>(config)`
 
 Create and subscribe to a reactive query. Automatically re-renders when matching documents change.
 
@@ -102,7 +119,7 @@ function ActiveTodos() {
 
   return (
     <ul>
-      {Array.from(activeTodos.entries()).map(([id, todo]) => (
+      {activeTodos.map(([id, todo]) => (
         <li key={id}>{todo.text}</li>
       ))}
     </ul>
@@ -111,11 +128,11 @@ function ActiveTodos() {
 ```
 
 **Parameters:**
-- `config.where` - Filter predicate function
-- `config.select` (optional) - Transform function
+- `config.where` - Filter predicate function (required)
+- `config.select` (optional) - Transform/projection function
 - `config.order` (optional) - Sort comparator
 
-**Returns:** `Map<string, U>` of matching documents
+**Returns:** Array of `[id, document]` tuples for matching documents
 
 **Performance tip:** For stable queries, create the config at module level:
 
