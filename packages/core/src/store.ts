@@ -99,6 +99,60 @@ export function createStore<T>(
 	>();
 	const onDeleteHandlers = new Set<(keys: ReadonlyArray<string>) => void>();
 
+	// Helper function to register mutation handlers
+	type MutationHandlers<T> = {
+		onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+		onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+		onDelete?: (keys: ReadonlyArray<string>) => void;
+	};
+
+	const registerMutationHandlers = (
+		handlers: MutationHandlers<T>,
+		registerDispose?: (dispose: () => void) => void,
+	): (() => void) => {
+		const registered: Array<() => void> = [];
+
+		if (handlers.onAdd) {
+			const onAdd = handlers.onAdd;
+			onAddHandlers.add(onAdd);
+			const unsubscribe = () => {
+				onAddHandlers.delete(onAdd);
+			};
+			registered.push(unsubscribe);
+			if (registerDispose) {
+				registerDispose(unsubscribe);
+			}
+		}
+		if (handlers.onUpdate) {
+			const onUpdate = handlers.onUpdate;
+			onUpdateHandlers.add(onUpdate);
+			const unsubscribe = () => {
+				onUpdateHandlers.delete(onUpdate);
+			};
+			registered.push(unsubscribe);
+			if (registerDispose) {
+				registerDispose(unsubscribe);
+			}
+		}
+		if (handlers.onDelete) {
+			const onDelete = handlers.onDelete;
+			onDeleteHandlers.add(onDelete);
+			const unsubscribe = () => {
+				onDeleteHandlers.delete(onDelete);
+			};
+			registered.push(unsubscribe);
+			if (registerDispose) {
+				registerDispose(unsubscribe);
+			}
+		}
+
+		return () => {
+			for (const unsubscribe of registered) {
+				unsubscribe();
+			}
+		};
+	};
+
 	const store: Store<T> = {
 		get(key: string) {
 			return decodeActive(readMap.get(key) ?? null);
@@ -224,28 +278,17 @@ export function createStore<T>(
 		use<M extends PluginMethods>(plugin: Plugin<T, M>): Store<T, M> {
 			const { hooks: pluginHooks, methods } = plugin;
 
-			// Register mutation hooks
-			if (pluginHooks.onAdd) {
-				const onAdd = pluginHooks.onAdd;
-				onAddHandlers.add(onAdd);
-				onDisposeHandlers.add(() => {
-					onAddHandlers.delete(onAdd);
-				});
-			}
-			if (pluginHooks.onUpdate) {
-				const onUpdate = pluginHooks.onUpdate;
-				onUpdateHandlers.add(onUpdate);
-				onDisposeHandlers.add(() => {
-					onUpdateHandlers.delete(onUpdate);
-				});
-			}
-			if (pluginHooks.onDelete) {
-				const onDelete = pluginHooks.onDelete;
-				onDeleteHandlers.add(onDelete);
-				onDisposeHandlers.add(() => {
-					onDeleteHandlers.delete(onDelete);
-				});
-			}
+			// Register mutation hooks using shared helper
+			registerMutationHandlers(
+				{
+					onAdd: pluginHooks.onAdd,
+					onUpdate: pluginHooks.onUpdate,
+					onDelete: pluginHooks.onDelete,
+				},
+				(unsubscribe) => {
+					onDisposeHandlers.add(unsubscribe);
+				},
+			);
 
 			// Inject plugin methods directly into store
 			if (methods) {
