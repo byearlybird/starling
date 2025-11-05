@@ -15,69 +15,513 @@ import {
  */
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
-// Internal transaction types
+// Internal utility types
 type DeepPartial<T> = T extends object
 	? { [P in keyof T]?: DeepPartial<T[P]> }
 	: T;
 
-type StoreAddOptions = { withId?: string };
+/**
+ * Options for adding documents to the store.
+ *
+ * @example
+ * ```typescript
+ * // Let store auto-generate an ID
+ * store.add({ name: "Alice" });
+ *
+ * // Provide a custom ID
+ * store.add({ name: "Bob" }, { withId: "user-1" });
+ * ```
+ */
+export type StoreAddOptions = {
+	/**
+	 * Optional custom ID for the document.
+	 * If not provided, the store will generate a UUID.
+	 */
+	withId?: string;
+};
 
-type StoreSetTransaction<T> = {
+/**
+ * Transaction API for batching multiple store operations.
+ *
+ * All operations are staged in memory until the transaction callback completes.
+ * If the callback throws or `rollback()` is called, all changes are discarded.
+ *
+ * @template T - The type of documents stored
+ *
+ * @example
+ * ```typescript
+ * const userId = store.begin((tx) => {
+ *   const id = tx.add({ name: "Alice" });
+ *   tx.update(id, { email: "alice@example.com" });
+ *   return id; // Return value becomes the transaction result
+ * });
+ * ```
+ */
+export type StoreSetTransaction<T> = {
+	/**
+	 * Add a new document to the store.
+	 *
+	 * @param value - The document to add
+	 * @param options - Optional configuration (e.g., custom ID)
+	 * @returns The document's ID (generated or provided)
+	 */
 	add: (value: T, options?: StoreAddOptions) => string;
+
+	/**
+	 * Update an existing document by merging a partial value.
+	 * Uses field-level Last-Write-Wins merge semantics.
+	 *
+	 * @param key - The document ID
+	 * @param value - Partial update to merge
+	 */
 	update: (key: string, value: DeepPartial<T>) => void;
+
+	/**
+	 * Merge an encoded document from another replica.
+	 * Used internally by sync plugins.
+	 *
+	 * @param doc - Encoded document with eventstamps
+	 */
 	merge: (doc: EncodedDocument) => void;
+
+	/**
+	 * Soft-delete a document by marking it with a deletion timestamp.
+	 *
+	 * @param key - The document ID to delete
+	 */
 	del: (key: string) => void;
+
+	/**
+	 * Get a document by ID from the transaction's staging area.
+	 *
+	 * @param key - The document ID
+	 * @returns The document, or null if not found or deleted
+	 */
 	get: (key: string) => T | null;
+
+	/**
+	 * Abort the transaction and discard all staged changes.
+	 * No hooks will fire and the store remains unchanged.
+	 */
 	rollback: () => void;
 };
 
 /**
  * Plugin lifecycle and event hooks.
- * All hooks are optional except onInit and onDispose, which are required.
+ *
+ * All hooks are optional except `onInit` and `onDispose`, which are required.
+ * Mutation hooks (`onAdd`, `onUpdate`, `onDelete`) receive batched entries after
+ * each transaction commits.
+ *
+ * @template T - The type of documents stored
+ *
+ * @example
+ * ```typescript
+ * const loggingPlugin = <T>(): Plugin<T> => ({
+ *   hooks: {
+ *     onInit: (store) => console.log("Plugin initialized"),
+ *     onDispose: () => console.log("Plugin disposed"),
+ *     onAdd: (entries) => {
+ *       for (const [key, value] of entries) {
+ *         console.log(`Added ${key}:`, value);
+ *       }
+ *     },
+ *   },
+ * });
+ * ```
  */
 export type PluginHooks<T> = {
+	/** Called when store.init() runs. Use to hydrate data, start pollers, etc. */
 	onInit: (store: Store<T>) => Promise<void> | void;
+
+	/** Called when store.dispose() runs. Use to cleanup resources, flush data, etc. */
 	onDispose: () => Promise<void> | void;
+
+	/** Called after new documents are added. Receives batched entries from the transaction. */
 	onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+
+	/** Called after documents are updated. Receives batched entries from the transaction. */
 	onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+
+	/** Called after documents are deleted. Receives batched keys from the transaction. */
 	onDelete?: (keys: ReadonlyArray<string>) => void;
 };
+
+/**
+ * Type constraint for plugin methods that extend the store API.
+ *
+ * Plugins can add custom methods to the store by returning a `methods` object.
+ * The methods are injected directly into the store instance.
+ *
+ * @example
+ * ```typescript
+ * type QueryMethods = {
+ *   query: (predicate: (doc: Todo) => boolean) => Map<string, Todo>;
+ * };
+ *
+ * const queryPlugin = (): Plugin<Todo, QueryMethods> => ({
+ *   hooks: { onInit: () => {}, onDispose: () => {} },
+ *   methods: {
+ *     query: (predicate) => { ... }
+ *   }
+ * });
+ * ```
+ */
 export type PluginMethods = Record<string, (...args: any[]) => any>;
 
+/**
+ * Plugin definition for extending store functionality.
+ *
+ * Plugins provide lifecycle hooks and optional methods that extend the store API.
+ * Use plugins for persistence, querying, indexing, or custom side effects.
+ *
+ * @template T - The type of documents stored
+ * @template M - Optional methods to add to the store
+ *
+ * @example
+ * ```typescript
+ * const persistPlugin = <T>(): Plugin<T> => ({
+ *   hooks: {
+ *     onInit: async (store) => {
+ *       const snapshot = await loadFromDisk();
+ *       store.merge(snapshot);
+ *     },
+ *     onDispose: async () => {
+ *       await flushPendingWrites();
+ *     },
+ *     onAdd: (entries) => saveToDisk(entries),
+ *   },
+ * });
+ *
+ * const store = await createStore<Todo>()
+ *   .use(persistPlugin())
+ *   .init();
+ * ```
+ */
 export type Plugin<T, M extends PluginMethods = {}> = {
+	/** Lifecycle and mutation hooks */
 	hooks: PluginHooks<T>;
+
+	/** Optional methods to add to the store instance */
 	methods?: M;
 };
 
 /**
  * Complete persistent state of a store.
- * Contains all encoded documents (including deleted ones with ~deletedAt metadata)
+ *
+ * Contains all encoded documents (including deleted ones with `~deletedAt` metadata)
  * and the latest eventstamp for clock synchronization during merges.
+ *
+ * @example
+ * ```typescript
+ * const snapshot = store.snapshot();
+ * // { "~docs": [...], "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a7f2" }
+ *
+ * // Save to disk, send over network, etc.
+ * await saveToDisk(snapshot);
+ *
+ * // Later, merge into another store
+ * const otherStore = createStore<Todo>();
+ * otherStore.merge(snapshot);
+ * ```
  */
 export type StoreSnapshot = {
+	/** Array of encoded documents with eventstamps and metadata */
 	"~docs": EncodedDocument[];
+
+	/** Latest eventstamp observed by the store for clock synchronization */
 	"~eventstamp": string;
 };
 
+/**
+ * A reactive, local-first data store with CRDT-based conflict resolution.
+ *
+ * Stores documents using field-level Last-Write-Wins (LWW) merge semantics
+ * powered by hybrid logical clocks (eventstamps). Supports plugins for
+ * persistence, querying, and custom side effects.
+ *
+ * @template T - The type of documents stored
+ * @template Extended - Plugin methods added to the store (inferred automatically)
+ *
+ * @example
+ * ```typescript
+ * type Todo = { text: string; completed: boolean };
+ *
+ * const store = await createStore<Todo>()
+ *   .use(persistPlugin())
+ *   .init();
+ *
+ * // Add a document
+ * const id = store.add({ text: "Learn Starling", completed: false });
+ *
+ * // Update it
+ * store.update(id, { completed: true });
+ *
+ * // Query all entries
+ * for (const [key, todo] of store.entries()) {
+ *   console.log(key, todo);
+ * }
+ * ```
+ */
 export type Store<T, Extended = {}> = {
+	/**
+	 * Retrieve a document by ID.
+	 *
+	 * @param key - The document ID
+	 * @returns The document, or `null` if not found or deleted
+	 *
+	 * @example
+	 * ```typescript
+	 * const todo = store.get("todo-1");
+	 * if (todo) {
+	 *   console.log(todo.text);
+	 * }
+	 * ```
+	 */
 	get: (key: string) => T | null;
+
+	/**
+	 * Execute multiple operations in a transaction.
+	 *
+	 * All operations are staged until the callback completes. If the callback
+	 * throws or calls `tx.rollback()`, all changes are discarded. Otherwise,
+	 * changes commit atomically and plugin hooks fire once with batched entries.
+	 *
+	 * @param callback - Transaction function receiving a transaction API
+	 * @param opts - Optional configuration
+	 * @param opts.silent - If true, suppress plugin hooks after commit
+	 * @returns The callback's return value
+	 *
+	 * @example
+	 * ```typescript
+	 * // Multiple operations
+	 * const userId = store.begin((tx) => {
+	 *   const id = tx.add({ name: "Alice" });
+	 *   tx.update(id, { email: "alice@example.com" });
+	 *   return id;
+	 * });
+	 *
+	 * // Rollback on validation failure
+	 * store.begin((tx) => {
+	 *   const id = tx.add({ name: "Dave", email: "invalid" });
+	 *   if (!isValid(tx.get(id))) {
+	 *     tx.rollback();
+	 *   }
+	 * });
+	 * ```
+	 */
 	begin: <R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
 		opts?: { silent?: boolean },
 	) => NotPromise<R>;
+
+	/**
+	 * Add a new document to the store.
+	 *
+	 * Shorthand for `begin((tx) => tx.add(value, options))`.
+	 *
+	 * @param value - The document to add
+	 * @param options - Optional configuration (e.g., custom ID)
+	 * @returns The document's ID (generated or provided)
+	 *
+	 * @example
+	 * ```typescript
+	 * // Auto-generated ID
+	 * const id = store.add({ text: "Buy milk", completed: false });
+	 *
+	 * // Custom ID
+	 * store.add({ text: "Learn Starling" }, { withId: "todo-1" });
+	 * ```
+	 */
 	add: (value: T, options?: StoreAddOptions) => string;
+
+	/**
+	 * Update an existing document by merging a partial value.
+	 *
+	 * Uses field-level Last-Write-Wins (LWW) merge semantics. Each field
+	 * gets a new eventstamp, so concurrent updates to different fields
+	 * are preserved when merging with other replicas.
+	 *
+	 * Shorthand for `begin((tx) => tx.update(key, value))`.
+	 *
+	 * @param key - The document ID
+	 * @param value - Partial update to merge
+	 *
+	 * @example
+	 * ```typescript
+	 * store.update("todo-1", { completed: true });
+	 *
+	 * // Nested updates work too
+	 * store.update("user-1", { settings: { theme: "dark" } });
+	 * ```
+	 */
 	update: (key: string, value: DeepPartial<T>) => void;
+
+	/**
+	 * Soft-delete a document by marking it with a deletion timestamp.
+	 *
+	 * Deleted documents remain in the store snapshot for sync purposes
+	 * but are excluded from `get()` and `entries()` results.
+	 *
+	 * Shorthand for `begin((tx) => tx.del(key))`.
+	 *
+	 * @param key - The document ID to delete
+	 *
+	 * @example
+	 * ```typescript
+	 * store.del("todo-1");
+	 * ```
+	 */
 	del: (key: string) => void;
+
+	/**
+	 * Iterate all active (non-deleted) documents.
+	 *
+	 * Returns an iterator of `[key, value]` tuples. Deleted documents
+	 * are automatically excluded.
+	 *
+	 * @returns Iterator of active document entries
+	 *
+	 * @example
+	 * ```typescript
+	 * for (const [key, todo] of store.entries()) {
+	 *   console.log(`${key}: ${todo.text}`);
+	 * }
+	 *
+	 * // Convert to array
+	 * const allTodos = Array.from(store.entries());
+	 * ```
+	 */
 	entries: () => IterableIterator<readonly [string, T]>;
+
+	/**
+	 * Export the complete store state as a serializable snapshot.
+	 *
+	 * Includes all documents (even deleted ones) with their eventstamps,
+	 * plus the store's latest clock value for synchronization.
+	 *
+	 * @returns Serializable store snapshot
+	 *
+	 * @example
+	 * ```typescript
+	 * const snapshot = store.snapshot();
+	 * await saveToFile(snapshot);
+	 *
+	 * // Send to another device
+	 * await fetch("/api/sync", {
+	 *   method: "POST",
+	 *   body: JSON.stringify(snapshot),
+	 * });
+	 * ```
+	 */
 	snapshot: () => StoreSnapshot;
+
+	/**
+	 * Import and merge a snapshot from another replica.
+	 *
+	 * Forwards the local clock to match the snapshot's eventstamp,
+	 * then merges all documents using field-level LWW semantics.
+	 *
+	 * @param snapshot - Snapshot from another store instance
+	 *
+	 * @example
+	 * ```typescript
+	 * // Sync with remote store
+	 * const remoteSnapshot = await fetch("/api/sync").then(r => r.json());
+	 * store.merge(remoteSnapshot);
+	 *
+	 * // Hydrate from disk
+	 * const savedSnapshot = await loadFromFile();
+	 * store.merge(savedSnapshot);
+	 * ```
+	 */
 	merge: (snapshot: StoreSnapshot) => void;
+
+	/**
+	 * Register a plugin to extend store functionality.
+	 *
+	 * Plugins can add lifecycle hooks (e.g., persistence, indexing) and
+	 * methods (e.g., querying). Returns the same store instance for chaining.
+	 *
+	 * @param plugin - Plugin definition with hooks and optional methods
+	 * @returns The store with plugin methods added
+	 *
+	 * @example
+	 * ```typescript
+	 * const store = createStore<Todo>()
+	 *   .use(persistPlugin())
+	 *   .use(queryPlugin())
+	 *   .use(customPlugin());
+	 *
+	 * await store.init(); // Runs all plugin onInit hooks
+	 * ```
+	 */
 	use: <M extends PluginMethods>(
 		plugin: Plugin<T, M>,
 	) => Store<T, Extended & M>;
+
+	/**
+	 * Initialize the store and run all plugin `onInit` hooks.
+	 *
+	 * Hooks run sequentially in the order plugins were registered.
+	 * Call this once after registering plugins and before using the store.
+	 *
+	 * @returns Promise resolving to the initialized store
+	 *
+	 * @example
+	 * ```typescript
+	 * const store = await createStore<Todo>()
+	 *   .use(persistPlugin())
+	 *   .init(); // Hydrates data from disk
+	 * ```
+	 */
 	init: () => Promise<Store<T, Extended>>;
+
+	/**
+	 * Cleanup the store and run all plugin `onDispose` hooks.
+	 *
+	 * Hooks run sequentially in reverse order (LIFO). Use this to flush
+	 * pending writes, close connections, and release resources.
+	 *
+	 * @returns Promise resolving when all cleanup is complete
+	 *
+	 * @example
+	 * ```typescript
+	 * // Before app shutdown
+	 * await store.dispose();
+	 * ```
+	 */
 	dispose: () => Promise<void>;
 } & Extended;
 
+/**
+ * Create a new reactive store with CRDT-based conflict resolution.
+ *
+ * Returns an uninitialized store. Chain `.use()` to register plugins,
+ * then call `.init()` to run plugin setup hooks before using the store.
+ *
+ * @template T - The type of documents to store
+ * @param config - Optional configuration
+ * @param config.getId - Custom ID generator (defaults to crypto.randomUUID)
+ * @returns A new store instance
+ *
+ * @example
+ * ```typescript
+ * // Basic store
+ * const store = await createStore<Todo>().init();
+ *
+ * // With plugins
+ * const store = await createStore<Todo>()
+ *   .use(persistPlugin())
+ *   .use(queryPlugin())
+ *   .init();
+ *
+ * // Custom ID generator
+ * const store = createStore<Todo>({
+ *   getId: () => nanoid(),
+ * });
+ * ```
+ */
 export function createStore<T>(
 	config: { getId?: () => string } = {},
 ): Store<T, {}> {
