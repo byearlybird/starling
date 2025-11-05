@@ -14,40 +14,115 @@ type DeepPartial<T> = T extends object
 	? { [P in keyof T]?: DeepPartial<T[P]> }
 	: T;
 
+/**
+ * Options for adding documents to the store.
+ */
 export type StoreAddOptions = {
+	/** Provide a custom ID instead of generating one */
 	withId?: string;
 };
 
+/**
+ * Configuration options for creating a Store instance.
+ */
 export type StoreConfig = {
+	/** Custom ID generator. Defaults to crypto.randomUUID() */
 	getId?: () => string;
 };
 
+/**
+ * Transaction context for batching multiple operations with rollback support.
+ *
+ * Transactions allow you to group multiple mutations together and optionally
+ * abort all changes if validation fails.
+ *
+ * @example
+ * ```ts
+ * store.begin((tx) => {
+ *   const id = tx.add({ name: 'Alice' });
+ *   if (!isValid(tx.get(id))) {
+ *     tx.rollback(); // Abort all changes
+ *   }
+ * });
+ * ```
+ */
 export type StoreSetTransaction<T> = {
+	/** Add a document and return its ID */
 	add: (value: T, options?: StoreAddOptions) => string;
+	/** Update a document with a partial value (field-level merge) */
 	update: (key: string, value: DeepPartial<T>) => void;
+	/** Merge an encoded document (used by sync/persistence plugins) */
 	merge: (doc: EncodedDocument) => void;
+	/** Soft-delete a document */
 	del: (key: string) => void;
+	/** Get a document within this transaction */
 	get: (key: string) => T | null;
+	/** Abort the transaction and discard all changes */
 	rollback: () => void;
 };
 
+/**
+ * Plugin interface for extending store behavior with persistence, analytics, etc.
+ *
+ * All hooks are optional. Mutation hooks receive batched entries after each
+ * transaction commits.
+ *
+ * @example
+ * ```ts
+ * const loggingPlugin: Plugin<Todo> = {
+ *   onInit: async () => console.log('Store initialized'),
+ *   onAdd: (entries) => console.log('Added:', entries.length),
+ *   onDispose: async () => console.log('Store disposed')
+ * };
+ * ```
+ */
 export type Plugin<T> = {
+	/** Called once when store.init() runs */
 	onInit: (store: Store<T>) => Promise<void> | void;
+	/** Called once when store.dispose() runs */
 	onDispose: () => Promise<void> | void;
+	/** Called after documents are added (batched per transaction) */
 	onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	/** Called after documents are updated (batched per transaction) */
 	onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	/** Called after documents are deleted (batched per transaction) */
 	onDelete?: (keys: ReadonlyArray<string>) => void;
 };
 
+/**
+ * Configuration for creating a reactive query.
+ *
+ * Queries automatically update when matching documents change.
+ *
+ * @example
+ * ```ts
+ * const config: QueryConfig<Todo> = {
+ *   where: (todo) => !todo.completed,
+ *   select: (todo) => todo.text,
+ *   order: (a, b) => a.localeCompare(b)
+ * };
+ * ```
+ */
 export type QueryConfig<T, U = T> = {
+	/** Filter predicate - return true to include document in results */
 	where: (data: T) => boolean;
+	/** Optional projection - transform documents before returning */
 	select?: (data: T) => U;
+	/** Optional comparator for stable ordering of results */
 	order?: (a: U, b: U) => number;
 };
 
+/**
+ * A reactive query handle that tracks matching documents and notifies on changes.
+ *
+ * Call `dispose()` when done to clean up listeners and remove from the store.
+ */
 export type Query<U> = {
+	/** Get current matching documents as [id, document] tuples */
 	results: () => Array<readonly [string, U]>;
+	/** Register a change listener. Returns unsubscribe function. */
 	onChange: (callback: () => void) => () => void;
+	/** Remove this query from the store and clear all listeners */
 	dispose: () => void;
 };
 
@@ -59,6 +134,30 @@ type QueryInternal<T, U> = {
 	callbacks: Set<() => void>;
 };
 
+/**
+ * Lightweight local-first data store with built-in sync and reactive queries.
+ *
+ * Stores plain JavaScript objects with automatic field-level conflict resolution
+ * using Last-Write-Wins semantics powered by hybrid logical clocks.
+ *
+ * @template T - The type of documents stored in this collection
+ *
+ * @example
+ * ```ts
+ * const store = await new Store<{ text: string; completed: boolean }>()
+ *   .use(unstoragePlugin('todos', storage))
+ *   .init();
+ *
+ * // Add, update, delete
+ * const id = store.add({ text: 'Buy milk', completed: false });
+ * store.update(id, { completed: true });
+ * store.del(id);
+ *
+ * // Reactive queries
+ * const activeTodos = store.query({ where: (todo) => !todo.completed });
+ * activeTodos.onChange(() => console.log('Todos changed!'));
+ * ```
+ */
 export class Store<T> {
 	#readMap = new Map<string, EncodedDocument>();
 	#clock = new Clock();
@@ -76,10 +175,17 @@ export class Store<T> {
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
 
+	/**
+	 * Get a document by ID.
+	 * @returns The document, or null if not found or deleted
+	 */
 	get(key: string): T | null {
 		return this.#decodeActive(this.#readMap.get(key) ?? null);
 	}
 
+	/**
+	 * Iterate over all non-deleted documents as [id, document] tuples.
+	 */
 	entries(): IterableIterator<readonly [string, T]> {
 		const self = this;
 		function* iterator() {
@@ -94,6 +200,10 @@ export class Store<T> {
 		return iterator();
 	}
 
+	/**
+	 * Get the complete store state as a Collection for persistence or sync.
+	 * @returns Collection containing all documents and the latest eventstamp
+	 */
 	collection(): Collection {
 		return {
 			"~docs": Array.from(this.#readMap.values()),
@@ -101,6 +211,10 @@ export class Store<T> {
 		};
 	}
 
+	/**
+	 * Merge a collection from storage or another replica using field-level LWW.
+	 * @param collection - Collection from storage or another store instance
+	 */
 	merge(collection: Collection): void {
 		const currentCollection = this.collection();
 		const result = mergeCollections(currentCollection, collection);
@@ -127,6 +241,22 @@ export class Store<T> {
 		}
 	}
 
+	/**
+	 * Run multiple operations in a transaction with rollback support.
+	 *
+	 * @param callback - Function receiving a transaction context
+	 * @param opts - Optional config. Use `silent: true` to skip plugin hooks.
+	 * @returns The callback's return value
+	 *
+	 * @example
+	 * ```ts
+	 * const id = store.begin((tx) => {
+	 *   const newId = tx.add({ text: 'Buy milk' });
+	 *   tx.update(newId, { priority: 'high' });
+	 *   return newId; // Return value becomes begin()'s return value
+	 * });
+	 * ```
+	 */
 	begin<R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
 		opts?: { silent?: boolean },
@@ -200,18 +330,37 @@ export class Store<T> {
 		return result as NotPromise<R>;
 	}
 
+	/**
+	 * Add a document to the store.
+	 * @returns The document's ID (generated or provided via options)
+	 */
 	add(value: T, options?: StoreAddOptions): string {
 		return this.begin((tx) => tx.add(value, options));
 	}
 
+	/**
+	 * Update a document with a partial value.
+	 *
+	 * Uses field-level merge - only specified fields are updated.
+	 */
 	update(key: string, value: DeepPartial<T>): void {
 		this.begin((tx) => tx.update(key, value));
 	}
 
+	/**
+	 * Soft-delete a document.
+	 *
+	 * Deleted docs remain in snapshots for sync purposes but are
+	 * excluded from queries and reads.
+	 */
 	del(key: string): void {
 		this.begin((tx) => tx.del(key));
 	}
 
+	/**
+	 * Register a plugin for persistence, analytics, etc.
+	 * @returns This store instance for chaining
+	 */
 	use(plugin: Plugin<T>): this {
 		this.#onInitHandlers.push(plugin.onInit);
 		this.#onDisposeHandlers.push(plugin.onDispose);
@@ -221,6 +370,14 @@ export class Store<T> {
 		return this;
 	}
 
+	/**
+	 * Initialize the store and run plugin onInit hooks.
+	 *
+	 * Must be called before using the store. Runs plugin setup (hydrate
+	 * snapshots, start pollers, etc.) and hydrates existing queries.
+	 *
+	 * @returns This store instance for chaining
+	 */
 	async init(): Promise<this> {
 		for (const hook of this.#onInitHandlers) {
 			await hook(this);
@@ -233,6 +390,12 @@ export class Store<T> {
 		return this;
 	}
 
+	/**
+	 * Dispose the store and run plugin cleanup.
+	 *
+	 * Flushes pending operations, clears queries, and runs plugin teardown.
+	 * Call when shutting down to avoid memory leaks.
+	 */
 	async dispose(): Promise<void> {
 		for (let i = this.#onDisposeHandlers.length - 1; i >= 0; i--) {
 			await this.#onDisposeHandlers[i]?.();
@@ -252,6 +415,17 @@ export class Store<T> {
 		this.#onDeleteHandlers = [];
 	}
 
+	/**
+	 * Create a reactive query that auto-updates when matching docs change.
+	 *
+	 * @example
+	 * ```ts
+	 * const active = store.query({ where: (todo) => !todo.completed });
+	 * active.results(); // [[id, todo], ...]
+	 * active.onChange(() => console.log('Updated!'));
+	 * active.dispose(); // Clean up when done
+	 * ```
+	 */
 	query<U = T>(config: QueryConfig<T, U>): Query<U> {
 		const query: QueryInternal<T, U> = {
 			where: config.where,

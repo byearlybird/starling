@@ -74,6 +74,58 @@ Publishing to npm is restricted to project maintainers.
 - Keep README sections focused on user-facing workflows. Implementation details, changelogs, and contributor tips belong here or in package-specific docs.
 - Update the plugin docs in `docs/plugins/*` when you add new options or operational details so consumers can discover them without diving into code.
 
+### JSDoc Guidelines
+
+To avoid duplication between JSDoc and markdown docs, follow these principles:
+
+**JSDoc is for code context** - Brief explanations visible in IDEs while writing code:
+- What does this parameter do?
+- What's a minimal usage example?
+- Any immediate gotchas?
+
+**Markdown is for learning** - Conceptual explanations and tutorials:
+- Why this design choice?
+- How does it work internally?
+- When to use what?
+
+**Keep JSDoc minimal and usage-focused**:
+
+✅ **Good** (terse, shows usage):
+```typescript
+/**
+ * Merge a remote collection using field-level LWW.
+ * @param collection - Collection from storage or another replica
+ */
+merge(collection: Collection): void { ... }
+```
+
+❌ **Bad** (duplicates architecture docs):
+```typescript
+/**
+ * Merge a remote collection using field-level Last-Write-Wins.
+ *
+ * The merge operation:
+ * 1. Forwards the clock to the newest eventstamp
+ * 2. Merges each document using field-level LWW
+ * ...15 more lines explaining the algorithm...
+ */
+merge(collection: Collection): void { ... }
+```
+
+**What to include in JSDoc**:
+- Type descriptions for exported types
+- Parameter descriptions when not obvious from TypeScript
+- Short (1-3 line) usage examples
+- Links to markdown docs for complex topics: `@see docs/architecture.md#merging`
+
+**What to keep only in markdown**:
+- Architecture explanations (how eventstamps work, why LWW)
+- Design rationale (decision log items)
+- Multi-step tutorials
+- "When to use" guidance
+
+**Target**: Each JSDoc comment should be under 5 lines (excluding examples). If you need more, link to markdown docs instead.
+
 ## Pull Request Checklist
 
 - [ ] Tests pass locally (`bun test`).
