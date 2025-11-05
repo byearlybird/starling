@@ -1,11 +1,12 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: <{} used to default to empty> */
 /** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
-import type { EncodedDocument } from "./crdt";
+import type { Collection, EncodedDocument } from "./crdt";
 import {
 	createClock,
 	decodeDoc,
 	deleteDoc,
 	encodeDoc,
+	mergeCollections,
 	mergeDocs,
 } from "./crdt";
 
@@ -225,13 +226,7 @@ export type Plugin<T, M extends PluginMethods = {}> = {
  * otherStore.merge(snapshot);
  * ```
  */
-export type StoreSnapshot = {
-	/** Array of encoded documents with eventstamps and metadata */
-	"~docs": EncodedDocument[];
-
-	/** Latest eventstamp observed by the store for clock synchronization */
-	"~eventstamp": string;
-};
+export type StoreSnapshot = Collection;
 
 /**
  * A reactive, local-first data store with CRDT-based conflict resolution.
@@ -626,12 +621,30 @@ export function createStore<T>(
 			};
 		},
 		merge(snapshot: StoreSnapshot) {
-			clock.forward(snapshot["~eventstamp"]);
-			this.begin((tx) => {
-				for (const doc of snapshot["~docs"]) {
-					tx.merge(doc);
-				}
-			});
+			// Get current state as a collection
+			const currentCollection = this.snapshot();
+
+			// Merge collections and get tracked changes
+			const result = mergeCollections(currentCollection, snapshot);
+
+			// Forward clock to the merged collection's eventstamp
+			clock.forward(result.collection["~eventstamp"]);
+
+			// Update readMap with merged documents
+			readMap = new Map(
+				result.collection["~docs"].map((doc) => [doc["~id"], doc]),
+			);
+
+			// Fire hooks using tracked changes
+			const addEntries = Array.from(result.changes.added.entries()).map(
+				([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			);
+			const updateEntries = Array.from(result.changes.updated.entries()).map(
+				([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			);
+			const deleteKeys = Array.from(result.changes.deleted);
+
+			fireHooks(addEntries, updateEntries, deleteKeys);
 		},
 		begin<R = void>(
 			callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
