@@ -7,7 +7,7 @@
 		"dev": "bun --hot server.ts"
 	},
 	"dependencies": {
-		"@byearlybird/starling": "^0.8.1",
+		"@byearlybird/starling": "workspace:*",
 		"unstorage": "^1.17.1"
 	},
 	"devDependencies": {
