@@ -1,11 +1,12 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: <{} used to default to empty> */
 /** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
-import type { EncodedDocument } from "./crdt";
+import type { Collection, EncodedDocument } from "./crdt";
 import {
 	createClock,
 	decodeDoc,
 	deleteDoc,
 	encodeDoc,
+	mergeCollections,
 	mergeDocs,
 } from "./crdt";
 
@@ -207,33 +208,6 @@ export type Plugin<T, M extends PluginMethods = {}> = {
 };
 
 /**
- * Complete persistent state of a store.
- *
- * Contains all encoded documents (including deleted ones with `~deletedAt` metadata)
- * and the latest eventstamp for clock synchronization during merges.
- *
- * @example
- * ```typescript
- * const snapshot = store.snapshot();
- * // { "~docs": [...], "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a7f2" }
- *
- * // Save to disk, send over network, etc.
- * await saveToDisk(snapshot);
- *
- * // Later, merge into another store
- * const otherStore = createStore<Todo>();
- * otherStore.merge(snapshot);
- * ```
- */
-export type StoreSnapshot = {
-	/** Array of encoded documents with eventstamps and metadata */
-	"~docs": EncodedDocument[];
-
-	/** Latest eventstamp observed by the store for clock synchronization */
-	"~eventstamp": string;
-};
-
-/**
  * A reactive, local-first data store with CRDT-based conflict resolution.
  *
  * Stores documents using field-level Last-Write-Wins (LWW) merge semantics
@@ -395,47 +369,47 @@ export type Store<T, Extended = {}> = {
 	entries: () => IterableIterator<readonly [string, T]>;
 
 	/**
-	 * Export the complete store state as a serializable snapshot.
+	 * Export the complete store state as a collection.
 	 *
 	 * Includes all documents (even deleted ones) with their eventstamps,
 	 * plus the store's latest clock value for synchronization.
 	 *
-	 * @returns Serializable store snapshot
+	 * @returns Serializable collection
 	 *
 	 * @example
 	 * ```typescript
-	 * const snapshot = store.snapshot();
-	 * await saveToFile(snapshot);
+	 * const collection = store.collection();
+	 * await saveToFile(collection);
 	 *
 	 * // Send to another device
 	 * await fetch("/api/sync", {
 	 *   method: "POST",
-	 *   body: JSON.stringify(snapshot),
+	 *   body: JSON.stringify(collection),
 	 * });
 	 * ```
 	 */
-	snapshot: () => StoreSnapshot;
+	collection: () => Collection;
 
 	/**
-	 * Import and merge a snapshot from another replica.
+	 * Import and merge a collection from another replica.
 	 *
-	 * Forwards the local clock to match the snapshot's eventstamp,
+	 * Forwards the local clock to match the collection's eventstamp,
 	 * then merges all documents using field-level LWW semantics.
 	 *
-	 * @param snapshot - Snapshot from another store instance
+	 * @param collection - Collection from another store instance
 	 *
 	 * @example
 	 * ```typescript
 	 * // Sync with remote store
-	 * const remoteSnapshot = await fetch("/api/sync").then(r => r.json());
-	 * store.merge(remoteSnapshot);
+	 * const remoteCollection = await fetch("/api/sync").then(r => r.json());
+	 * store.merge(remoteCollection);
 	 *
 	 * // Hydrate from disk
-	 * const savedSnapshot = await loadFromFile();
-	 * store.merge(savedSnapshot);
+	 * const savedCollection = await loadFromFile();
+	 * store.merge(savedCollection);
 	 * ```
 	 */
-	merge: (snapshot: StoreSnapshot) => void;
+	merge: (collection: Collection) => void;
 
 	/**
 	 * Register a plugin to extend store functionality.
@@ -619,19 +593,37 @@ export function createStore<T>(
 
 			return iterator();
 		},
-		snapshot() {
+		collection() {
 			return {
 				"~docs": Array.from(readMap.values()),
 				"~eventstamp": clock.latest(),
 			};
 		},
-		merge(snapshot: StoreSnapshot) {
-			clock.forward(snapshot["~eventstamp"]);
-			this.begin((tx) => {
-				for (const doc of snapshot["~docs"]) {
-					tx.merge(doc);
-				}
-			});
+		merge(collection: Collection) {
+			// Get current state as a collection
+			const currentCollection = this.collection();
+
+			// Merge collections and get tracked changes
+			const result = mergeCollections(currentCollection, collection);
+
+			// Forward clock to the merged collection's eventstamp
+			clock.forward(result.collection["~eventstamp"]);
+
+			// Update readMap with merged documents
+			readMap = new Map(
+				result.collection["~docs"].map((doc) => [doc["~id"], doc]),
+			);
+
+			// Fire hooks using tracked changes
+			const addEntries = Array.from(result.changes.added.entries()).map(
+				([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			);
+			const updateEntries = Array.from(result.changes.updated.entries()).map(
+				([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			);
+			const deleteKeys = Array.from(result.changes.deleted);
+
+			fireHooks(addEntries, updateEntries, deleteKeys);
 		},
 		begin<R = void>(
 			callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,

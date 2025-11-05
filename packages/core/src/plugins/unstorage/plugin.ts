@@ -1,13 +1,12 @@
 import type { Storage } from "unstorage";
-import type { Plugin, Store, StoreSnapshot } from "../../store";
+import type { Collection } from "../../crdt";
+import type { Plugin, Store } from "../../store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet = (
-	data: StoreSnapshot,
-) => MaybePromise<StoreSnapshot>;
+type UnstorageOnBeforeSet = (data: Collection) => MaybePromise<Collection>;
 
-type UnstorageOnAfterGet = (data: StoreSnapshot) => MaybePromise<StoreSnapshot>;
+type UnstorageOnAfterGet = (data: Collection) => MaybePromise<Collection>;
 
 type UnstorageConfig = {
 	debounceMs?: number;
@@ -19,7 +18,7 @@ type UnstorageConfig = {
 
 function unstoragePlugin<T>(
 	key: string,
-	storage: Storage<StoreSnapshot>,
+	storage: Storage<Collection>,
 	config: UnstorageConfig = {},
 ): Plugin<T> {
 	const {
@@ -35,7 +34,7 @@ function unstoragePlugin<T>(
 
 	const persistSnapshot = async () => {
 		if (!store) return;
-		const data = store.snapshot();
+		const data = store.collection();
 		const persisted =
 			onBeforeSet !== undefined ? await onBeforeSet(data) : data;
 		await storage.set(key, persisted);
@@ -65,7 +64,7 @@ function unstoragePlugin<T>(
 		if (!store) return;
 		if (skip?.()) return;
 
-		const persisted = await storage.get<StoreSnapshot>(key);
+		const persisted = await storage.get<Collection>(key);
 
 		if (!persisted) return;
 

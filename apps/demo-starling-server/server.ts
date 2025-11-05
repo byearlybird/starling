@@ -1,4 +1,5 @@
-import { createStore, type StoreSnapshot } from "@byearlybird/starling";
+import type { Collection } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
@@ -10,7 +11,7 @@ type Todo = {
 
 const fileStorage = unstoragePlugin<Todo>(
 	"tasks",
-	createStorage<StoreSnapshot>({
+	createStorage<Collection>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
 );
@@ -34,10 +35,10 @@ const server = Bun.serve({
 			return new Response(null, { headers: corsHeaders });
 		}
 
-		// GET /api/todos - Return complete persisted snapshot
+		// GET /api/todos - Return complete collection
 		if (url.pathname === "/api/tasks" && req.method === "GET") {
-			const snapshot = store.snapshot();
-			return new Response(JSON.stringify(snapshot), {
+			const collection = store.collection();
+			return new Response(JSON.stringify(collection), {
 				headers: {
 					"Content-Type": "application/json",
 					...corsHeaders,
@@ -45,10 +46,10 @@ const server = Bun.serve({
 			});
 		}
 
-		// PUT /api/todos - Merge incoming snapshot data
+		// PUT /api/todos - Merge incoming collection data
 		if (url.pathname === "/api/tasks" && req.method === "PUT") {
 			try {
-				const incoming = (await req.json()) as StoreSnapshot;
+				const incoming = (await req.json()) as Collection;
 
 				store.merge(incoming);
 
