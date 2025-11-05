@@ -35,10 +35,10 @@ const server = Bun.serve({
 			return new Response(null, { headers: corsHeaders });
 		}
 
-		// GET /api/todos - Return complete persisted snapshot
+		// GET /api/todos - Return complete collection
 		if (url.pathname === "/api/tasks" && req.method === "GET") {
-			const snapshot = store.snapshot();
-			return new Response(JSON.stringify(snapshot), {
+			const collection = store.collection();
+			return new Response(JSON.stringify(collection), {
 				headers: {
 					"Content-Type": "application/json",
 					...corsHeaders,

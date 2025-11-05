@@ -34,7 +34,7 @@ function unstoragePlugin<T>(
 
 	const persistSnapshot = async () => {
 		if (!store) return;
-		const data = store.snapshot();
+		const data = store.collection();
 		const persisted =
 			onBeforeSet !== undefined ? await onBeforeSet(data) : data;
 		await storage.set(key, persisted);

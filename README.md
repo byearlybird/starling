@@ -177,7 +177,7 @@ try {
 
 - `get(key: string): T | null` – Get a single item by key if it is not deleted.
 - `entries(): IterableIterator<[string, T]>` – Get all key-value pairs (excluding deleted items).
-- `snapshot(): Collection` – Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
+- `collection(): Collection` – Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
 - `merge(collection: Collection)` – Merge a collection from another store. Useful for syncing with other replicas or storages.
 
 ```typescript
@@ -187,9 +187,9 @@ for (const [key, value] of store.entries()) {
   console.log(key, value);
 }
 
-const encodedState = store.snapshot(); // For sync/persistence
+const encodedState = store.collection(); // For sync/persistence
 
-// Merge a snapshot from another replica/storage
+// Merge a collection from another replica/storage
 store.merge(encodedState);
 ```
 

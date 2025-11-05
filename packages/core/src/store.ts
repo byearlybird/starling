@@ -369,26 +369,26 @@ export type Store<T, Extended = {}> = {
 	entries: () => IterableIterator<readonly [string, T]>;
 
 	/**
-	 * Export the complete store state as a serializable snapshot.
+	 * Export the complete store state as a collection.
 	 *
 	 * Includes all documents (even deleted ones) with their eventstamps,
 	 * plus the store's latest clock value for synchronization.
 	 *
-	 * @returns Serializable store snapshot
+	 * @returns Serializable collection
 	 *
 	 * @example
 	 * ```typescript
-	 * const snapshot = store.snapshot();
-	 * await saveToFile(snapshot);
+	 * const collection = store.collection();
+	 * await saveToFile(collection);
 	 *
 	 * // Send to another device
 	 * await fetch("/api/sync", {
 	 *   method: "POST",
-	 *   body: JSON.stringify(snapshot),
+	 *   body: JSON.stringify(collection),
 	 * });
 	 * ```
 	 */
-	snapshot: () => Collection;
+	collection: () => Collection;
 
 	/**
 	 * Import and merge a collection from another replica.
@@ -593,7 +593,7 @@ export function createStore<T>(
 
 			return iterator();
 		},
-		snapshot() {
+		collection() {
 			return {
 				"~docs": Array.from(readMap.values()),
 				"~eventstamp": clock.latest(),
@@ -601,7 +601,7 @@ export function createStore<T>(
 		},
 		merge(collection: Collection) {
 			// Get current state as a collection
-			const currentCollection = this.snapshot();
+			const currentCollection = this.collection();
 
 			// Merge collections and get tracked changes
 			const result = mergeCollections(currentCollection, collection);

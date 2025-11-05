@@ -255,10 +255,10 @@ describe("Store - Iteration & State", () => {
 			tx.del("user-1");
 		});
 
-		const snapshot = store.snapshot();
-		expect(snapshot["~docs"].length).toBe(3);
+		const collection = store.collection();
+		expect(collection["~docs"].length).toBe(3);
 
-		const deletedDoc = snapshot["~docs"].find((doc) => doc["~id"] === "user-1");
+		const deletedDoc = collection["~docs"].find((doc) => doc["~id"] === "user-1");
 		expect(deletedDoc).toBeDefined();
 		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
 	});

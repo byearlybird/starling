@@ -197,13 +197,13 @@ group("Test 9: snapshot() - 1000 items", () => {
 		});
 	});
 
-	bench("snapshot() x1000", () => {
-		store.snapshot();
+	bench("collection() x1000", () => {
+		store.collection();
 	});
 });
 
-// Test 10: snapshot() - 25000 items
-group("Test 10: snapshot() - 25000 items", () => {
+// Test 10: collection() - 25000 items
+group("Test 10: collection() - 25000 items", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
 	const store = createStore<TestData>();
 
@@ -213,8 +213,8 @@ group("Test 10: snapshot() - 25000 items", () => {
 		});
 	});
 
-	bench("snapshot() x25000", () => {
-		store.snapshot();
+	bench("collection() x25000", () => {
+		store.collection();
 	});
 });
 
@@ -267,12 +267,12 @@ group("Test 13: MERGE 1000 documents", () => {
 		});
 	});
 
-	const snapshot = store.snapshot();
+	const collection = store.collection();
 
 	bench("batch merge x1000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot["~docs"].forEach((doc) => {
+			collection["~docs"].forEach((doc) => {
 				tx.merge(doc);
 			});
 		});
@@ -290,12 +290,12 @@ group("Test 14: MERGE 25000 documents", () => {
 		});
 	});
 
-	const snapshot = store.snapshot();
+	const collection = store.collection();
 
 	bench("batch merge x25000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot["~docs"].forEach((doc) => {
+			collection["~docs"].forEach((doc) => {
 				tx.merge(doc);
 			});
 		});
