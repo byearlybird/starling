@@ -1,5 +1,6 @@
 import { processDocument, Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
+import { createStoreHooks } from "@byearlybird/starling-solid";
 import { createStorage } from "unstorage";
 import httpDriver from "unstorage/drivers/http";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -75,19 +76,11 @@ const remoteStorage = unstoragePlugin<Task>(
 );
 
 // Create Starling store with local storage and HTTP Sync
-export const taskStore = await new Store<Task>()
+const taskStore = await new Store<Task>()
 	.use(localStorage)
 	.use(remoteStorage)
 	.init();
 
-export const todoTasksQuery = taskStore.query({
-	where: (task) => task.status === "todo",
-});
-
-export const doingTasksQuery = taskStore.query({
-	where: (task) => task.status === "doing",
-});
-
-export const doneTasksQuery = taskStore.query({
-	where: (task) => task.status === "done",
-});
+// Create typed hooks from the store - use these in components
+export const { StoreProvider, useStore, useQuery } =
+	createStoreHooks(taskStore);

@@ -46,7 +46,7 @@ export type QueryConfig<T, U = T> = {
 };
 
 export type Query<U> = {
-	results: () => Map<string, U>;
+	results: () => Array<readonly [string, U]>;
 	onChange: (callback: () => void) => () => void;
 	dispose: () => void;
 };
@@ -267,13 +267,12 @@ export class Store<T> {
 		return {
 			results: () => {
 				if (query.order) {
-					const sorted = Array.from(query.results).sort(([, a], [, b]) =>
+					return Array.from(query.results).sort(([, a], [, b]) =>
 						// biome-ignore lint/style/noNonNullAssertion: <guard above>
 						query.order!(a, b),
 					);
-					return new Map(sorted);
 				}
-				return new Map(query.results);
+				return Array.from(query.results);
 			},
 			onChange: (callback: () => void) => {
 				query.callbacks.add(callback);

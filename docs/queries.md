@@ -1,6 +1,6 @@
 # Queries
 
-Starling ships with reactive queries built directly into the `Store` class. Register predicates with `store.query()` to receive filtered `Map` snapshots that automatically stay synchronized with mutations.
+Starling ships with reactive queries built directly into the `Store` class. Register predicates with `store.query()` to receive filtered arrays that automatically stay synchronized with mutations.
 
 ## Usage
 
@@ -60,7 +60,7 @@ type QueryConfig<T, U = T> = {
 
 The handle returned from `store.query()` exposes:
 
-- `results(): Map<string, U>` — A fresh `Map` with the latest matching entries. Treat the returned instance as immutable.
+- `results(): Array<readonly [string, U]>` — A fresh array with the latest matching entries as [id, document] tuples. Treat the returned instance as immutable.
 - `onChange(callback)` — Registers a listener that fires whenever the query results change. Returns an unsubscribe function.
 - `dispose()` — Removes the query from the store and clears all listeners. Call this when the query is no longer needed.
 
@@ -69,4 +69,4 @@ The handle returned from `store.query()` exposes:
 - Queries hydrate automatically when registered and when `store.init()` completes, so persisted data is available immediately.
 - Mutations are batched per transaction. A `begin()` call that touches multiple records triggers at most one `onChange` notification per query.
 - Deleted documents are automatically evicted from every query result.
-- `order` is applied on demand. The underlying results `Map` preserves last mutation order; sorting is only performed when retrieving results.
+- `order` is applied on demand. The underlying results are stored in a Map for efficient lookups; sorting is only performed when retrieving results as an array.

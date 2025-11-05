@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@byearlybird/starling": "workspace:*",
+		"@byearlybird/starling-solid": "workspace:*",
 		"solid-js": "^1.9.9",
 		"unstorage": "^1.17.1",
 		"zod": "^4.1.12"

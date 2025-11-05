@@ -46,7 +46,7 @@ const todo1Id = todoStore.begin((tx) => {
 
 // Query with plain JavaScript predicates
 const activeTodos = todoStore.query({ where: (todo) => !todo.completed });
-console.log(activeTodos.results()); // Map of incomplete todos
+console.log(activeTodos.results()); // Array of [id, todo] tuples for incomplete todos
 
 // Updates automatically trigger query re-evaluation for impacted records
 todoStore.update(todo1Id, { completed: true });

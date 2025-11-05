@@ -24,8 +24,11 @@ describe("Store - Queries", () => {
 		});
 
 		const results = activeUsers.results();
-		expect(results.size).toBe(1);
-		expect(results.get("user1")).toEqual({ name: "Alice", active: true });
+		expect(results.length).toBe(1);
+		expect(results.find(([id]) => id === "user1")?.[1]).toEqual({
+			name: "Alice",
+			active: true,
+		});
 	});
 
 	it("updates query results when items are patched", () => {
@@ -35,13 +38,13 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Alice", active: false }, { withId: "user1" });
 		});
 
-		expect(activeUsers.results().size).toBe(0);
+		expect(activeUsers.results().length).toBe(0);
 
 		store.begin((tx) => {
 			tx.update("user1", { active: true });
 		});
 
-		expect(activeUsers.results().size).toBe(1);
+		expect(activeUsers.results().length).toBe(1);
 	});
 
 	it("removes items when they are deleted", () => {
@@ -51,13 +54,13 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
-		expect(activeUsers.results().size).toBe(1);
+		expect(activeUsers.results().length).toBe(1);
 
 		store.begin((tx) => {
 			tx.del("user1");
 		});
 
-		expect(activeUsers.results().size).toBe(0);
+		expect(activeUsers.results().length).toBe(0);
 	});
 
 	it("triggers onChange callbacks", () => {
@@ -84,8 +87,8 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
-		expect(activeUsers.results().size).toBe(1);
-		expect(inactiveUsers.results().size).toBe(1);
+		expect(activeUsers.results().length).toBe(1);
+		expect(inactiveUsers.results().length).toBe(1);
 	});
 
 	it("allows disposing of a query", () => {
@@ -146,8 +149,8 @@ describe("Store - Queries", () => {
 		});
 
 		const results = activeUserNames.results();
-		expect(results.size).toBe(1);
-		expect(results.get("user1")).toBe("Alice");
+		expect(results.length).toBe(1);
+		expect(results.find(([id]) => id === "user1")?.[1]).toBe("Alice");
 	});
 
 	it("select updates when data changes", () => {
@@ -160,13 +163,17 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
-		expect(activeUserNames.results().get("user1")).toBe("Alice");
+		expect(activeUserNames.results().find(([id]) => id === "user1")?.[1]).toBe(
+			"Alice",
+		);
 
 		store.begin((tx) => {
 			tx.update("user1", { name: "Alice Smith" });
 		});
 
-		expect(activeUserNames.results().get("user1")).toBe("Alice Smith");
+		expect(activeUserNames.results().find(([id]) => id === "user1")?.[1]).toBe(
+			"Alice Smith",
+		);
 	});
 
 	it("select removes items when predicate fails", () => {
@@ -179,13 +186,13 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
-		expect(activeUserNames.results().size).toBe(1);
+		expect(activeUserNames.results().length).toBe(1);
 
 		store.begin((tx) => {
 			tx.update("user1", { active: false });
 		});
 
-		expect(activeUserNames.results().size).toBe(0);
+		expect(activeUserNames.results().length).toBe(0);
 	});
 
 	it("select removes items when they are deleted", () => {
@@ -198,13 +205,13 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
-		expect(activeUserNames.results().size).toBe(1);
+		expect(activeUserNames.results().length).toBe(1);
 
 		store.begin((tx) => {
 			tx.del("user1");
 		});
 
-		expect(activeUserNames.results().size).toBe(0);
+		expect(activeUserNames.results().length).toBe(0);
 	});
 
 	it("supports order comparator", () => {
@@ -219,7 +226,7 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(users.results().values());
+		const results = users.results().map(([, user]) => user);
 		expect(results.map((user) => user.name)).toEqual([
 			"Alice",
 			"Bob",
@@ -239,7 +246,7 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(users.results().values());
+		const results = users.results().map(([, user]) => user);
 		expect(results.map((user) => user.name)).toEqual([
 			"Charlie",
 			"Bob",
@@ -260,7 +267,7 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(userNames.results().values());
+		const results = userNames.results().map(([, name]) => name);
 		expect(results).toEqual(["Alice", "Bob", "Charlie"]);
 	});
 
@@ -281,7 +288,7 @@ describe("Store - Queries", () => {
 			tx.update("user3", { name: "Aaron" });
 		});
 
-		const results = Array.from(userNames.results().values());
+		const results = userNames.results().map(([, name]) => name);
 		expect(results).toEqual(["Aaron", "Alice", "Bob"]);
 	});
 
@@ -298,7 +305,7 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(activeUserNames.results().values());
+		const results = activeUserNames.results().map(([, name]) => name);
 		expect(results).toEqual(["Bob", "Charlie"]);
 	});
 
@@ -315,7 +322,7 @@ describe("Store - Queries", () => {
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
 		});
 
-		const results = Array.from(usersByScore.results().values());
+		const results = usersByScore.results().map(([, user]) => user);
 		expect(results.map((user) => user.name)).toEqual([
 			"Alice",
 			"Charlie",

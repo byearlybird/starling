@@ -1,0 +1,30 @@
+{
+	"name": "@byearlybird/starling-react",
+	"version": "0.1.0",
+	"type": "module",
+	"license": "MIT",
+	"description": "React hooks for Starling stores",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts",
+		"prepublishOnly": "bun run build.ts"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "workspace:*",
+		"react": "^18.0.0 || ^19.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
