@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { createStore } from "./store";
+import { Store } from "./store";
 
 // Test data type: 4+ properties with 3-level nesting
 type TestData = {
@@ -51,7 +51,7 @@ group("Test 1: 1000 sequential ADDs", () => {
 
 	bench("sequential add x1000", () => {
 		// Store creation done outside timing - only measure add operations
-		const addStore = createStore<TestData>();
+		const addStore = new Store<TestData>();
 		return () => {
 			testData.forEach((data, i) => {
 				addStore.add(data, { withId: `item-${i}` });
@@ -65,7 +65,7 @@ group("Test 2: 25000 ADDs in a transaction", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
 
 	bench("batch add x25000", () => {
-		const txStore = createStore<TestData>();
+		const txStore = new Store<TestData>();
 		txStore.begin((tx) => {
 			testData.forEach((data, i) => {
 				tx.add(data, { withId: `item-${i}` });
@@ -77,7 +77,7 @@ group("Test 2: 25000 ADDs in a transaction", () => {
 // Test 3: 100 GETs without index
 group("Test 3: 100 GETs", () => {
 	const testData = Array.from({ length: 100 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -95,7 +95,7 @@ group("Test 3: 100 GETs", () => {
 // Test 4: 5000 GETs
 group("Test 4: 5000 GETs", () => {
 	const testData = Array.from({ length: 5000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -113,7 +113,7 @@ group("Test 4: 5000 GETs", () => {
 // Test 5: 1000 sequential UPDATEs
 group("Test 5: 1000 sequential UPDATEs", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -131,7 +131,7 @@ group("Test 5: 1000 sequential UPDATEs", () => {
 // Test 6: 25000 UPDATEs in a transaction
 group("Test 6: 25000 UPDATEs in a transaction", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -151,7 +151,7 @@ group("Test 6: 25000 UPDATEs in a transaction", () => {
 // Test 7: entries() iteration - 1000 items
 group("Test 7: entries() iteration - 1000 items", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -160,9 +160,9 @@ group("Test 7: entries() iteration - 1000 items", () => {
 	});
 
 	bench("entries() x1000", () => {
-		let count = 0;
+		let _count = 0;
 		for (const [,] of store.entries()) {
-			count++;
+			_count++;
 		}
 	});
 });
@@ -170,7 +170,7 @@ group("Test 7: entries() iteration - 1000 items", () => {
 // Test 8: entries() iteration - 25000 items
 group("Test 8: entries() iteration - 25000 items", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -179,9 +179,9 @@ group("Test 8: entries() iteration - 25000 items", () => {
 	});
 
 	bench("entries() x25000", () => {
-		let count = 0;
+		let _count = 0;
 		for (const [,] of store.entries()) {
-			count++;
+			_count++;
 		}
 	});
 });
@@ -189,7 +189,7 @@ group("Test 8: entries() iteration - 25000 items", () => {
 // Test 9: snapshot() - 1000 items
 group("Test 9: snapshot() - 1000 items", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -205,7 +205,7 @@ group("Test 9: snapshot() - 1000 items", () => {
 // Test 10: collection() - 25000 items
 group("Test 10: collection() - 25000 items", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -221,7 +221,7 @@ group("Test 10: collection() - 25000 items", () => {
 // Test 11: 1000 sequential DELETEs
 group("Test 11: 1000 sequential DELETEs", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -239,7 +239,7 @@ group("Test 11: 1000 sequential DELETEs", () => {
 // Test 12: 25000 DELETEs in a transaction
 group("Test 12: 25000 DELETEs in a transaction", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -259,7 +259,7 @@ group("Test 12: 25000 DELETEs in a transaction", () => {
 // Test 13: MERGE 1000 documents
 group("Test 13: MERGE 1000 documents", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -270,7 +270,7 @@ group("Test 13: MERGE 1000 documents", () => {
 	const collection = store.collection();
 
 	bench("batch merge x1000", () => {
-		const mergeStore = createStore<TestData>();
+		const mergeStore = new Store<TestData>();
 		mergeStore.begin((tx) => {
 			collection["~docs"].forEach((doc) => {
 				tx.merge(doc);
@@ -282,7 +282,7 @@ group("Test 13: MERGE 1000 documents", () => {
 // Test 14: MERGE 25000 documents
 group("Test 14: MERGE 25000 documents", () => {
 	const testData = Array.from({ length: 25000 }, (_, i) => generateTestData(i));
-	const store = createStore<TestData>();
+	const store = new Store<TestData>();
 
 	store.begin((tx) => {
 		testData.forEach((data, i) => {
@@ -293,7 +293,7 @@ group("Test 14: MERGE 25000 documents", () => {
 	const collection = store.collection();
 
 	bench("batch merge x25000", () => {
-		const mergeStore = createStore<TestData>();
+		const mergeStore = new Store<TestData>();
 		mergeStore.begin((tx) => {
 			collection["~docs"].forEach((doc) => {
 				tx.merge(doc);
@@ -307,7 +307,7 @@ group("Test 15: ADD followed by bulk DELETE", () => {
 	const testData = Array.from({ length: 5000 }, (_, i) => generateTestData(i));
 
 	bench("add 5000 then delete 5000", () => {
-		const store = createStore<TestData>();
+		const store = new Store<TestData>();
 
 		store.begin((tx) => {
 			testData.forEach((data, i) => {
@@ -328,7 +328,7 @@ group("Test 16: Mixed operations", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
 
 	bench("mixed ops x1000", () => {
-		const store = createStore<TestData>();
+		const store = new Store<TestData>();
 
 		store.begin((tx) => {
 			testData.forEach((data, i) => {

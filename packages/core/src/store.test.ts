@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { createStore, type Store } from "./store";
+import { Store } from "./store";
 
 type TestUser = {
 	name: string;
@@ -13,7 +13,7 @@ type TestUser = {
 
 describe("Store - Convenience Methods", () => {
 	test("add should persist values and return provided id", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const id = store.add({ name: "Alice" }, { withId: "user-add-1" });
 
@@ -22,7 +22,7 @@ describe("Store - Convenience Methods", () => {
 	});
 
 	test("update should apply partial changes via convenience method", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const id = store.add(
 			{ name: "Bob", email: "bob@example.com" },
@@ -37,7 +37,7 @@ describe("Store - Convenience Methods", () => {
 	});
 
 	test("del should remove records when using convenience method", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const id = store.add({ name: "Charlie" }, { withId: "user-del-1" });
 		store.del(id);
@@ -48,7 +48,7 @@ describe("Store - Convenience Methods", () => {
 
 describe("Store - Put Operations", () => {
 	test("should insert item with auto-generated ID", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const insertedId = store.begin((tx) => tx.add({ name: "Alice" }));
 
@@ -58,7 +58,7 @@ describe("Store - Put Operations", () => {
 	});
 
 	test("should insert item with custom ID using withId option", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Bob" }, { withId: "user-1" });
@@ -68,7 +68,7 @@ describe("Store - Put Operations", () => {
 	});
 
 	test("should return the ID after putting an item", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const [autoId, customId] = store.begin((tx) => [
 			tx.add({ name: "Charlie" }),
@@ -80,7 +80,7 @@ describe("Store - Put Operations", () => {
 	});
 
 	test("should apply LWW merge when adding with same ID (newer eventstamp wins)", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add(
@@ -105,7 +105,7 @@ describe("Store - Get/Has Operations", () => {
 	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = createStore<TestUser>();
+		store = new Store<TestUser>();
 		store.begin((tx) => {
 			tx.add(
 				{ name: "Alice", email: "alice@example.com" },
@@ -140,7 +140,7 @@ describe("Store - Patch Operations", () => {
 	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = createStore<TestUser>();
+		store = new Store<TestUser>();
 		store.begin((tx) => {
 			tx.add(
 				{
@@ -204,7 +204,7 @@ describe("Store - Delete Operations", () => {
 	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = createStore<TestUser>();
+		store = new Store<TestUser>();
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
 			tx.add({ name: "Bob" }, { withId: "user-2" });
@@ -232,7 +232,7 @@ describe("Store - Iteration & State", () => {
 	let store: Store<TestUser>;
 
 	beforeEach(() => {
-		store = createStore<TestUser>();
+		store = new Store<TestUser>();
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
 			tx.add({ name: "Bob" }, { withId: "user-2" });
@@ -258,7 +258,9 @@ describe("Store - Iteration & State", () => {
 		const collection = store.collection();
 		expect(collection["~docs"].length).toBe(3);
 
-		const deletedDoc = collection["~docs"].find((doc) => doc["~id"] === "user-1");
+		const deletedDoc = collection["~docs"].find(
+			(doc) => doc["~id"] === "user-1",
+		);
 		expect(deletedDoc).toBeDefined();
 		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
 	});
@@ -266,7 +268,7 @@ describe("Store - Iteration & State", () => {
 
 describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	test("should auto-commit transaction when callback completes", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -276,7 +278,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should apply multiple operations atomically", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -292,7 +294,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should rollback all changes when tx.rollback() is called", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -309,7 +311,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should rollback on error and re-throw", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -328,7 +330,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 	});
 
 	test("should not commit after rollback", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		const result = store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -343,7 +345,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 
 describe("Store - Transaction Behavior - Transaction Isolation", () => {
 	test("should stage changes visible within transaction", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -352,7 +354,7 @@ describe("Store - Transaction Behavior - Transaction Isolation", () => {
 	});
 
 	test("should not apply changes until commit", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		let hasUserDuringTx = false;
 
 		try {
@@ -372,17 +374,15 @@ describe("Store - Transaction Behavior - Transaction Isolation", () => {
 
 describe("Store - Plugin System - Hook Registration", () => {
 	test("should call onAdd hooks with batched entries", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const onAddMock = mock(
-			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onAdd: onAddMock,
-			},
+			onInit: () => {},
+			onDispose: () => {},
+			onAdd: onAddMock,
 		});
 
 		store.begin((tx) => {
@@ -401,17 +401,15 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should call onUpdate hooks with merged values", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const onUpdateMock = mock(
-			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onUpdate: onUpdateMock,
-			},
+			onInit: () => {},
+			onDispose: () => {},
+			onUpdate: onUpdateMock,
 		});
 
 		store.begin((tx) => {
@@ -437,15 +435,13 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should call onDelete hooks with deleted keys", () => {
-		const store = createStore<TestUser>();
-		const onDeleteMock = mock((keys: ReadonlyArray<string>) => {});
+		const store = new Store<TestUser>();
+		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onDelete: onDeleteMock,
-			},
+			onInit: () => {},
+			onDispose: () => {},
+			onDelete: onDeleteMock,
 		});
 
 		store.begin((tx) => {
@@ -466,23 +462,21 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should batch multiple operations in single hook call", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const onAddMock = mock(
-			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 		const onUpdateMock = mock(
-			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
-		const onDeleteMock = mock((keys: ReadonlyArray<string>) => {});
+		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onAdd: onAddMock,
-				onUpdate: onUpdateMock,
-				onDelete: onDeleteMock,
-			},
+			onInit: () => {},
+			onDispose: () => {},
+			onAdd: onAddMock,
+			onUpdate: onUpdateMock,
+			onDelete: onDeleteMock,
 		});
 
 		store.begin((tx) => {
@@ -496,13 +490,15 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 
 	test("should not fire hooks when silent: true", () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const onAddMock = mock(
-			(entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
 		store.use({
-			hooks: { onAdd: onAddMock, onInit: () => {}, onDispose: () => {} },
+			onAdd: onAddMock,
+			onInit: () => {},
+			onDispose: () => {},
 		});
 
 		store.begin(
@@ -516,65 +512,14 @@ describe("Store - Plugin System - Hook Registration", () => {
 	});
 });
 
-describe("Store - Plugin System - Plugin Methods", () => {
-	test("should inject plugin methods into store", () => {
-		const store = createStore<TestUser>();
-
-		type CustomMethods = {
-			customMethod: () => string;
-		};
-
-		const extendedStore = store.use<CustomMethods>({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-			},
-			methods: {
-				customMethod: () => "custom result",
-			},
-		});
-
-		expect(extendedStore.customMethod()).toBe("custom result");
-	});
-
-	test("should make plugin methods accessible via store", () => {
-		const store = createStore<TestUser>();
-
-		type CountMethods = {
-			getActiveCount: () => number;
-		};
-
-		const extendedStore = store.use<CountMethods>({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-			},
-			methods: {
-				getActiveCount: function (this: Store<TestUser>) {
-					return Array.from(this.entries()).length;
-				},
-			},
-		});
-
-		extendedStore.begin((tx) => {
-			tx.add({ name: "Alice" }, { withId: "user-1" });
-			tx.add({ name: "Bob" }, { withId: "user-2" });
-		});
-
-		expect(extendedStore.getActiveCount()).toBe(2);
-	});
-});
-
 describe("Store - Plugin System - Lifecycle", () => {
 	test("should call plugin init() during store.init()", async () => {
-		const store = createStore<TestUser>();
-		const initMock = mock((s: Store<TestUser>) => {});
+		const store = new Store<TestUser>();
+		const initMock = mock((_s: Store<TestUser>) => {});
 
 		store.use({
-			hooks: {
-				onInit: initMock,
-				onDispose: () => {},
-			},
+			onInit: initMock,
+			onDispose: () => {},
 		});
 
 		await store.init();
@@ -584,34 +529,28 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call multiple plugin inits in registration order", async () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const callOrder: number[] = [];
 
 		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(1);
-				},
-				onDispose: () => {},
+			onInit: () => {
+				callOrder.push(1);
 			},
+			onDispose: () => {},
 		});
 
 		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(2);
-				},
-				onDispose: () => {},
+			onInit: () => {
+				callOrder.push(2);
 			},
+			onDispose: () => {},
 		});
 
 		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(3);
-				},
-				onDispose: () => {},
+			onInit: () => {
+				callOrder.push(3);
 			},
+			onDispose: () => {},
 		});
 
 		await store.init();
@@ -620,14 +559,12 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call plugin dispose() during store.dispose()", async () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const disposeMock = mock(() => {});
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: disposeMock,
-			},
+			onInit: () => {},
+			onDispose: disposeMock,
 		});
 
 		await store.init();
@@ -637,33 +574,27 @@ describe("Store - Plugin System - Lifecycle", () => {
 	});
 
 	test("should call multiple plugin disposes in reverse order", async () => {
-		const store = createStore<TestUser>();
+		const store = new Store<TestUser>();
 		const callOrder: number[] = [];
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(1);
-				},
+			onInit: () => {},
+			onDispose: () => {
+				callOrder.push(1);
 			},
 		});
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(2);
-				},
+			onInit: () => {},
+			onDispose: () => {
+				callOrder.push(2);
 			},
 		});
 
 		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(3);
-				},
+			onInit: () => {},
+			onDispose: () => {
+				callOrder.push(3);
 			},
 		});
 

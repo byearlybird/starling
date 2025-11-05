@@ -75,40 +75,38 @@ function unstoragePlugin<T>(
 	};
 
 	return {
-		hooks: {
-			onInit: async (s) => {
-				store = s;
+		onInit: async (s) => {
+			store = s;
 
-				// Initial load from storage
-				await pollStorage();
+			// Initial load from storage
+			await pollStorage();
 
-				// Start polling if configured
-				if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
-					pollInterval = setInterval(() => {
-						pollStorage();
-					}, pollIntervalMs);
-				}
-			},
-			onDispose: () => {
-				if (debounceTimer !== null) {
-					clearTimeout(debounceTimer);
-					debounceTimer = null;
-				}
-				if (pollInterval !== null) {
-					clearInterval(pollInterval);
-					pollInterval = null;
-				}
-				store = null;
-			},
-			onAdd: () => {
-				schedulePersist();
-			},
-			onUpdate: () => {
-				schedulePersist();
-			},
-			onDelete: () => {
-				schedulePersist();
-			},
+			// Start polling if configured
+			if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
+				pollInterval = setInterval(() => {
+					pollStorage();
+				}, pollIntervalMs);
+			}
+		},
+		onDispose: () => {
+			if (debounceTimer !== null) {
+				clearTimeout(debounceTimer);
+				debounceTimer = null;
+			}
+			if (pollInterval !== null) {
+				clearInterval(pollInterval);
+				pollInterval = null;
+			}
+			store = null;
+		},
+		onAdd: () => {
+			schedulePersist();
+		},
+		onUpdate: () => {
+			schedulePersist();
+		},
+		onDelete: () => {
+			schedulePersist();
 		},
 	};
 }

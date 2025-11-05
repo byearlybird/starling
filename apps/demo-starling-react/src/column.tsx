@@ -1,4 +1,4 @@
-import type { Query } from "@byearlybird/starling/plugin-query";
+import type { Query } from "@byearlybird/starling";
 import { useMemo } from "react";
 import { Card } from "./card";
 import type { Task } from "./store/task-store";

@@ -8,7 +8,8 @@ Starling is a lightweight data store for building offline-capable tools without 
 
 - Simple Store API
 - Plain JavaScript predicates instead of a custom query language
-- Chainable plugins for persistence, querying, and custom hooks
+- Built-in reactive queries with plain JavaScript predicates
+- Chainable plugins for persistence and custom hooks
 - Framework agnostic -- works with anything that JavaScript runs
 - Transactional API with batched notifications
 - ~4KB core build with zero required runtime dependencies
@@ -26,13 +27,10 @@ bun add unstorage
 ## Quick Start
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling/plugin-query";
+import { Store } from "@byearlybird/starling";
 
-// Create a store with reactive queries
-const todoStore = await createStore<{ text: string; completed: boolean }>()
-  .use(queryPlugin())
-  .init();
+// Create a store with built-in reactive queries
+const todoStore = await new Store<{ text: string; completed: boolean }>().init();
 
 // Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
@@ -98,13 +96,13 @@ If you need support for mergeable array operations, semantic operations, or soph
 ### Creating a Store
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 
 // Create a basic store
-const store = createStore<YourType>();
+const store = new Store<YourType>();
 
 // Optionally provide a custom ID generator
-const deterministicStore = createStore<YourType>({
+const deterministicStore = new Store<YourType>({
   getId: () => crypto.randomUUID(),
 });
 
@@ -209,38 +207,36 @@ The `begin()` callback receives a transaction object with these methods:
 Hooks are provided via plugins. Create a custom plugin to listen to store mutations:
 
 ```typescript
-import { createStore, type Plugin } from "@byearlybird/starling";
+import { Store, type Plugin } from "@byearlybird/starling";
 
 // Create a custom plugin with hooks
 const loggingPlugin = <T extends Record<string, unknown>>(): Plugin<T> => ({
-  hooks: {
-    onInit: () => {
-      console.log("Logging plugin initialized");
-    },
-    onDispose: () => {
-      console.log("Logging plugin disposed");
-    },
-    // Hooks receive batched entries after mutations commit
-    onAdd: (entries) => {
-      for (const [key, value] of entries) {
-        console.log(`Put ${key}:`, value);
-      }
-    },
-    onUpdate: (entries) => {
-      for (const [key, value] of entries) {
-        console.log(`Patched ${key}:`, value);
-      }
-    },
-    onDelete: (keys) => {
-      for (const key of keys) {
-        console.log(`Deleted ${key}`);
-      }
-    },
+  onInit: () => {
+    console.log("Logging plugin initialized");
+  },
+  onDispose: () => {
+    console.log("Logging plugin disposed");
+  },
+  // Hooks receive batched entries after mutations commit
+  onAdd: (entries) => {
+    for (const [key, value] of entries) {
+      console.log(`Put ${key}:`, value);
+    }
+  },
+  onUpdate: (entries) => {
+    for (const [key, value] of entries) {
+      console.log(`Patched ${key}:`, value);
+    }
+  },
+  onDelete: (keys) => {
+    for (const key of keys) {
+      console.log(`Deleted ${key}`);
+    }
   },
 });
 
 // Use the plugin
-const store = await createStore<{ name: string }>()
+const store = await new Store<{ name: string }>()
   .use(loggingPlugin())
   .init();
 ```
@@ -249,9 +245,9 @@ const store = await createStore<{ name: string }>()
 
 Starling comes with plugins that live beside the core store. They ship as subpath exports so you can pull in only what you need.
 
-### Query (`@byearlybird/starling/plugin-query`)
+### Queries
 
-Attach predicate-based, reactive views that stay synchronized with store mutations. The plugin exposes a `query()` helper and a store method. See [`docs/plugins/query.md`](docs/plugins/query.md) for usage patterns and API notes.
+Predicate-based, reactive views ship with the store itself. Call `store.query({ where, select, order })` to derive filtered maps that automatically stay in sync. See [`docs/queries.md`](docs/queries.md) for usage patterns and API notes.
 
 ### Unstorage (`@byearlybird/starling/plugin-unstorage`)
 
@@ -262,14 +258,14 @@ Persists snapshots to any `unstorage` backend, replays them during boot, and opt
 You can stack multiple storage plugins—each one operates independently, and Starling's field-level LWW automatically resolves conflicts:
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
 
 // Register multiple storage backends - they work together automatically
-const store = await createStore<Todo>()
+const store = await new Store<Todo>()
   .use(
     unstoragePlugin(
       "todos",

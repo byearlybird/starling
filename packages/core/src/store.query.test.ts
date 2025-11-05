@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { createStore } from "../../store";
-import { queryPlugin } from "./plugin";
+import { Store } from "./store";
 
 type User = {
 	name: string;
 	active: boolean;
 };
 
-const makeStore = () => createStore<User>().use(queryPlugin()).init();
+const makeStore = () => new Store<User>().init();
 
-describe("QueryPlugin", () => {
+describe("Store - Queries", () => {
 	let store: Awaited<ReturnType<typeof makeStore>>;
 
 	beforeEach(async () => {
@@ -164,13 +163,13 @@ describe("QueryPlugin", () => {
 		expect(activeUserNames.results().get("user1")).toBe("Alice");
 
 		store.begin((tx) => {
-			tx.update("user1", { name: "Alicia" });
+			tx.update("user1", { name: "Alice Smith" });
 		});
 
-		expect(activeUserNames.results().get("user1")).toBe("Alicia");
+		expect(activeUserNames.results().get("user1")).toBe("Alice Smith");
 	});
 
-	it("select removes items that no longer match", () => {
+	it("select removes items when predicate fails", () => {
 		const activeUserNames = store.query({
 			where: (user) => user.active,
 			select: (user) => user.name,
@@ -189,129 +188,138 @@ describe("QueryPlugin", () => {
 		expect(activeUserNames.results().size).toBe(0);
 	});
 
-	it("sorts results by order comparator", () => {
-		const sortedUsers = store.query({
+	it("select removes items when they are deleted", () => {
+		const activeUserNames = store.query({
 			where: (user) => user.active,
+			select: (user) => user.name,
+		});
+
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+		});
+
+		expect(activeUserNames.results().size).toBe(1);
+
+		store.begin((tx) => {
+			tx.del("user1");
+		});
+
+		expect(activeUserNames.results().size).toBe(0);
+	});
+
+	it("supports order comparator", () => {
+		const users = store.query({
+			where: () => true,
 			order: (a, b) => a.name.localeCompare(b.name),
 		});
 
 		store.begin((tx) => {
-			tx.add({ name: "Charlie", active: true }, { withId: "user1" });
-			tx.add({ name: "Alice", active: true }, { withId: "user2" });
-			tx.add({ name: "Bob", active: true }, { withId: "user3" });
+			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(sortedUsers.results().values());
-		expect(results.length).toBe(3);
-		expect(results.at(0)?.name).toBe("Alice");
-		expect(results.at(1)?.name).toBe("Bob");
-		expect(results.at(2)?.name).toBe("Charlie");
+		const results = Array.from(users.results().values());
+		expect(results.map((user) => user.name)).toEqual([
+			"Alice",
+			"Bob",
+			"Charlie",
+		]);
 	});
 
-	it("sorts in reverse order", () => {
-		const reverseSortedUsers = store.query({
-			where: (user) => user.active,
+	it("supports reverse order comparator", () => {
+		const users = store.query({
+			where: () => true,
 			order: (a, b) => b.name.localeCompare(a.name),
 		});
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice", active: true }, { withId: "user1" });
-			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(reverseSortedUsers.results().values());
-		expect(results.length).toBe(3);
-		expect(results.at(0)?.name).toBe("Charlie");
-		expect(results.at(1)?.name).toBe("Bob");
-		expect(results.at(2)?.name).toBe("Alice");
+		const results = Array.from(users.results().values());
+		expect(results.map((user) => user.name)).toEqual([
+			"Charlie",
+			"Bob",
+			"Alice",
+		]);
 	});
 
-	it("sorts with select transformation", () => {
-		const sortedNames = store.query({
+	it("supports order with select transformation", () => {
+		const userNames = store.query({
 			where: (user) => user.active,
 			select: (user) => user.name,
 			order: (a, b) => a.localeCompare(b),
 		});
 
 		store.begin((tx) => {
-			tx.add({ name: "Zoe", active: true }, { withId: "user1" });
-			tx.add({ name: "Amy", active: true }, { withId: "user2" });
-			tx.add({ name: "Max", active: true }, { withId: "user3" });
+			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(sortedNames.results().values());
-		expect(results.length).toBe(3);
-		expect(results.at(0)).toBe("Amy");
-		expect(results.at(1)).toBe("Max");
-		expect(results.at(2)).toBe("Zoe");
+		const results = Array.from(userNames.results().values());
+		expect(results).toEqual(["Alice", "Bob", "Charlie"]);
 	});
 
 	it("maintains sort order when items are updated", () => {
-		const sortedUsers = store.query({
-			where: (user) => user.active,
-			order: (a, b) => a.name.localeCompare(b.name),
+		const userNames = store.query({
+			where: () => true,
+			select: (user) => user.name,
+			order: (a, b) => a.localeCompare(b),
 		});
 
 		store.begin((tx) => {
-			tx.add({ name: "Charlie", active: true }, { withId: "user1" });
-			tx.add({ name: "Alice", active: true }, { withId: "user2" });
+			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
-
-		let results = Array.from(sortedUsers.results().values());
-		expect(results.length).toBe(2);
-		expect(results.at(0)?.name).toBe("Alice");
-		expect(results.at(1)?.name).toBe("Charlie");
 
 		store.begin((tx) => {
-			tx.update("user1", { name: "Zoe" });
+			tx.update("user3", { name: "Aaron" });
 		});
 
-		results = Array.from(sortedUsers.results().values());
-		expect(results.length).toBe(2);
-		expect(results.at(0)?.name).toBe("Alice");
-		expect(results.at(1)?.name).toBe("Zoe");
+		const results = Array.from(userNames.results().values());
+		expect(results).toEqual(["Aaron", "Alice", "Bob"]);
 	});
 
 	it("excludes non-matching items from sorted results", () => {
-		const sortedActiveUsers = store.query({
+		const activeUserNames = store.query({
 			where: (user) => user.active,
-			order: (a, b) => a.name.localeCompare(b.name),
+			select: (user) => user.name,
+			order: (a, b) => a.localeCompare(b),
 		});
 
 		store.begin((tx) => {
-			tx.add({ name: "Charlie", active: true }, { withId: "user1" });
-			tx.add({ name: "Alice", active: false }, { withId: "user2" });
-			tx.add({ name: "Bob", active: true }, { withId: "user3" });
+			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
+			tx.add({ name: "Alice", active: false }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
-		const results = Array.from(sortedActiveUsers.results().values());
-		expect(results.length).toBe(2);
-		expect(results.at(0)?.name).toBe("Bob");
-		expect(results.at(1)?.name).toBe("Charlie");
+		const results = Array.from(activeUserNames.results().values());
+		expect(results).toEqual(["Bob", "Charlie"]);
 	});
 
-	it("sorts by numeric values", async () => {
-		type Todo = { title: string; priority: number };
-		const todoStore = await createStore<Todo>().use(queryPlugin()).init();
-
-		const sortedByPriority = todoStore.query({
+	it("sorts by numeric values", () => {
+		const usersByScore = store.query({
 			where: () => true,
-			order: (a, b) => a.priority - b.priority,
+			select: (user) => ({ ...user, score: user.active ? 10 : 5 }),
+			order: (a, b) => b.score - a.score,
 		});
 
-		todoStore.begin((tx) => {
-			tx.add({ title: "High", priority: 3 }, { withId: "todo1" });
-			tx.add({ title: "Low", priority: 1 }, { withId: "todo2" });
-			tx.add({ title: "Medium", priority: 2 }, { withId: "todo3" });
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
+			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
 		});
 
-		const results = Array.from(sortedByPriority.results().values());
-		expect(results.length).toBe(3);
-		expect(results.at(0)?.priority).toBe(1);
-		expect(results.at(1)?.priority).toBe(2);
-		expect(results.at(2)?.priority).toBe(3);
-
-		await todoStore.dispose();
+		const results = Array.from(usersByScore.results().values());
+		expect(results.map((user) => user.name)).toEqual([
+			"Alice",
+			"Charlie",
+			"Bob",
+		]);
 	});
 });

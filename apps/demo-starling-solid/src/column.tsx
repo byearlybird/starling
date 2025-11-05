@@ -1,4 +1,4 @@
-import type { Query } from "@byearlybird/starling/plugin-query";
+import type { Query } from "@byearlybird/starling";
 import { type Accessor, createMemo, For } from "solid-js";
 import { Card } from "./card";
 import { createQuerySignal } from "./store/create-query-signal";

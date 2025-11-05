@@ -2,5 +2,5 @@
 @CONTRIBUTING.md
 @docs/architecture.md
 @docs/decision-log.md
-@docs/plugins/query.md
+@docs/queries.md
 @docs/plugins/unstorage.md

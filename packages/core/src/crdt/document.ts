@@ -1,4 +1,3 @@
-import { MIN_EVENTSTAMP } from "./eventstamp";
 import {
 	decodeRecord,
 	type EncodedRecord,

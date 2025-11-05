@@ -1,5 +1,5 @@
 import type { Collection } from "@byearlybird/starling";
-import { createStore } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
@@ -16,7 +16,7 @@ const fileStorage = unstoragePlugin<Todo>(
 	}),
 );
 
-const store = await createStore<Todo>().use(fileStorage).init();
+const store = await new Store<Todo>().use(fileStorage).init();
 
 const server = Bun.serve({
 	port: 3001,

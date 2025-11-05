@@ -1,4 +1,4 @@
-import type { Query } from "@byearlybird/starling/plugin-query";
+import type { Query } from "@byearlybird/starling";
 import { useEffect, useState } from "react";
 
 export function useQueryResults<T>(query: Query<T>): Map<string, T> {

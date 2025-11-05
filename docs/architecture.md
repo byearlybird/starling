@@ -184,18 +184,15 @@ Starling can complement these tools—use it for application state while delegat
 
 ## Plugin System
 
-Stores are extensible via plugins that provide lifecycle hooks and optional methods:
+Stores are extensible via plugins that provide lifecycle and mutation hooks:
 
 ```typescript
-type Plugin<T, M extends PluginMethods = {}> = {
-  hooks: {
-    onInit: (store: Store<T>) => Promise<void> | void;
-    onDispose: () => Promise<void> | void;
-    onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-    onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-    onDelete?: (keys: ReadonlyArray<string>) => void;
-  };
-  methods?: M;
+type Plugin<T> = {
+  onInit: (store: Store<T>) => Promise<void> | void;
+  onDispose: () => Promise<void> | void;
+  onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+  onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+  onDelete?: (keys: ReadonlyArray<string>) => void;
 };
 ```
 
@@ -209,33 +206,16 @@ Plugins tap into the store lifecycle at specific points:
 
 Mutation hooks are **optional**—implement only what your plugin needs. For example, a read-only analytics plugin might only use `onInit` and `onAdd`.
 
-### Plugin Methods
+### Plugin Surface
 
-Plugins can extend the store API by returning methods:
-
-```typescript
-const queryPlugin = <T>(): Plugin<T, { query: (opts) => Query<T> }> => ({
-  hooks: { /* ... */ },
-  methods: {
-    query: (opts) => { /* implementation */ }
-  }
-});
-
-// Usage
-const store = await createStore<T>()
-  .use(queryPlugin())
-  .init();
-
-store.query({ where: (doc) => doc.active }); // Method added by plugin
-```
+Plugins interact with the store exclusively through lifecycle and mutation hooks. The core API already exposes querying and every mutation primitive, so plugins focus on persistence, analytics, or side effects without mutating the store prototype.
 
 ### Plugin Composition
 
 Plugins stack cleanly—each operates independently:
 
 ```typescript
-const store = await createStore<Todo>()
-  .use(queryPlugin())
+const store = await new Store<Todo>()
   .use(unstoragePlugin("todos", localStorageBackend))
   .use(unstoragePlugin("todos", httpBackend, { pollIntervalMs: 5000 }))
   .init();
@@ -252,7 +232,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 
 | Module | Responsibility |
 | --- | --- |
-| [`clock.ts`](../packages/core/src/crdt/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, generates random nonces for tie-breaking, and forwards itself when observing newer remote stamps |
+| [`clock.ts`](../packages/core/src/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, generates random nonces for tie-breaking, and forwards itself when observing newer remote stamps |
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
@@ -288,17 +268,10 @@ Starling ships as a monorepo with subpath exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `createStore`, `Store`, `Plugin`, `PluginHooks`, `PluginMethods`, `EncodedDocument`  
+**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `EncodedDocument`, `processDocument`  
 **Dependencies**: Zero runtime dependencies
 
-Provides the core store implementation and plugin system.
-
-### `@byearlybird/starling/plugin-query`
-
-**Exports**: `queryPlugin`  
-**Dependencies**: None (uses core hooks)
-
-Reactive filtered views that re-evaluate when matching documents change.
+Provides the core store implementation, built-in queries, and plugin hooks.
 
 ### `@byearlybird/starling/plugin-unstorage`
 

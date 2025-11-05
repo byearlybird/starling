@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Collection } from "./crdt";
-import { createStore, type Store } from "./store";
+import { Store } from "./store";
 
 /**
  * Integration test type: a document with multiple optional fields
@@ -32,7 +32,7 @@ type TestUser = {
 async function mergeStoreCollections<T extends Record<string, unknown>>(
 	collections: Collection[],
 ): Promise<Store<T>> {
-	const consolidated = createStore<T>();
+	const consolidated = new Store<T>();
 
 	if (collections.length === 0) {
 		await consolidated.init();
@@ -54,9 +54,9 @@ async function mergeStoreCollections<T extends Record<string, unknown>>(
 describe("Store Integration - Multi-Store Merging", () => {
 	test("should merge independent writes with no conflicts", async () => {
 		// Create 3 independent stores
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
-		const storeC = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// Each store gets its own unique writes
 		storeA.begin((tx) => {
@@ -129,9 +129,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
 		// Create 3 stores, each updating different fields of the same document
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
-		const storeC = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// All stores start with the same document (simulating an initial state)
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -189,9 +189,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should resolve same-field conflicts using LWW (highest eventstamp wins)", async () => {
 		// Create 3 stores where all update the same field with different values
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
-		const storeC = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// Initialize the same document in all stores
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -252,9 +252,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should handle deletions where deletion eventstamp is highest", async () => {
 		// Create 3 stores with different mutation sequences
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
-		const storeC = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// Store A: Add a document
 		storeA.begin((tx) => {
@@ -301,7 +301,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// The collection should show the document as deleted (with ~deletedAt timestamp)
 		const collection = consolidated.collection();
-		const deletedDoc = collection["~docs"].find((doc) => doc["~id"] === "user-1");
+		const deletedDoc = collection["~docs"].find(
+			(doc) => doc["~id"] === "user-1",
+		);
 		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
 
 		// The consolidated store should have 0 active entries
@@ -315,7 +317,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 			"~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000",
 		};
 
-		const consolidated = await mergeStoreCollections<TestUser>([emptyCollection]);
+		const consolidated = await mergeStoreCollections<TestUser>([
+			emptyCollection,
+		]);
 
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
@@ -323,9 +327,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should maintain consistency when merging stores with overlapping and unique data", async () => {
 		// Create 3 stores with partial overlaps
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
-		const storeC = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// All stores have user-1
 		// A and B have user-2
@@ -336,8 +340,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
 		});
 
-	// Delay to ensure storeB operations have later eventstamps (testing LWW order)
-	await new Promise((resolve) => setTimeout(resolve, 5));
+		// Delay to ensure storeB operations have later eventstamps (testing LWW order)
+		await new Promise((resolve) => setTimeout(resolve, 5));
 
 		storeB.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
@@ -345,9 +349,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-3", name: "Charlie" }, { withId: "user-3" });
 		});
 
-
-	// Delay to ensure storeC operations have even later eventstamps
-	await new Promise((resolve) => setTimeout(resolve, 5));
+		// Delay to ensure storeC operations have even later eventstamps
+		await new Promise((resolve) => setTimeout(resolve, 5));
 		storeC.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice-Updated" }, { withId: "user-1" });
 			tx.add({ id: "user-3", name: "Charlie-Updated" }, { withId: "user-3" });
@@ -395,8 +398,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should forward clock during sync and continue working correctly", async () => {
 		// Create 2 stores that will sync with clock forwarding
-		const storeA = createStore<TestUser>();
-		const storeB = createStore<TestUser>();
+		const storeA = new Store<TestUser>();
+		const storeB = new Store<TestUser>();
 
 		// Both stores make initial writes
 		storeA.begin((tx) => {
@@ -447,13 +450,14 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[collectionA2["~eventstamp"], collectionB2["~eventstamp"]].sort().pop() || "";
+			[collectionA2["~eventstamp"], collectionB2["~eventstamp"]].sort().pop() ||
+			"";
 		const consolidatedClock = consolidated.collection()["~eventstamp"];
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 
 		// Now continue working: make new writes on both the consolidated store
 		// and create new independent stores to verify the system still works
-		const storeC = createStore<TestUser>();
+		const storeC = new Store<TestUser>();
 
 		// Add a new user to the consolidated store
 		consolidated.begin((tx) => {
