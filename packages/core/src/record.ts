@@ -11,10 +11,10 @@ export type EncodedRecord = {
 	[key: string]: EncodedValue<unknown> | EncodedRecord;
 };
 
-export const processRecord = (
+export function processRecord(
 	source: EncodedRecord,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): EncodedRecord => {
+): EncodedRecord {
 	const result: EncodedRecord = {};
 
 	const step = (input: EncodedRecord, output: EncodedRecord) => {
@@ -34,12 +34,12 @@ export const processRecord = (
 
 	step(source, result);
 	return result;
-};
+}
 
-export const encodeRecord = <T extends Record<string, unknown>>(
+export function encodeRecord<T extends Record<string, unknown>>(
 	obj: T,
 	eventstamp: string,
-): EncodedRecord => {
+): EncodedRecord {
 	const result: EncodedRecord = {};
 
 	const step = (input: Record<string, unknown>, output: EncodedRecord) => {
@@ -59,11 +59,11 @@ export const encodeRecord = <T extends Record<string, unknown>>(
 
 	step(obj, result);
 	return result;
-};
+}
 
-export const decodeRecord = <T extends Record<string, unknown>>(
+export function decodeRecord<T extends Record<string, unknown>>(
 	obj: EncodedRecord,
-): T => {
+): T {
 	const result: Record<string, unknown> = {};
 
 	const step = (input: EncodedRecord, output: Record<string, unknown>) => {
@@ -83,12 +83,12 @@ export const decodeRecord = <T extends Record<string, unknown>>(
 
 	step(obj, result);
 	return result as T;
-};
+}
 
-export const mergeRecords = (
+export function mergeRecords(
 	into: EncodedRecord,
 	from: EncodedRecord,
-): [EncodedRecord, string] => {
+): [EncodedRecord, string] {
 	const result: EncodedRecord = {};
 	let greatestEventstamp: string = MIN_EVENTSTAMP;
 
@@ -155,4 +155,4 @@ export const mergeRecords = (
 	step(into, from, result);
 
 	return [result, greatestEventstamp];
-};
+}

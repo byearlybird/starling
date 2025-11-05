@@ -3,20 +3,22 @@ export type EncodedValue<T> = {
 	"~eventstamp": string;
 };
 
-export const encodeValue = <T>(
-	value: T,
-	eventstamp: string,
-): EncodedValue<T> => ({
-	"~value": value,
-	"~eventstamp": eventstamp,
-});
+export function encodeValue<T>(value: T, eventstamp: string): EncodedValue<T> {
+	return {
+		"~value": value,
+		"~eventstamp": eventstamp,
+	};
+}
 
-export const decodeValue = <T>(value: EncodedValue<T>): T => value["~value"];
+export function decodeValue<T>(value: EncodedValue<T>): T {
+	return value["~value"];
+}
 
-export const mergeValues = <T>(
+export function mergeValues<T>(
 	into: EncodedValue<T>,
 	from: EncodedValue<T>,
-): [EncodedValue<T>, string] =>
-	into["~eventstamp"] > from["~eventstamp"]
+): [EncodedValue<T>, string] {
+	return into["~eventstamp"] > from["~eventstamp"]
 		? [into, into["~eventstamp"]]
 		: [from, from["~eventstamp"]];
+}

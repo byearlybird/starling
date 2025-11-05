@@ -73,9 +73,9 @@ export type Store<T, Extended = {}> = {
 	dispose: () => Promise<void>;
 } & Extended;
 
-export const createStore = <T>(
+export function createStore<T>(
 	config: { getId?: () => string } = {},
-): Store<T, {}> => {
+): Store<T, {}> {
 	let readMap = new Map<string, EncodedDocument>(); // published state
 	const clock = createClock();
 	const getId = config.getId ?? (() => crypto.randomUUID());
@@ -275,4 +275,4 @@ export const createStore = <T>(
 	};
 
 	return store;
-};
+}

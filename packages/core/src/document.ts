@@ -20,37 +20,39 @@ export type EncodedDocument = {
 	"~deletedAt": string | null;
 };
 
-export const encodeDoc = <T>(
+export function encodeDoc<T>(
 	id: string,
 	obj: T,
 	eventstamp: string,
 	deletedAt: string | null = null,
-): EncodedDocument => ({
-	"~id": id,
-	"~data": isObject(obj)
-		? encodeRecord(obj as Record<string, unknown>, eventstamp)
-		: encodeValue(obj, eventstamp),
-	"~deletedAt": deletedAt,
-});
+): EncodedDocument {
+	return {
+		"~id": id,
+		"~data": isObject(obj)
+			? encodeRecord(obj as Record<string, unknown>, eventstamp)
+			: encodeValue(obj, eventstamp),
+		"~deletedAt": deletedAt,
+	};
+}
 
-export const decodeDoc = <T>(
-	doc: EncodedDocument,
-): {
+export function decodeDoc<T>(doc: EncodedDocument): {
 	"~id": string;
 	"~data": T;
 	"~deletedAt": string | null;
-} => ({
-	"~id": doc["~id"],
-	"~data": (isEncodedValue(doc["~data"])
-		? decodeValue(doc["~data"] as EncodedValue<T>)
-		: decodeRecord(doc["~data"] as EncodedRecord)) as T,
-	"~deletedAt": doc["~deletedAt"],
-});
+} {
+	return {
+		"~id": doc["~id"],
+		"~data": (isEncodedValue(doc["~data"])
+			? decodeValue(doc["~data"] as EncodedValue<T>)
+			: decodeRecord(doc["~data"] as EncodedRecord)) as T,
+		"~deletedAt": doc["~deletedAt"],
+	};
+}
 
-export const mergeDocs = (
+export function mergeDocs(
 	into: EncodedDocument,
 	from: EncodedDocument,
-): [EncodedDocument, string] => {
+): [EncodedDocument, string] {
 	const intoIsValue = isEncodedValue(into["~data"]);
 	const fromIsValue = isEncodedValue(from["~data"]);
 
@@ -91,21 +93,23 @@ export const mergeDocs = (
 		},
 		greatestEventstamp,
 	];
-};
+}
 
-export const deleteDoc = (
+export function deleteDoc(
 	doc: EncodedDocument,
 	eventstamp: string,
-): EncodedDocument => ({
-	"~id": doc["~id"],
-	"~data": doc["~data"],
-	"~deletedAt": eventstamp,
-});
+): EncodedDocument {
+	return {
+		"~id": doc["~id"],
+		"~data": doc["~data"],
+		"~deletedAt": eventstamp,
+	};
+}
 
-export const processDocument = (
+export function processDocument(
 	doc: EncodedDocument,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): EncodedDocument => {
+): EncodedDocument {
 	const processedData = isEncodedValue(doc["~data"])
 		? process(doc["~data"] as EncodedValue<unknown>)
 		: processRecord(doc["~data"] as EncodedRecord, process);
@@ -115,4 +119,4 @@ export const processDocument = (
 		"~data": processedData,
 		"~deletedAt": doc["~deletedAt"],
 	};
-};
+}

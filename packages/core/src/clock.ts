@@ -10,7 +10,7 @@ export type Clock = {
 	forward: (eventstamp: string) => void;
 };
 
-export const createClock = (): Clock => {
+export function createClock(): Clock {
 	let counter = 0;
 	let lastMs = Date.now();
 	let lastNonce = generateNonce();
@@ -43,4 +43,4 @@ export const createClock = (): Clock => {
 			}
 		},
 	};
-};
+}

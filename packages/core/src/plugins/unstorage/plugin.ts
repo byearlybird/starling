@@ -17,11 +17,11 @@ type UnstorageConfig = {
 	skip?: () => boolean;
 };
 
-const unstoragePlugin = <T>(
+function unstoragePlugin<T>(
 	key: string,
 	storage: Storage<StoreSnapshot>,
 	config: UnstorageConfig = {},
-): Plugin<T> => {
+): Plugin<T> {
 	const {
 		debounceMs = 0,
 		pollIntervalMs,
@@ -112,7 +112,7 @@ const unstoragePlugin = <T>(
 			},
 		},
 	};
-};
+}
 
 export { unstoragePlugin };
 export type { UnstorageConfig };

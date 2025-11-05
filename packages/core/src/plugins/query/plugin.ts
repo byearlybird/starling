@@ -24,7 +24,7 @@ type QueryMethods<T> = {
 	query: <U = T>(config: QueryConfig<T, U>) => Query<U>;
 };
 
-const queryPlugin = <T>(): Plugin<T, QueryMethods<T>> => {
+function queryPlugin<T>(): Plugin<T, QueryMethods<T>> {
 	const queries = new Set<QueryInternal<T, any>>();
 	let store: Store<T> | null = null;
 
@@ -170,7 +170,7 @@ const queryPlugin = <T>(): Plugin<T, QueryMethods<T>> => {
 			},
 		},
 	};
-};
+}
 
 export { queryPlugin };
 export type { Query, QueryConfig, QueryMethods };
