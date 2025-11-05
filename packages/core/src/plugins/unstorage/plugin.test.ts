@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from "bun:test";
 import { createStorage } from "unstorage";
-import { createStore, type EncodedDocument } from "../../store";
+import type { Collection } from "../../crdt";
+import { createStore } from "../../store";
 import { unstoragePlugin } from "./plugin";
 
 type Todo = {
@@ -8,16 +9,11 @@ type Todo = {
 	completed: boolean;
 };
 
-type StoreSnapshot = {
-	"~docs": EncodedDocument[];
-	"~eventstamp": string;
-};
-
-let storage: ReturnType<typeof createStorage<StoreSnapshot>>;
+let storage: ReturnType<typeof createStorage<Collection>>;
 let store: Awaited<ReturnType<typeof createStore<Todo>>>;
 
 beforeEach(async () => {
-	storage = createStorage<StoreSnapshot>();
+	storage = createStorage<Collection>();
 	store = await createStore<Todo>()
 		.use(unstoragePlugin("todos", storage))
 		.init();
@@ -63,7 +59,7 @@ test("persists put operation to storage", async () => {
 	// Dispose to flush pending writes
 	await store.dispose();
 
-	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
+	const persisted = (await storage.getItem("todos")) as Collection | null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.["~docs"].length).toBe(1);
 	expect(persisted?.["~docs"][0]?.["~id"]).toBe("todo1");
@@ -79,7 +75,7 @@ test("persists patch operation to storage", async () => {
 		tx.update("todo1", { completed: true });
 	});
 
-	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
+	const persisted = (await storage.getItem("todos")) as Collection | null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toEqual({ label: "Buy milk", completed: true });
@@ -94,18 +90,18 @@ test("persists delete operation to storage", async () => {
 		tx.del("todo1");
 	});
 
-	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
+	const persisted = (await storage.getItem("todos")) as Collection | null;
 	expect(persisted).toBeDefined();
 	expect(persisted?.["~docs"].length).toBe(1);
 	expect(store.get("todo1")).toBeNull();
 });
 
 test("debounces storage writes when debounceMs is set", async () => {
-	const debounceStorage = createStorage<StoreSnapshot>();
+	const debounceStorage = createStorage<Collection>();
 	let writeCount = 0;
 
 	const originalSet = debounceStorage.setItem;
-	debounceStorage.setItem = async (key: string, value: StoreSnapshot) => {
+	debounceStorage.setItem = async (key: string, value: Collection) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};
@@ -165,7 +161,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 	expect(afterTimestamp > beforeTimestamp).toBe(true);
 
 	// Verify the persisted data included the eventstamp
-	const persisted = (await storage.getItem("todos")) as StoreSnapshot | null;
+	const persisted = (await storage.getItem("todos")) as Collection | null;
 	expect(persisted?.["~eventstamp"]).toBeDefined();
 	expect(persisted?.["~docs"].length).toBe(2);
 

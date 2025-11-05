@@ -117,7 +117,7 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 
 ### Collection Format
 
-The `Collection` type (exposed as `StoreSnapshot` in the Store API) represents the complete persistent state of a store, following the tilde convention for system-reserved keys:
+The `Collection` type represents the complete persistent state of a store, following the tilde convention for system-reserved keys:
 
 ```typescript
 export type Collection = {

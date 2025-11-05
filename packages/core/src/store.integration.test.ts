@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createStore, type Store, type StoreSnapshot } from "./store";
+import type { Collection } from "./crdt";
+import { createStore, type Store } from "./store";
 
 /**
  * Integration test type: a document with multiple optional fields
@@ -13,7 +14,7 @@ type TestUser = {
 };
 
 /**
- * Merges multiple store snapshots into a single consolidated store.
+ * Merges multiple store collections into a single consolidated store.
  *
  * This utility demonstrates how stores from different sources
  * (different clients, regions, or sync points) can be combined
@@ -21,28 +22,27 @@ type TestUser = {
  *
  * The merge process:
  * 1. Creates a new empty store
- * 2. Forwards the store's clock to the highest eventstamp across all snapshots
- * 3. Replays each document from every snapshot via tx.merge() (silent mode)
+ * 2. Forwards the store's clock to the highest eventstamp across all collections
+ * 3. Replays each document from every collection via store.merge()
  * 4. Returns the consolidated store
  *
- * @param snapshots - Array of store snapshots to merge
+ * @param collections - Array of store collections to merge
  * @returns A new store containing the merged state
  */
-async function mergeStoreSnapshots<T extends Record<string, unknown>>(
-	snapshots: StoreSnapshot[],
+async function mergeStoreCollections<T extends Record<string, unknown>>(
+	collections: Collection[],
 ): Promise<Store<T>> {
 	const consolidated = createStore<T>();
 
-	if (snapshots.length === 0) {
+	if (collections.length === 0) {
 		await consolidated.init();
 		return consolidated;
 	}
 
-	// Merge all documents from all snapshots using silent transactions
-	// (silent to avoid triggering hooks during hydration)
+	// Merge all documents from all collections
 	// The merge() method automatically forwards the clock to the highest eventstamp
-	for (const snapshot of snapshots) {
-		consolidated.merge(snapshot);
+	for (const collection of collections) {
+		consolidated.merge(collection);
 	}
 
 	// Initialize any plugins (though this example doesn't use them)
@@ -80,7 +80,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotC = storeC.snapshot();
 
 		// Merge all snapshots into a consolidated store
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA,
 			snapshotB,
 			snapshotC,
@@ -167,7 +167,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotC = storeC.snapshot();
 
 		// Merge all snapshots
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA,
 			snapshotB,
 			snapshotC,
@@ -228,7 +228,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotC = storeC.snapshot();
 
 		// Merge all snapshots
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA,
 			snapshotB,
 			snapshotC,
@@ -290,7 +290,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Merge in order: A → B → C
 		// This ensures the deletion (highest eventstamp) is merged last
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA,
 			snapshotB,
 			snapshotC,
@@ -310,12 +310,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 	});
 
 	test("should merge empty snapshots gracefully", async () => {
-		const emptySnapshot: StoreSnapshot = {
+		const emptyCollection: Collection = {
 			"~docs": [],
 			"~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000",
 		};
 
-		const consolidated = await mergeStoreSnapshots<TestUser>([emptySnapshot]);
+		const consolidated = await mergeStoreCollections<TestUser>([emptyCollection]);
 
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
@@ -360,7 +360,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotC = storeC.snapshot();
 
 		// Merge all snapshots
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA,
 			snapshotB,
 			snapshotC,
@@ -435,7 +435,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotB2 = storeB.snapshot();
 
 		// Merge both snapshots into a consolidated store
-		const consolidated = await mergeStoreSnapshots<TestUser>([
+		const consolidated = await mergeStoreCollections<TestUser>([
 			snapshotA2,
 			snapshotB2,
 		]);
@@ -470,7 +470,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const snapshotC = storeC.snapshot();
 
 		// Merge the post-forwarding writes
-		const finalMerged = await mergeStoreSnapshots<TestUser>([
+		const finalMerged = await mergeStoreCollections<TestUser>([
 			snapshotConsolidated,
 			snapshotC,
 		]);

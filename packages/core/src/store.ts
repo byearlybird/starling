@@ -208,27 +208,6 @@ export type Plugin<T, M extends PluginMethods = {}> = {
 };
 
 /**
- * Complete persistent state of a store.
- *
- * Contains all encoded documents (including deleted ones with `~deletedAt` metadata)
- * and the latest eventstamp for clock synchronization during merges.
- *
- * @example
- * ```typescript
- * const snapshot = store.snapshot();
- * // { "~docs": [...], "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a7f2" }
- *
- * // Save to disk, send over network, etc.
- * await saveToDisk(snapshot);
- *
- * // Later, merge into another store
- * const otherStore = createStore<Todo>();
- * otherStore.merge(snapshot);
- * ```
- */
-export type StoreSnapshot = Collection;
-
-/**
  * A reactive, local-first data store with CRDT-based conflict resolution.
  *
  * Stores documents using field-level Last-Write-Wins (LWW) merge semantics
@@ -409,28 +388,28 @@ export type Store<T, Extended = {}> = {
 	 * });
 	 * ```
 	 */
-	snapshot: () => StoreSnapshot;
+	snapshot: () => Collection;
 
 	/**
-	 * Import and merge a snapshot from another replica.
+	 * Import and merge a collection from another replica.
 	 *
-	 * Forwards the local clock to match the snapshot's eventstamp,
+	 * Forwards the local clock to match the collection's eventstamp,
 	 * then merges all documents using field-level LWW semantics.
 	 *
-	 * @param snapshot - Snapshot from another store instance
+	 * @param collection - Collection from another store instance
 	 *
 	 * @example
 	 * ```typescript
 	 * // Sync with remote store
-	 * const remoteSnapshot = await fetch("/api/sync").then(r => r.json());
-	 * store.merge(remoteSnapshot);
+	 * const remoteCollection = await fetch("/api/sync").then(r => r.json());
+	 * store.merge(remoteCollection);
 	 *
 	 * // Hydrate from disk
-	 * const savedSnapshot = await loadFromFile();
-	 * store.merge(savedSnapshot);
+	 * const savedCollection = await loadFromFile();
+	 * store.merge(savedCollection);
 	 * ```
 	 */
-	merge: (snapshot: StoreSnapshot) => void;
+	merge: (collection: Collection) => void;
 
 	/**
 	 * Register a plugin to extend store functionality.
@@ -620,12 +599,12 @@ export function createStore<T>(
 				"~eventstamp": clock.latest(),
 			};
 		},
-		merge(snapshot: StoreSnapshot) {
+		merge(collection: Collection) {
 			// Get current state as a collection
 			const currentCollection = this.snapshot();
 
 			// Merge collections and get tracked changes
-			const result = mergeCollections(currentCollection, snapshot);
+			const result = mergeCollections(currentCollection, collection);
 
 			// Forward clock to the merged collection's eventstamp
 			clock.forward(result.collection["~eventstamp"]);
