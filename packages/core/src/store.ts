@@ -1,8 +1,13 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: <{} used to default to empty> */
 /** biome-ignore-all lint/suspicious/noExplicitAny: <useful to preserve inference> */
-import { createClock } from "./clock";
-import type { EncodedDocument } from "./document";
-import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
+import type { EncodedDocument } from "./crdt";
+import {
+	createClock,
+	decodeDoc,
+	deleteDoc,
+	encodeDoc,
+	mergeDocs,
+} from "./crdt";
 
 /**
  * Type constraint to prevent Promise returns from set callbacks.

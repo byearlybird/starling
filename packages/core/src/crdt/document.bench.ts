@@ -3,8 +3,9 @@ import {
 	decodeDoc,
 	type EncodedDocument,
 	encodeDoc,
+	generateNonce,
 	mergeDocs,
-} from "./document";
+} from ".";
 
 // Test data type: 4+ properties with 3-level nesting
 type TestData = {
@@ -49,7 +50,8 @@ function generateTestData(index: number): TestData {
 // Helper to generate eventstamp
 function generateEventstamp(counter: number): string {
 	const isoString = "2025-01-01T00:00:00.000Z";
-	return `${isoString}|${counter.toString(16).padStart(8, "0")}`;
+	const nonce = generateNonce();
+	return `${isoString}|${counter.toString(16).padStart(4, "0")}|${nonce}`;
 }
 
 // Create pre-encoded documents for decode benchmarks

@@ -7,6 +7,14 @@ import {
 	mergeValues,
 } from "./value";
 
+/**
+ * A nested object structure where each field is either an EncodedValue (leaf)
+ * or another EncodedRecord (nested object). This enables field-level
+ * Last-Write-Wins merging for complex data structures.
+ *
+ * Each field maintains its own eventstamp, allowing concurrent updates to
+ * different fields to be preserved during merge operations.
+ */
 export type EncodedRecord = {
 	[key: string]: EncodedValue<unknown> | EncodedRecord;
 };

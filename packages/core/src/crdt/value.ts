@@ -1,5 +1,13 @@
+/**
+ * A primitive value wrapped with its eventstamp for Last-Write-Wins conflict resolution.
+ * Used as the leaf nodes in the CRDT data structure.
+ *
+ * @template T - The type of the wrapped value (primitive or complex type)
+ */
 export type EncodedValue<T> = {
+	/** The actual value being stored */
 	"~value": T;
+	/** The eventstamp indicating when this value was last written (ISO|counter|nonce) */
 	"~eventstamp": string;
 };
 

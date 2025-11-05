@@ -14,9 +14,19 @@ import {
 	mergeValues,
 } from "./value";
 
+/**
+ * Top-level document structure with system metadata for tracking identity,
+ * data, and deletion state. Documents are the primary unit of storage and
+ * synchronization in Starling.
+ *
+ * The tilde prefix (~) distinguishes system metadata from user-defined data.
+ */
 export type EncodedDocument = {
+	/** Unique identifier for this document */
 	"~id": string;
+	/** The document's data, either a primitive value or nested object structure */
 	"~data": EncodedValue<unknown> | EncodedRecord;
+	/** Eventstamp when this document was soft-deleted, or null if not deleted */
 	"~deletedAt": string | null;
 };
 

@@ -13,11 +13,29 @@ export function encodeEventstamp(
 	return `${isoString}|${counterHex}|${nonce}`;
 }
 
+/**
+ * Validates whether a string is a properly formatted eventstamp.
+ * Expected format: YYYY-MM-DDTHH:mm:ss.SSSZ|HHHH+|HHHH
+ * where HHHH+ represents 4 or more hex characters for the counter,
+ * and HHHH represents exactly 4 hex characters for the nonce.
+ */
+export function isValidEventstamp(stamp: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{4,}\|[0-9a-f]{4}$/.test(
+		stamp,
+	);
+}
+
 export function decodeEventstamp(eventstamp: string): {
 	timestampMs: number;
 	counter: number;
 	nonce: string;
 } {
+	if (!isValidEventstamp(eventstamp)) {
+		throw new Error(
+			`Invalid eventstamp format: "${eventstamp}". Expected format: YYYY-MM-DDTHH:mm:ss.SSSZ|HHHH+|HHHH`,
+		);
+	}
+
 	const parts = eventstamp.split("|");
 	const isoString = parts[0] as string;
 	const hexCounter = parts[1] as string;

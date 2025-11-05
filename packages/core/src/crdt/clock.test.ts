@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createClock } from "./clock";
 import {
+	createClock,
 	decodeEventstamp,
 	encodeEventstamp,
 	generateNonce,
-} from "./eventstamp";
+} from ".";
 
 test("now() returns ISO string with counter and nonce suffix", () => {
 	const clock = createClock();

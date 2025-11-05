@@ -1,3 +1,3 @@
-export type { EncodedDocument } from "./document";
-export { processDocument } from "./document";
+export type { EncodedDocument } from "./crdt";
+export { processDocument } from "./crdt";
 export * from "./store";

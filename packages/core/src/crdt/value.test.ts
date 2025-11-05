@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { decodeValue, encodeValue, mergeValues } from "./index.ts";
 import { isEncodedValue } from "./utils.ts";
-import { decodeValue, encodeValue, mergeValues } from "./value.ts";
 
 test("encode creates an EncodedValue with value and eventstamp", () => {
 	const value = { text: "hello" };
-	const eventstamp = "2025-10-25T12:00:00.000Z|0001";
+	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeValue(value, eventstamp);
 
 	expect(encoded["~value"]).toBe(value);
@@ -13,38 +13,38 @@ test("encode creates an EncodedValue with value and eventstamp", () => {
 
 test("decode extracts the value from an EncodedValue", () => {
 	const original = "test string";
-	const encoded = encodeValue(original, "2025-10-25T12:00:00.000Z|0001");
+	const encoded = encodeValue(original, "2025-10-25T12:00:00.000Z|0001|a1b2");
 	const decoded = decodeValue(encoded);
 
 	expect(decoded).toBe(original);
 });
 
 test("merge returns the value with newer eventstamp", () => {
-	const into = encodeValue("older", "2025-10-25T10:00:00.000Z|0001");
-	const from = encodeValue("newer", "2025-10-25T12:00:00.000Z|0001");
+	const into = encodeValue("older", "2025-10-25T10:00:00.000Z|0001|c3d4");
+	const from = encodeValue("newer", "2025-10-25T12:00:00.000Z|0001|a1b2");
 
 	const [result, eventstamp] = mergeValues(into, from);
 
 	expect(result["~value"]).toBe("newer");
-	expect(result["~eventstamp"]).toBe("2025-10-25T12:00:00.000Z|0001");
-	expect(eventstamp).toBe("2025-10-25T12:00:00.000Z|0001");
+	expect(result["~eventstamp"]).toBe("2025-10-25T12:00:00.000Z|0001|a1b2");
+	expect(eventstamp).toBe("2025-10-25T12:00:00.000Z|0001|a1b2");
 });
 
 test("merge returns the value with oldest eventstamp when it's newer", () => {
-	const into = encodeValue("newer", "2025-10-25T14:00:00.000Z|0001");
-	const from = encodeValue("older", "2025-10-25T12:00:00.000Z|0001");
+	const into = encodeValue("newer", "2025-10-25T14:00:00.000Z|0001|e5f6");
+	const from = encodeValue("older", "2025-10-25T12:00:00.000Z|0001|a1b2");
 
 	const [result, eventstamp] = mergeValues(into, from);
 
 	expect(result["~value"]).toBe("newer");
-	expect(result["~eventstamp"]).toBe("2025-10-25T14:00:00.000Z|0001");
-	expect(eventstamp).toBe("2025-10-25T14:00:00.000Z|0001");
+	expect(result["~eventstamp"]).toBe("2025-10-25T14:00:00.000Z|0001|e5f6");
+	expect(eventstamp).toBe("2025-10-25T14:00:00.000Z|0001|e5f6");
 });
 
 test("isEncoded returns true for valid EncodedValues", () => {
 	const encoded = encodeValue(
 		{ data: "test" },
-		"2025-10-25T12:00:00.000Z|0001",
+		"2025-10-25T12:00:00.000Z|0001|a1b2",
 	);
 	expect(isEncodedValue(encoded)).toBe(true);
 });

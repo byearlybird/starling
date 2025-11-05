@@ -12,14 +12,14 @@
 			"default": "./dist/index.js"
 		},
 		"./plugin-query": {
-			"types": "./dist/plugin-query.d.ts",
-			"import": "./dist/plugin-query.js",
-			"default": "./dist/plugin-query.js"
+			"types": "./dist/plugins/query/plugin.d.ts",
+			"import": "./dist/plugins/query/plugin.js",
+			"default": "./dist/plugins/query/plugin.js"
 		},
 		"./plugin-unstorage": {
-			"types": "./dist/plugin-unstorage.d.ts",
-			"import": "./dist/plugin-unstorage.js",
-			"default": "./dist/plugin-unstorage.js"
+			"types": "./dist/plugins/unstorage/plugin.d.ts",
+			"import": "./dist/plugins/unstorage/plugin.js",
+			"default": "./dist/plugins/unstorage/plugin.js"
 		}
 	},
 	"files": [
