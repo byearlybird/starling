@@ -1,4 +1,4 @@
-import { mergeDocs, type EncodedDocument } from "./document";
+import { type EncodedDocument, mergeDocs } from "./document";
 
 /**
  * A collection represents the complete state of a store:
@@ -49,6 +49,10 @@ export type MergeCollectionsResult = {
  * 2. Merges each document pair using field-level LWW (via mergeDocs)
  * 3. Tracks what changed for hook notifications (added/updated/deleted)
  *
+ * Deletion is final: once a document is deleted, updates to it are merged into
+ * the document's data but don't restore visibility. Only new documents or
+ * transitions into the deleted state are tracked.
+ *
  * @param into - The base collection to merge into
  * @param from - The source collection to merge from
  * @returns Merged collection and categorized changes
@@ -98,35 +102,35 @@ export function mergeCollections(
 		const intoDoc = intoDocsById.get(id);
 
 		if (!intoDoc) {
-			// New document from source
+			// New document from source - store it and track if not deleted
 			mergedDocsById.set(id, fromDoc);
-
-			// Only count as "added" if it's not deleted
 			if (!fromDoc["~deletedAt"]) {
 				added.set(id, fromDoc);
 			}
 		} else {
+			// Skip merge if documents are identical (same reference)
+			if (intoDoc === fromDoc) {
+				continue;
+			}
+
 			// Merge existing document using field-level LWW
 			const [mergedDoc] = mergeDocs(intoDoc, fromDoc);
 			mergedDocsById.set(id, mergedDoc);
 
-			// Detect state transitions for change tracking
+			// Track state transitions for hook notifications
 			const wasDeleted = intoDoc["~deletedAt"] !== null;
 			const isDeleted = mergedDoc["~deletedAt"] !== null;
 
+			// Only track transitions: new deletion or non-deleted update
 			if (!wasDeleted && isDeleted) {
-				// Document was deleted
+				// Transitioned to deleted
 				deleted.add(id);
-			} else if (wasDeleted && !isDeleted) {
-				// Document was restored (deletion was overwritten)
-				added.set(id, mergedDoc);
 			} else if (!isDeleted) {
-				// Document changed (only track updates for non-deleted docs)
-				// Check if the document actually changed by comparing references
-				if (intoDoc !== mergedDoc) {
-					updated.set(id, mergedDoc);
-				}
+				// Not deleted, so this is an update
+				// (including updates that occur while doc is deleted, which merge silently)
+				updated.set(id, mergedDoc);
 			}
+			// If wasDeleted && isDeleted, doc stays deleted - no change tracking
 		}
 	}
 

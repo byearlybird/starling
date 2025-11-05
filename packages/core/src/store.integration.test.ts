@@ -301,7 +301,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// The collection should show the document as deleted (with ~deletedAt timestamp)
 		const collection = consolidated.collection();
-		const deletedDoc = snapshot["~docs"].find((doc) => doc["~id"] === "user-1");
+		const deletedDoc = collection["~docs"].find((doc) => doc["~id"] === "user-1");
 		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
 
 		// The consolidated store should have 0 active entries

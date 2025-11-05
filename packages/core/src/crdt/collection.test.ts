@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import {
+	type Collection,
 	createCollection,
 	mergeCollections,
-	type Collection,
 } from "./collection";
 import { encodeDoc } from "./document";
 import { encodeValue } from "./value";
@@ -68,7 +68,7 @@ test("mergeCollections adds new document from source", () => {
 	const result = mergeCollections(into, from);
 
 	expect(result.collection["~docs"].length).toBe(1);
-	expect(result.collection["~docs"][0]["~id"]).toBe("doc-1");
+	expect(result.collection["~docs"][0]?.["~id"]).toBe("doc-1");
 	expect(result.changes.added.size).toBe(1);
 	expect(result.changes.added.has("doc-1")).toBe(true);
 	expect(result.changes.updated.size).toBe(0);
@@ -88,11 +88,7 @@ test("mergeCollections updates existing document", () => {
 	};
 	const from: Collection = {
 		"~docs": [
-			encodeDoc(
-				"doc-1",
-				{ age: 31 },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			),
+			encodeDoc("doc-1", { age: 31 }, "2025-01-01T00:05:00.000Z|0001|c3d4"),
 		],
 		"~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4",
 	};
@@ -133,7 +129,7 @@ test("mergeCollections marks document as deleted", () => {
 	const result = mergeCollections(into, from);
 
 	expect(result.collection["~docs"].length).toBe(1);
-	expect(result.collection["~docs"][0]["~deletedAt"]).toBe(
+	expect(result.collection["~docs"][0]?.["~deletedAt"]).toBe(
 		"2025-01-01T00:05:00.000Z|0001|c3d4",
 	);
 	expect(result.changes.added.size).toBe(0);
@@ -142,7 +138,7 @@ test("mergeCollections marks document as deleted", () => {
 	expect(result.changes.deleted.has("doc-1")).toBe(true);
 });
 
-test("mergeCollections restores deleted document", () => {
+test("mergeCollections keeps deleted document deleted on update", () => {
 	const deletedDoc = encodeDoc(
 		"doc-1",
 		{ name: "Alice" },
@@ -168,10 +164,12 @@ test("mergeCollections restores deleted document", () => {
 
 	const result = mergeCollections(into, from);
 
+	// Deletion is final: document stays deleted, but data is merged internally
 	expect(result.collection["~docs"].length).toBe(1);
-	expect(result.collection["~docs"][0]["~deletedAt"]).toBe(null);
-	expect(result.changes.added.size).toBe(1);
-	expect(result.changes.added.has("doc-1")).toBe(true);
+	expect(result.collection["~docs"][0]?.["~deletedAt"]).toBe(
+		"2025-01-01T00:02:00.000Z|0001|b2c3",
+	);
+	expect(result.changes.added.size).toBe(0);
 	expect(result.changes.updated.size).toBe(0);
 	expect(result.changes.deleted.size).toBe(0);
 });
@@ -225,11 +223,7 @@ test("mergeCollections merges multiple documents with mixed operations", () => {
 
 	const from: Collection = {
 		"~docs": [
-			encodeDoc(
-				"doc-1",
-				{ age: 31 },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			), // update
+			encodeDoc("doc-1", { age: 31 }, "2025-01-01T00:05:00.000Z|0001|c3d4"), // update
 			deletedDoc, // delete
 			encodeDoc(
 				"doc-3",
@@ -259,11 +253,7 @@ test("mergeCollections preserves documents only in base collection", () => {
 				{ name: "Alice" },
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
-			encodeDoc(
-				"doc-2",
-				{ name: "Bob" },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
+			encodeDoc("doc-2", { name: "Bob" }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 		],
 		"~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2",
 	};
