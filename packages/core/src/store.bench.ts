@@ -50,10 +50,13 @@ group("Test 1: 1000 sequential ADDs", () => {
 	const testData = Array.from({ length: 1000 }, (_, i) => generateTestData(i));
 
 	bench("sequential add x1000", () => {
+		// Store creation done outside timing - only measure add operations
 		const addStore = createStore<TestData>();
-		testData.forEach((data, i) => {
-			addStore.add(data, { withId: `item-${i}` });
-		});
+		return () => {
+			testData.forEach((data, i) => {
+				addStore.add(data, { withId: `item-${i}` });
+			});
+		};
 	});
 });
 
@@ -269,7 +272,7 @@ group("Test 13: MERGE 1000 documents", () => {
 	bench("batch merge x1000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot.docs.forEach((doc) => {
+			snapshot["~docs"].forEach((doc) => {
 				tx.merge(doc);
 			});
 		});
@@ -292,7 +295,7 @@ group("Test 14: MERGE 25000 documents", () => {
 	bench("batch merge x25000", () => {
 		const mergeStore = createStore<TestData>();
 		mergeStore.begin((tx) => {
-			snapshot.docs.forEach((doc) => {
+			snapshot["~docs"].forEach((doc) => {
 				tx.merge(doc);
 			});
 		});

@@ -20,10 +20,10 @@ type DeepPartial<T> = T extends object
 	? { [P in keyof T]?: DeepPartial<T[P]> }
 	: T;
 
-type StorePutOptions = { withId?: string };
+type StoreAddOptions = { withId?: string };
 
 type StoreSetTransaction<T> = {
-	add: (value: T, options?: StorePutOptions) => string;
+	add: (value: T, options?: StoreAddOptions) => string;
 	update: (key: string, value: DeepPartial<T>) => void;
 	merge: (doc: EncodedDocument) => void;
 	del: (key: string) => void;
@@ -65,7 +65,7 @@ export type Store<T, Extended = {}> = {
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
 		opts?: { silent?: boolean },
 	) => NotPromise<R>;
-	add: (value: T, options?: StorePutOptions) => string;
+	add: (value: T, options?: StoreAddOptions) => string;
 	update: (key: string, value: DeepPartial<T>) => void;
 	del: (key: string) => void;
 	entries: () => IterableIterator<readonly [string, T]>;
@@ -117,45 +117,48 @@ export function createStore<T>(
 	): (() => void) => {
 		const registered: Array<() => void> = [];
 
-		if (handlers.onAdd) {
-			const onAdd = handlers.onAdd;
-			onAddHandlers.add(onAdd);
-			const unsubscribe = () => {
-				onAddHandlers.delete(onAdd);
-			};
-			registered.push(unsubscribe);
-			if (registerDispose) {
-				registerDispose(unsubscribe);
+		const registerHook = <H>(handler: H | undefined, set: Set<H>): void => {
+			if (handler) {
+				set.add(handler);
+				const unsubscribe = () => set.delete(handler);
+				registered.push(unsubscribe);
+				if (registerDispose) {
+					registerDispose(unsubscribe);
+				}
 			}
-		}
-		if (handlers.onUpdate) {
-			const onUpdate = handlers.onUpdate;
-			onUpdateHandlers.add(onUpdate);
-			const unsubscribe = () => {
-				onUpdateHandlers.delete(onUpdate);
-			};
-			registered.push(unsubscribe);
-			if (registerDispose) {
-				registerDispose(unsubscribe);
-			}
-		}
-		if (handlers.onDelete) {
-			const onDelete = handlers.onDelete;
-			onDeleteHandlers.add(onDelete);
-			const unsubscribe = () => {
-				onDeleteHandlers.delete(onDelete);
-			};
-			registered.push(unsubscribe);
-			if (registerDispose) {
-				registerDispose(unsubscribe);
-			}
-		}
+		};
+
+		registerHook(handlers.onAdd, onAddHandlers);
+		registerHook(handlers.onUpdate, onUpdateHandlers);
+		registerHook(handlers.onDelete, onDeleteHandlers);
 
 		return () => {
 			for (const unsubscribe of registered) {
 				unsubscribe();
 			}
 		};
+	};
+
+	const fireHooks = (
+		addKeyValues: ReadonlyArray<readonly [string, T]>,
+		patchKeyValues: ReadonlyArray<readonly [string, T]>,
+		deleteKeys: ReadonlyArray<string>,
+	): void => {
+		if (addKeyValues.length > 0) {
+			onAddHandlers.forEach((fn) => {
+				fn(addKeyValues);
+			});
+		}
+		if (patchKeyValues.length > 0) {
+			onUpdateHandlers.forEach((fn) => {
+				fn(patchKeyValues);
+			});
+		}
+		if (deleteKeys.length > 0) {
+			onDeleteHandlers.forEach((fn) => {
+				fn(deleteKeys);
+			});
+		}
 	};
 
 	const store: Store<T> = {
@@ -191,7 +194,7 @@ export function createStore<T>(
 			opts?: { silent?: boolean },
 		): NotPromise<R> {
 			const silent = opts?.silent ?? false;
-			const putKeyValues: Array<readonly [string, T]> = [];
+			const addKeyValues: Array<readonly [string, T]> = [];
 			const patchKeyValues: Array<readonly [string, T]> = [];
 			const deleteKeys: Array<string> = [];
 
@@ -199,10 +202,10 @@ export function createStore<T>(
 			let rolledBack = false;
 
 			const tx: StoreSetTransaction<T> = {
-				add(value: T, options?: StorePutOptions) {
+				add(value: T, options?: StoreAddOptions) {
 					const key = options?.withId ?? getId();
 					staging.set(key, encodeValue(key, value));
-					putKeyValues.push([key, value] as const);
+					addKeyValues.push([key, value] as const);
 					return key;
 				},
 				update(key: string, value: DeepPartial<T>) {
@@ -220,11 +223,18 @@ export function createStore<T>(
 					const mergedDoc = existing ? mergeDocs(existing, doc)[0] : doc;
 					staging.set(doc["~id"], mergedDoc);
 
+					// Determine if this is a new document or an update
+					const isNew = !readMap.has(doc["~id"]);
+
 					if (mergedDoc["~deletedAt"]) {
 						deleteKeys.push(doc["~id"]);
 					} else {
 						const merged = decodeDoc<T>(mergedDoc)["~data"];
-						patchKeyValues.push([doc["~id"], merged] as const);
+						if (isNew) {
+							addKeyValues.push([doc["~id"], merged] as const);
+						} else {
+							patchKeyValues.push([doc["~id"], merged] as const);
+						}
 					}
 				},
 				del(key: string) {
@@ -252,26 +262,12 @@ export function createStore<T>(
 
 			// Call hooks AFTER the transaction commits
 			if (!rolledBack && !silent) {
-				if (putKeyValues.length > 0) {
-					onAddHandlers.forEach((fn) => {
-						fn(putKeyValues);
-					});
-				}
-				if (patchKeyValues.length > 0) {
-					onUpdateHandlers.forEach((fn) => {
-						fn(patchKeyValues);
-					});
-				}
-				if (deleteKeys.length > 0) {
-					onDeleteHandlers.forEach((fn) => {
-						fn(deleteKeys);
-					});
-				}
+				fireHooks(addKeyValues, patchKeyValues, deleteKeys);
 			}
 
 			return result as NotPromise<R>;
 		},
-		add(this: Store<T>, value: T, options?: StorePutOptions): string {
+		add(this: Store<T>, value: T, options?: StoreAddOptions): string {
 			return this.begin((tx) => tx.add(value, options));
 		},
 		update(this: Store<T>, key: string, value: DeepPartial<T>) {

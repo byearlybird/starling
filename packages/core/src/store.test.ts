@@ -79,7 +79,7 @@ describe("Store - Put Operations", () => {
 		expect(customId).toBe("user-2");
 	});
 
-	test("should overwrite item when putting with same ID", () => {
+	test("should apply LWW merge when adding with same ID (newer eventstamp wins)", () => {
 		const store = createStore<TestUser>();
 
 		store.begin((tx) => {
@@ -476,9 +476,9 @@ describe("Store - Plugin System - Hook Registration", () => {
 		const onDeleteMock = mock((keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
 			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
 				onAdd: onAddMock,
 				onUpdate: onUpdateMock,
 				onDelete: onDeleteMock,
@@ -502,9 +502,7 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			hooks: { onAdd: onAddMock },
+			hooks: { onAdd: onAddMock, onInit: () => {}, onDispose: () => {} },
 		});
 
 		store.begin(

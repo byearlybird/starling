@@ -127,7 +127,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		expect(consolidated.snapshot()["~eventstamp"]).toEqual(maxRemoteStamp);
 	});
 
-	test("should merge same document with different fields updated per store", async () => {
+	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
 		// Create 3 stores, each updating different fields of the same document
 		const storeA = createStore<TestUser>();
 		const storeB = createStore<TestUser>();
@@ -140,14 +140,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add(initialUser, { withId: "user-1" });
 		});
 
-		// Small delay to ensure different timestamps
-		await new Promise((resolve) => setTimeout(resolve, 1));
-
 		storeB.begin((tx) => {
 			tx.add(initialUser, { withId: "user-1" });
 		});
-
-		await new Promise((resolve) => setTimeout(resolve, 1));
 
 		storeC.begin((tx) => {
 			tx.add(initialUser, { withId: "user-1" });
@@ -158,13 +153,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.update("user-1", { name: "Alice" });
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 1));
-
 		storeB.begin((tx) => {
 			tx.update("user-1", { email: "alice@example.com" });
 		});
-
-		await new Promise((resolve) => setTimeout(resolve, 1));
 
 		storeC.begin((tx) => {
 			tx.update("user-1", { age: 30 });
@@ -196,7 +187,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		expect(entries).toHaveLength(1);
 	});
 
-	test("should resolve same field conflict with highest eventstamp winning", async () => {
+	test("should resolve same-field conflicts using LWW (highest eventstamp wins)", async () => {
 		// Create 3 stores where all update the same field with different values
 		const storeA = createStore<TestUser>();
 		const storeB = createStore<TestUser>();
@@ -345,7 +336,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 1));
+	// Delay to ensure storeB operations have later eventstamps (testing LWW order)
+	await new Promise((resolve) => setTimeout(resolve, 5));
 
 		storeB.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
@@ -353,8 +345,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-3", name: "Charlie" }, { withId: "user-3" });
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 1));
 
+	// Delay to ensure storeC operations have even later eventstamps
+	await new Promise((resolve) => setTimeout(resolve, 5));
 		storeC.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice-Updated" }, { withId: "user-1" });
 			tx.add({ id: "user-3", name: "Charlie-Updated" }, { withId: "user-3" });
@@ -409,8 +402,6 @@ describe("Store Integration - Multi-Store Merging", () => {
 		storeA.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 		});
-
-		await new Promise((resolve) => setTimeout(resolve, 1));
 
 		storeB.begin((tx) => {
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
@@ -473,8 +464,6 @@ describe("Store Integration - Multi-Store Merging", () => {
 		storeC.begin((tx) => {
 			tx.add({ id: "user-5", name: "Eve" }, { withId: "user-5" });
 		});
-
-		await new Promise((resolve) => setTimeout(resolve, 1));
 
 		// Get snapshots after continued writes
 		const snapshotConsolidated = consolidated.snapshot();
