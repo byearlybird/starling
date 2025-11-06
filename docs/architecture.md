@@ -8,13 +8,16 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `KV`, `Clock`) plus unit tests |
-| `packages/core/src/plugins/query` | Reactive query plugin that filters and tracks store changes |
+| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `Collection`, `Clock`) with built-in reactive queries, plus unit tests |
 | `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
+| `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
+| `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
 
 **Key points:**
 
-- Core logic lives under `packages/core`; official plugins are co-located in `packages/core/src/plugins/*`
+- Core logic lives under `packages/core`; reactive queries are built into the `Store` class
+- Official plugins are co-located in `packages/core/src/plugins/*`
+- Framework integrations live in separate packages (`packages/react`, `packages/solid`)
 - All packages are TypeScript modules bundled via `tsdown`
 - Tests live alongside implementation: `packages/core/src/**/*.test.ts`
 
@@ -238,7 +241,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
 | [`document.ts`](../packages/core/src/crdt/document.ts) | Attaches system metadata (`~id`, `~deletedAt`) and handles soft-deletion |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, plugin orchestration, transaction management, and internal map storage with transactional staging |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
 ### Data Flow
 
@@ -282,8 +285,9 @@ Persistence layer supporting any `unstorage` backend (localStorage, HTTP, filesy
 
 ## Testing Strategy
 
-- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `kv`, `store`)
+- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `collection`, `store`)
 - **Integration tests**: Verify plugin hooks fire correctly and multi-plugin composition works
+- **Query tests**: Verify reactive query behavior, hydration, and change tracking
 - **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
 
 Tests live alongside implementation: `packages/core/src/**/*.test.ts`

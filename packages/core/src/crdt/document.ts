@@ -115,6 +115,24 @@ export function deleteDoc(
 	};
 }
 
+/**
+ * Transform all values in a document using a provided function.
+ *
+ * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
+ *
+ * @param doc - Document to transform
+ * @param process - Function to apply to each leaf value
+ * @returns New document with transformed values
+ *
+ * @example
+ * ```ts
+ * // Encrypt all values before persisting
+ * const encrypted = processDocument(doc, (value) => ({
+ *   ...value,
+ *   "~value": encrypt(value["~value"])
+ * }));
+ * ```
+ */
 export function processDocument(
 	doc: EncodedDocument,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,

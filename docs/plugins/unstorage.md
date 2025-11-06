@@ -50,21 +50,23 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 **Parameters:**
 
 - `namespace` – Unique key for the dataset inside your storage backend.
-- `storage` – Any `Storage<{ docs: EncodedDocument[]; eventstamp: string }>` instance returned by `createStorage()`.
+- `storage` – Any `Storage<Collection>` instance returned by `createStorage()`. Collections have the shape `{ "~docs": EncodedDocument[], "~eventstamp": string }`.
 - `config.debounceMs` – Optional delay (in ms) used to collapse rapid mutations into a single persistence call. Defaults to `0` (write immediately).
 - `config.pollIntervalMs` – Optional interval (in ms) to poll storage for external changes. When set, the plugin will periodically check storage and merge any external updates. Useful for multi-process or shared storage scenarios.
-- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the persisted data object `{ docs: EncodedDocument[], eventstamp: string }` and must return the same structure.
-- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the persisted data object and must return the same structure.
+- `config.skip` – Optional function that returns `true` to skip persistence operations. Useful for conditional persistence (e.g., `skip: () => !navigator.onLine` to skip when offline).
+- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the Collection object `{ "~docs": EncodedDocument[], "~eventstamp": string }` and must return the same structure. Use this for custom serialization or filtering.
+- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the Collection object and must return the same structure. Use this to transform or validate loaded data.
 
 ## Behavior
 
-- During `init`, the plugin loads `storage.get(namespace)`, forwards the store's clock to the persisted `eventstamp`, and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
+- During `init`, the plugin loads `storage.get(namespace)`, forwards the store's clock to the persisted `"~eventstamp"`, and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
 - Clock forwarding ensures new writes receive timestamps higher than any remote data, preventing eventstamp collisions across sync boundaries.
 - Without this plugin (or an equivalent), the store only keeps the latest clock in memory. A cold start will reset to the current wall clock.
 - `onAdd`, `onUpdate`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
-- Each snapshot includes both the documents and the store's latest clock timestamp (`store.latest()`).
+- Each snapshot is obtained via `store.collection()`, which returns both the documents (`"~docs"`) and the store's latest eventstamp (`"~eventstamp"`).
 - `onBeforeSet` fires right before a snapshot write, enabling custom serialization or filtering.
 - When `pollIntervalMs` is set, the plugin will periodically poll storage, forward the clock, and merge any external changes.
+- When `skip` is provided and returns `true`, persistence operations are skipped. This is checked before each write and poll operation.
 - `dispose()` clears any pending debounce timer and polling interval. Call it when the surrounding store shuts down to avoid writes after teardown.
 
 ## Multiple Storage Instances

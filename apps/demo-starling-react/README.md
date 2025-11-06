@@ -19,8 +19,11 @@ Visit [http://localhost:5173](http://localhost:5173) while the dev server runs.
 
 ## Starling Highlights
 
-- `src/store/todoStore.ts` configures the Starling store with the query plugin for filtering and the unstorage plugin for `localStorage` persistence.
-- `src/store/useQueryResults.ts` adapts Starling queries into React state so components rerender whenever query results change.
-- `src/App.tsx` contains the todo UI that reads from and writes to the Starling store.
+- `src/store/task-store.ts` configures the Starling store with localStorage and HTTP sync using the unstorage plugin. It also demonstrates:
+  - Storage multiplexing (local + remote persistence)
+  - Conditional sync with the `skip` option
+  - Data transformation with `onBeforeSet` and `onAfterGet` hooks
+  - Creating typed React hooks with `createStoreHooks`
+- `src/App.tsx` contains the UI that reads from and writes to the Starling store using built-in reactive queries.
 
 Need deployment guidance? See the [Vite docs](https://vite.dev/guide/static-deploy.html).
