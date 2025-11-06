@@ -1,43 +1,7 @@
 /**
  * React hooks for Starling stores.
  *
- * Provides factory function to create typed Context-based store access and reactive query hooks.
- *
- * @example
- * ```tsx
- * import { createStoreHooks } from "@byearlybird/starling-react";
- * import { taskStore } from "./store";
- *
- * // Create typed hooks from your store
- * export const { StoreProvider, useStore, useQuery } = createStoreHooks(taskStore);
- *
- * // Wrap your app with StoreProvider
- * function App() {
- *   return (
- *     <StoreProvider>
- *       <TodoList />
- *     </StoreProvider>
- *   );
- * }
- *
- * // Access store in components - types are inferred!
- * function TodoList() {
- *   const store = useStore(); // ✅ Fully typed, no type parameter needed
- *
- *   // Use queries with full type inference
- *   const activeTodos = useQuery({
- *     where: (todo) => !todo.completed // ✅ todo is correctly typed
- *   });
- *
- *   return (
- *     <ul>
- *       {activeTodos.map(([id, todo]) => (
- *         <li key={id}>{todo.text}</li>
- *       ))}
- *     </ul>
- *   );
- * }
- * ```
+ * Use `createStoreHooks()` to generate typed Context-based hooks for your store.
  */
 
 import type { QueryConfig, Store } from "@byearlybird/starling";
@@ -63,12 +27,10 @@ import {
  * @example
  * ```tsx
  * // In your store file
- * import { createStore } from "@byearlybird/starling";
+ * import { Store } from "@byearlybird/starling";
  * import { createStoreHooks } from "@byearlybird/starling-react";
  *
- * export const taskStore = await createStore<Task>()
- *   .use(queryPlugin())
- *   .init();
+ * export const taskStore = await new Store<Task>().init();
  *
  * export const { StoreProvider, useStore, useQuery } = createStoreHooks(taskStore);
  *
