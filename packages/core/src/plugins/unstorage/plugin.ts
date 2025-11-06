@@ -8,14 +8,51 @@ type UnstorageOnBeforeSet = (data: Collection) => MaybePromise<Collection>;
 
 type UnstorageOnAfterGet = (data: Collection) => MaybePromise<Collection>;
 
+/**
+ * Configuration options for the unstorage persistence plugin.
+ */
 type UnstorageConfig = {
+	/** Delay in ms to collapse rapid mutations into a single write. Default: 0 (immediate) */
 	debounceMs?: number;
+	/** Interval in ms to poll storage for external changes. When set, enables automatic sync. */
 	pollIntervalMs?: number;
+	/** Hook invoked before persisting to storage. Use for encryption, compression, etc. */
 	onBeforeSet?: UnstorageOnBeforeSet;
+	/** Hook invoked after loading from storage. Use for decryption, validation, etc. */
 	onAfterGet?: UnstorageOnAfterGet;
+	/** Function that returns true to skip persistence operations. Use for conditional sync. */
 	skip?: () => boolean;
 };
 
+/**
+ * Persistence plugin for Starling using unstorage backends.
+ *
+ * Automatically persists store snapshots and optionally polls for external changes.
+ *
+ * @param key - Storage key for this dataset
+ * @param storage - Unstorage instance (localStorage, HTTP, filesystem, etc.)
+ * @param config - Optional configuration for debouncing, polling, hooks, and conditional sync
+ * @returns Plugin instance for store.use()
+ *
+ * @example
+ * ```ts
+ * import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
+ * import { createStorage } from "unstorage";
+ * import localStorageDriver from "unstorage/drivers/localstorage";
+ *
+ * const store = await new Store<Todo>()
+ *   .use(unstoragePlugin('todos', createStorage({
+ *     driver: localStorageDriver({ base: 'app:' })
+ *   }), {
+ *     debounceMs: 300,
+ *     pollIntervalMs: 5000,
+ *     skip: () => !navigator.onLine
+ *   }))
+ *   .init();
+ * ```
+ *
+ * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
+ */
 function unstoragePlugin<T>(
 	key: string,
 	storage: Storage<Collection>,

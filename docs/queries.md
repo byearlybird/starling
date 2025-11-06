@@ -38,33 +38,9 @@ await store.dispose();
 
 ## API
 
-### `store.query(config)`
+See the `QueryConfig` and `Query` types in your IDE for parameter details, or check the [Store class source](../../packages/core/src/store.ts#L92-L127) for full documentation.
 
-Registers a query against the store and returns a `Query<U>` handle that can be observed and disposed.
-
-#### Query Config
-
-```typescript
-type QueryConfig<T, U = T> = {
-	where: (data: T) => boolean;      // Filter predicate (required)
-	select?: (data: T) => U;          // Optional projection
-	order?: (a: U, b: U) => number;   // Optional comparator for stable ordering
-};
-```
-
-- `where` — Predicate that returns `true` for records to include.
-- `select` — Optional projector. When provided, query results contain the projected value type.
-- `order` — Optional comparator used to sort query results whenever `results()` is called.
-
-### `Query<U>`
-
-The handle returned from `store.query()` exposes:
-
-- `results(): Array<readonly [string, U]>` — A fresh array with the latest matching entries as [id, document] tuples. Treat the returned instance as immutable.
-- `onChange(callback)` — Registers a listener that fires whenever the query results change. Returns an unsubscribe function.
-- `dispose()` — Removes the query from the store and clears all listeners. Call this when the query is no longer needed.
-
-## Behavioral Notes
+## How Queries Work
 
 - Queries hydrate automatically when registered and when `store.init()` completes, so persisted data is available immediately.
 - Mutations are batched per transaction. A `begin()` call that touches multiple records triggers at most one `onChange` notification per query.

@@ -93,6 +93,16 @@ If you need support for mergeable array operations, semantic operations, or soph
 
 ## Core API
 
+Starling provides a simple API for mutations, queries, and sync. Hover over methods in your IDE to see inline documentation, or check the [Store class source](packages/core/src/store.ts) for complete API details.
+
+### Quick Reference
+
+**Mutations**: `add()`, `update()`, `del()` - CRUD operations
+**Transactions**: `begin()` - Batch operations with rollback support
+**Queries**: `query()` - Reactive filtered views (see [Queries Guide](docs/queries.md))
+**Sync**: `merge()`, `collection()` - State-based replication
+**Lifecycle**: `use()`, `init()`, `dispose()` - Plugin management
+
 ### Creating a Store
 
 ```typescript
@@ -109,21 +119,9 @@ const deterministicStore = new Store<YourType>({
 // To listen to store mutations, use plugins (see "Custom Plugin with Hooks" below)
 ```
 
-### Store Lifecycle
+### Common Patterns
 
-- `store.use(plugin)` chains plugins and returns the same store so calls can be composed.
-- `await store.init()` runs the store once and awaits each plugin's `init` hook (start pollers, hydrate snapshots, warm caches, etc).
-- `await store.dispose()` tears down plugins (each `dispose` hook runs) and lets plugins flush pending work before you drop the store.
-
-### Store Methods
-
-#### Direct Mutations
-
-These methods are shortcuts for single operations:
-
-- `add(value, options?)` – Insert a new document. Returns the generated or provided ID.
-- `update(key, partial)` – Merge a partial update into an existing document.
-- `del(key)` – Soft-delete a document by stamping `~deletedAt`.
+**Direct mutations** (single operations):
 
 ```typescript
 const id = store.add({ name: "Alice", email: "alice@example.com" });
@@ -131,9 +129,7 @@ store.update(id, { email: "alice@newdomain.com" });
 store.del(id);
 ```
 
-#### Transactions with `begin()`
-
-For multiple operations or rollback support, use `begin()`. The callback's return value becomes `begin()`'s return value:
+**Transactions** (multiple operations or rollback support):
 
 ```typescript
 // Multiple operations
@@ -146,12 +142,12 @@ const userId = store.begin((tx) => {
 // Rollback on validation failure
 store.begin((tx) => {
   const id = tx.add({ name: "Dave", email: "invalid" });
-  
+
   if (!validateEmail(tx.get(id)?.email)) {
     tx.rollback(); // Abort all changes in this transaction
     return;
   }
-  
+
   tx.update(id, { verified: true });
 });
 
@@ -159,7 +155,7 @@ store.begin((tx) => {
 try {
   store.begin((tx) => {
     const id = tx.add({ name: "Eve" });
-    
+
     // If validation fails, we can rollback
     if (!isValidTodo(tx.get(id))) {
       tx.rollback();
@@ -170,37 +166,6 @@ try {
   console.error("Transaction failed:", error);
 }
 ```
-
-#### Reading Data
-
-- `get(key: string): T | null` – Get a single item by key if it is not deleted.
-- `entries(): IterableIterator<[string, T]>` – Get all key-value pairs (excluding deleted items).
-- `collection(): Collection` – Get the raw encoded state with eventstamps (includes deleted items with `~deletedAt`).
-- `merge(collection: Collection)` – Merge a collection from another store. Useful for syncing with other replicas or storages.
-
-```typescript
-const user = store.get("user-1");
-
-for (const [key, value] of store.entries()) {
-  console.log(key, value);
-}
-
-const encodedState = store.collection(); // For sync/persistence
-
-// Merge a collection from another replica/storage
-store.merge(encodedState);
-```
-
-### Transaction API
-
-The `begin()` callback receives a transaction object with these methods:
-
-- `tx.add(value, options?)` – Insert a new document. Returns the generated or provided ID.
-- `tx.update(key, partial)` – Merge a partial update into an existing document.
-- `tx.merge(document)` – Apply a previously encoded `EncodedDocument` (used by sync and persistence plugins).
-- `tx.del(key)` – Soft-delete a document by stamping `~deletedAt`.
-- `tx.get(key)` – Get a document by key if it exists (ignores soft-deleted docs).
-- `tx.rollback()` – Abort the transaction and discard all changes.
 
 ### Custom Plugin with Hooks
 
