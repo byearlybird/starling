@@ -68,6 +68,7 @@ function unstoragePlugin<T>(
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let store: Store<T> | null = null;
+	let persistPromise: Promise<void> | null = null;
 
 	const persistSnapshot = async () => {
 		if (!store) return;
@@ -77,16 +78,20 @@ function unstoragePlugin<T>(
 		await storage.set(key, persisted);
 	};
 
+	const runPersist = async () => {
+		debounceTimer = null;
+		persistPromise = persistSnapshot();
+		await persistPromise;
+		persistPromise = null;
+	};
+
 	const schedulePersist = () => {
 		if (skip?.()) return;
 
-		const runPersist = () => {
-			debounceTimer = null;
-			void persistSnapshot();
-		};
-
 		if (debounceMs === 0) {
-			runPersist();
+			persistPromise = persistSnapshot().finally(() => {
+				persistPromise = null;
+			});
 			return;
 		}
 
@@ -94,7 +99,9 @@ function unstoragePlugin<T>(
 			clearTimeout(debounceTimer);
 		}
 
-		debounceTimer = setTimeout(runPersist, debounceMs);
+		debounceTimer = setTimeout(() => {
+			runPersist();
+		}, debounceMs);
 	};
 
 	const pollStorage = async () => {
@@ -125,14 +132,21 @@ function unstoragePlugin<T>(
 				}, pollIntervalMs);
 			}
 		},
-		onDispose: () => {
+		onDispose: async () => {
+			// Flush any pending debounced write
 			if (debounceTimer !== null) {
 				clearTimeout(debounceTimer);
 				debounceTimer = null;
+				// Run the pending persist operation
+				await runPersist();
 			}
 			if (pollInterval !== null) {
 				clearInterval(pollInterval);
 				pollInterval = null;
+			}
+			// Wait for any remaining in-flight persistence to complete
+			if (persistPromise !== null) {
+				await persistPromise;
 			}
 			store = null;
 		},

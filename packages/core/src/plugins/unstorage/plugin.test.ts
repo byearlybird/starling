@@ -165,3 +165,29 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 
 	await store2.dispose();
 });
+
+test("disposes only after pending debounced writes complete", async () => {
+	const debounceStorage = createStorage<Collection>();
+	const debouncedStore = await new Store<Todo>()
+		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 500 }))
+		.init();
+
+	// Perform a mutation - this schedules a write that won't happen for 500ms
+	debouncedStore.begin((tx) => {
+		tx.add({ label: "Urgent task", completed: false }, { withId: "todo1" });
+	});
+
+	// Verify nothing is persisted yet
+	let persisted = (await debounceStorage.getItem("todos")) as Collection | null;
+	expect(persisted).toBeNull();
+
+	// Dispose immediately (before debounce completes)
+	// The new behavior should wait for pending writes
+	await debouncedStore.dispose();
+
+	// Now the write should have completed
+	persisted = (await debounceStorage.getItem("todos")) as Collection | null;
+	expect(persisted).toBeDefined();
+	expect(persisted?.["~docs"].length).toBe(1);
+	expect(persisted?.["~docs"][0]?.["~id"]).toBe("todo1");
+});
