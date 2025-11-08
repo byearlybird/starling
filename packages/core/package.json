@@ -15,6 +15,11 @@
 			"types": "./dist/plugins/unstorage/plugin.d.ts",
 			"import": "./dist/plugins/unstorage/plugin.js",
 			"default": "./dist/plugins/unstorage/plugin.js"
+		},
+		"./crdt": {
+			"types": "./dist/crdt/index.d.ts",
+			"import": "./dist/crdt/index.js",
+			"default": "./dist/crdt/index.js"
 		}
 	},
 	"files": [

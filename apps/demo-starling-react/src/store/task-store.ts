@@ -1,4 +1,5 @@
-import { processDocument, Store } from "@byearlybird/starling";
+import { Store } from "@byearlybird/starling";
+import { processDocument } from "@byearlybird/starling/crdt";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStoreHooks } from "@byearlybird/starling-react";
 import { createStorage } from "unstorage";
