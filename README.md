@@ -278,7 +278,7 @@ bun run demo:solid
 
 ## Project Status
 
-- Starling is in its earliest phase; expect the API and internal implementations to shift quickly.
+- Starling is in **alpha**. No major architectural or API changes are expected, though APIs may change slightly as additional testing and usage takes place.
 - The scope and guiding philosophy are firm: cover the 80/20 of sync, avoid manual merge logic, skip Domain-Specific-Languages, and keep the mental model simple, handing complex cases and real-time collaboration to specialized systems.
 - The current sync layer is intentionally minimal, shipping entire store snapshots over HTTP, leaving plenty of room to optimize cadence, transport, and diffing.
 - Near-term work focuses on richer sync plugins (e.g. WebSocket transports), smarter change detection so only incremental updates travel over the wire, and beginning framework integrations.
