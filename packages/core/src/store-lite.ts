@@ -31,35 +31,6 @@ export type StoreLiteConfig = {
 	getId?: () => string;
 };
 
-/**
- * Transaction context for batching multiple operations with rollback support.
- *
- * Transaction operations are synchronous, working on an in-memory staging area.
- *
- * @example
- * ```ts
- * await store.begin((tx) => {
- *   const id = tx.add({ name: 'Alice' });
- *   if (!isValid(tx.get(id))) {
- *     tx.rollback(); // Abort all changes
- *   }
- * });
- * ```
- */
-export type StoreLiteTransaction<T> = {
-	/** Add a document and return its ID */
-	add: (value: T, options?: StoreLiteAddOptions) => string;
-	/** Update a document with a partial value (field-level merge) */
-	update: (key: string, value: DeepPartial<T>) => void;
-	/** Merge an encoded document (used by sync) */
-	merge: (doc: EncodedDocument) => void;
-	/** Soft-delete a document */
-	del: (key: string) => void;
-	/** Get a document within this transaction */
-	get: (key: string) => T | null;
-	/** Abort the transaction and discard all changes */
-	rollback: () => void;
-};
 
 /**
  * Lightweight async data store without queries or plugins.
@@ -78,12 +49,10 @@ export type StoreLiteTransaction<T> = {
  *   adapter: new InMemoryAdapter()
  * }).init();
  *
- * // All mutations via transactions (operations are synchronous)
- * const id = await store.begin((tx) => {
- *   const id = tx.add({ text: 'Buy milk', completed: false });
- *   tx.update(id, { completed: true });
- *   return id;
- * });
+ * // Direct mutation methods
+ * const id = await store.add({ text: 'Buy milk', completed: false });
+ * await store.update(id, { completed: true });
+ * await store.del(id);
  * ```
  */
 export class StoreLite<T> {
@@ -152,70 +121,64 @@ export class StoreLite<T> {
 	}
 
 	/**
-	 * Run multiple operations in a transaction with rollback support.
+	 * Add a document to the store.
 	 *
-	 * Loads the dataset into memory, runs synchronous operations, then commits.
-	 *
-	 * @param callback - Function receiving a transaction context (operations are sync)
-	 * @returns The callback's return value
+	 * @param value - The document to add
+	 * @param options - Optional configuration
+	 * @returns The document's ID (generated or provided via options)
 	 *
 	 * @example
 	 * ```ts
-	 * const id = await store.begin((tx) => {
-	 *   const newId = tx.add({ text: 'Buy milk' });
-	 *   tx.update(newId, { priority: 'high' });
-	 *   return newId; // Return value becomes begin()'s return value
-	 * });
+	 * const id = await store.add({ text: 'Buy milk', completed: false });
+	 * await store.add({ text: 'Task 2' }, { withId: 'custom-id' });
 	 * ```
 	 */
-	async begin<R = void>(
-		callback: (tx: StoreLiteTransaction<T>) => R,
-	): Promise<R> {
-		// Load all current docs into staging (async once at start)
-		const allEntries = await this.#adapter.entries();
-		const staging = new Map<string, EncodedDocument>(allEntries);
-		let rolledBack = false;
+	async add(value: T, options?: StoreLiteAddOptions): Promise<string> {
+		const key = options?.withId ?? this.#getId();
+		const doc = this.#encodeValue(key, value);
+		await this.#adapter.set(key, doc);
+		return key;
+	}
 
-		const tx: StoreLiteTransaction<T> = {
-			add: (value, options) => {
-				const key = options?.withId ?? this.#getId();
-				staging.set(key, this.#encodeValue(key, value));
-				return key;
-			},
-			update: (key, value) => {
-				const doc = encodeDoc(key, value as T, this.#clock.now());
-				const prev = staging.get(key);
-				const mergedDoc = prev ? mergeDocs(prev, doc)[0] : doc;
-				staging.set(key, mergedDoc);
-			},
-			merge: (doc) => {
-				const existing = staging.get(doc["~id"]);
-				const mergedDoc = existing ? mergeDocs(existing, doc)[0] : doc;
-				staging.set(doc["~id"], mergedDoc);
-			},
-			del: (key) => {
-				const currentDoc = staging.get(key);
-				if (!currentDoc) return;
+	/**
+	 * Update a document with a partial value (field-level merge).
+	 *
+	 * Uses CRDT field-level LWW - only specified fields are updated.
+	 *
+	 * @param key - The document ID
+	 * @param value - Partial document with fields to update
+	 *
+	 * @example
+	 * ```ts
+	 * await store.update('todo-1', { completed: true });
+	 * ```
+	 */
+	async update(key: string, value: DeepPartial<T>): Promise<void> {
+		const existing = await this.#adapter.get(key);
+		const updateDoc = encodeDoc(key, value as T, this.#clock.now());
+		const mergedDoc = existing ? mergeDocs(existing, updateDoc)[0] : updateDoc;
+		await this.#adapter.set(key, mergedDoc);
+	}
 
-				staging.set(key, deleteDoc(currentDoc, this.#clock.now()));
-			},
-			get: (key) => this.#decodeActive(staging.get(key) ?? null),
-			rollback: () => {
-				rolledBack = true;
-			},
-		};
+	/**
+	 * Soft-delete a document.
+	 *
+	 * Deleted docs remain in storage for sync purposes but are
+	 * excluded from queries and reads.
+	 *
+	 * @param key - The document ID
+	 *
+	 * @example
+	 * ```ts
+	 * await store.del('todo-1');
+	 * ```
+	 */
+	async del(key: string): Promise<void> {
+		const existing = await this.#adapter.get(key);
+		if (!existing) return;
 
-		const result = callback(tx);
-
-		if (!rolledBack) {
-			// Commit staging back to adapter (async once at end)
-			await this.#adapter.clear();
-			for (const [key, doc] of staging.entries()) {
-				await this.#adapter.set(key, doc);
-			}
-		}
-
-		return result;
+		const deletedDoc = deleteDoc(existing, this.#clock.now());
+		await this.#adapter.set(key, deletedDoc);
 	}
 
 	/**

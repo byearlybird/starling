@@ -1,6 +1,8 @@
 # StoreLite
 
-StoreLite is a lightweight async variant of Store without built-in queries or plugins. It focuses exclusively on CRDT sync and async storage adapters, letting you bring your own query library (TanStack Query, MobX, etc.).
+StoreLite is a lightweight async variant of Store without built-in queries or plugins. It focuses exclusively on CRDT sync and async storage adapters, letting you bring your own query library (TanStack Query, TanStack DB, MobX, etc.).
+
+**Key Feature:** Each mutation operation reads and writes only the specific document it affects - no loading entire datasets into memory. Perfect for large-scale storage with IndexedDB, SQLite, or remote databases.
 
 ## When to Use StoreLite
 
@@ -37,14 +39,12 @@ const store = await new StoreLite<{ text: string; completed: boolean }>({
   adapter: new InMemoryAdapter(),
 }).init();
 
-// All mutations via transactions (operations are synchronous)
-const id = await store.begin((tx) => {
-  const id = tx.add({ text: "Buy milk", completed: false });
-  tx.update(id, { completed: true });
-  return id;
-});
+// Direct mutations (each operates on a single document)
+const id = await store.add({ text: "Buy milk", completed: false });
+await store.update(id, { completed: true });
+await store.del(id);
 
-// Read operations (async)
+// Read operations
 const todo = await store.get(id);
 const allTodos = await store.entries();
 ```
@@ -104,45 +104,38 @@ const remoteSnapshot = await fetchFromServer();
 await store.merge(remoteSnapshot);
 ```
 
-### Mutations (Transactions Only)
+### Mutations
 
-#### `begin<R>(callback: (tx) => R): Promise<R>`
+Each mutation operates on a single document - reading, merging via CRDT, and writing back only what's needed.
 
-Run multiple operations in a transaction with rollback support. All mutations must go through transactions.
+#### `add(value: T, options?: { withId?: string }): Promise<string>`
 
-Transaction operations are **synchronous** - the dataset is loaded into memory at the start, operations run synchronously, then changes are committed atomically.
-
-```typescript
-const id = await store.begin((tx) => {
-  const id1 = tx.add({ text: "Task 1", completed: false });
-  tx.add({ text: "Task 2", completed: false }, { withId: "task-2" });
-  tx.update(id1, { completed: true });
-  return id1; // Return value becomes begin()'s return value
-});
-```
-
-**Transaction methods:**
-
-- `tx.add(value, options?)` - Add a document (returns ID)
-- `tx.update(key, partial)` - Update a document (field-level merge)
-- `tx.del(key)` - Soft-delete a document
-- `tx.get(key)` - Read from staging area (returns data or null)
-- `tx.rollback()` - Abort all changes
-
-**Rollback example:**
+Add a document to the store.
 
 ```typescript
-await store.begin((tx) => {
-  const id = tx.add({ text: "Task", completed: false });
-
-  if (!isValid(tx.get(id))) {
-    tx.rollback(); // Discard all changes
-    return;
-  }
-
-  tx.update(id, { verified: true });
-});
+const id = await store.add({ text: "Buy milk", completed: false });
+await store.add({ text: "Task 2" }, { withId: "custom-id" });
 ```
+
+#### `update(key: string, value: DeepPartial<T>): Promise<void>`
+
+Update a document with partial value (field-level merge).
+
+```typescript
+await store.update("todo-1", { completed: true });
+```
+
+Updates use CRDT field-level LWW - only specified fields are updated. If the document doesn't exist, it will be created.
+
+#### `del(key: string): Promise<void>`
+
+Soft-delete a document.
+
+```typescript
+await store.del("todo-1");
+```
+
+Deleted documents remain in storage for sync purposes but are excluded from queries and reads.
 
 ### Lifecycle
 
@@ -381,9 +374,7 @@ function useAddTodo() {
 
   return useMutation({
     mutationFn: async (text: string) => {
-      return store.begin((tx) => {
-        return tx.add({ text, completed: false });
-      });
+      return store.add({ text, completed: false });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -397,9 +388,7 @@ function useUpdateTodo() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Todo> }) => {
-      await store.begin((tx) => {
-        tx.update(id, updates);
-      });
+      await store.update(id, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -413,9 +402,7 @@ function useDeleteTodo() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await store.begin((tx) => {
-        tx.del(id);
-      });
+      await store.del(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -482,9 +469,7 @@ class TodoStore {
   }
 
   async addTodo(text: string) {
-    const id = await this.store.begin((tx) => {
-      return tx.add({ text, completed: false });
-    });
+    const id = await this.store.add({ text, completed: false });
 
     runInAction(() => {
       this.todos.set(id, { text, completed: false });
@@ -495,9 +480,7 @@ class TodoStore {
     const todo = this.todos.get(id);
     if (!todo) return;
 
-    await this.store.begin((tx) => {
-      tx.update(id, { completed: !todo.completed });
-    });
+    await this.store.update(id, { completed: !todo.completed });
 
     runInAction(() => {
       this.todos.set(id, { ...todo, completed: !todo.completed });
@@ -505,9 +488,7 @@ class TodoStore {
   }
 
   async deleteTodo(id: string) {
-    await this.store.begin((tx) => {
-      tx.del(id);
-    });
+    await this.store.del(id);
 
     runInAction(() => {
       this.todos.delete(id);
@@ -523,17 +504,11 @@ StoreLite supports the same sync pattern as Store:
 ```typescript
 // Client A
 const storeA = await new StoreLite({ adapter: adapterA }).init();
-
-await storeA.begin((tx) => {
-  tx.add({ text: "Task from A" }, { withId: "task-1" });
-});
+await storeA.add({ text: "Task from A" }, { withId: "task-1" });
 
 // Client B
 const storeB = await new StoreLite({ adapter: adapterB }).init();
-
-await storeB.begin((tx) => {
-  tx.add({ text: "Task from B" }, { withId: "task-2" });
-});
+await storeB.add({ text: "Task from B" }, { withId: "task-2" });
 
 // Sync: A pulls from B
 const collectionB = await storeB.collection();
@@ -578,11 +553,8 @@ const store = await new StoreLite<Todo>({
   adapter: new IndexedDBAdapter('todos')
 }).init();
 
-const id = await store.begin((tx) => {
-  const id = tx.add({ text: 'Buy milk' });
-  tx.update(id, { completed: true });
-  return id;
-});
+const id = await store.add({ text: 'Buy milk' });
+await store.update(id, { completed: true });
 
 const { data: active } = useQuery({
   queryKey: ['todos', 'active'],
@@ -595,19 +567,21 @@ const { data: active } = useQuery({
 
 ## Best Practices
 
-### 1. Always Use Transactions
+### 1. Use TanStack DB for Transactions
 
-StoreLite enforces transactions for all mutations, encouraging batching:
+StoreLite operates on individual documents for efficiency. For multi-document atomic operations, use TanStack DB's transactional mutators:
 
 ```typescript
-// ✅ Good - batched in single transaction (operations are synchronous!)
-await store.begin((tx) => {
-  const id1 = tx.add(todo1);
-  const id2 = tx.add(todo2);
-  tx.update(id1, { related: id2 });
+// TanStack DB handles batching automatically
+const mutation = useMutation({
+  mutationFn: async (todos: Array<Todo>) => {
+    // These run atomically with automatic rollback
+    const ids = await Promise.all(
+      todos.map(todo => store.add(todo))
+    );
+    return ids;
+  },
 });
-
-// ❌ Not possible - no direct add/update/del methods
 ```
 
 ### 2. Use Query Libraries for Reactivity
@@ -655,9 +629,7 @@ Use your query library's optimistic update features:
 ```typescript
 const updateTodo = useMutation({
   mutationFn: async ({ id, updates }) => {
-    await store.begin((tx) => {
-      tx.update(id, updates);
-    });
+    await store.update(id, updates);
   },
   onMutate: async ({ id, updates }) => {
     // Cancel outgoing refetches
