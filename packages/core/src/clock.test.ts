@@ -171,3 +171,42 @@ test("eventstamp format is consistent with padding", () => {
 		expect(/^[0-9a-f]{4}$/.test(parts[2] || "")).toBe(true);
 	}
 });
+
+test("forward() ignores invalid eventstamp format", () => {
+	const clock = new Clock();
+
+	const initialStamp = clock.latest();
+
+	// Try to forward with various invalid formats
+	clock.forward("invalid");
+	clock.forward("2025-01-01");
+	clock.forward("2025-01-01T00:00:00.000Z");
+	clock.forward("2025-01-01T00:00:00.000Z|invalid|abcd");
+	clock.forward("2025-01-01T00:00:00.000Z|0001|xyz");
+	clock.forward("");
+
+	// Clock should remain unchanged
+	expect(clock.latest()).toBe(initialStamp);
+});
+
+test("forward() accepts valid eventstamp after rejecting invalid", () => {
+	const clock = new Clock();
+
+	const initialStamp = clock.latest();
+
+	// Try invalid
+	clock.forward("invalid");
+	expect(clock.latest()).toBe(initialStamp);
+
+	// Now forward with valid eventstamp
+	const { timestampMs } = decodeEventstamp(initialStamp);
+	const validEventstamp = encodeEventstamp(
+		timestampMs + 1000,
+		0,
+		generateNonce(),
+	);
+	clock.forward(validEventstamp);
+
+	// Clock should now be forwarded
+	expect(clock.latest()).toBe(validEventstamp);
+});

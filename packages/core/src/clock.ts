@@ -2,6 +2,7 @@ import {
 	decodeEventstamp,
 	encodeEventstamp,
 	generateNonce,
+	isValidEventstamp,
 } from "./crdt/eventstamp";
 
 /**
@@ -40,6 +41,10 @@ export class Clock {
 
 	/** Fast-forwards the clock to match a newer remote eventstamp */
 	forward(eventstamp: string): void {
+		if (!isValidEventstamp(eventstamp)) {
+			return;
+		}
+
 		const latest = this.latest();
 		if (eventstamp > latest) {
 			const newer = decodeEventstamp(eventstamp);
