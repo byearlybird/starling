@@ -9,6 +9,7 @@
 		"packages/**"
 	],
 	"scripts": {
+		"init:container": "npm install -g bun",
 		"build:all": "bun run build:core && bun run build:react && bun run build:solid",
 		"build:core": "cd packages/core && bun run build.ts",
 		"build:react": "cd packages/react && bun run build.ts",
