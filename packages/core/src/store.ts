@@ -168,29 +168,29 @@ export class Store<T> {
 	}
 
 	/**
+	 * Check if a document exists by ID.
+	 * @param key - Document ID
+	 * @param opts - Options object with includeDeleted flag
+	 * @returns True if document exists, false otherwise
+	 */
+	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
+		return this.#crdt.has(key, opts);
+	}
+
+	/**
 	 * Get a document by ID.
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
-		const encoded = this.#crdt.cloneMap().get(key);
-		return this.#decodeActive(encoded ?? null);
+		const current = this.#crdt.get(key);
+		return current ?? null;
 	}
 
 	/**
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		const self = this;
-		function* iterator() {
-			for (const [key, doc] of self.#crdt.cloneMap().entries()) {
-				const data = self.#decodeActive(doc);
-				if (data !== null) {
-					yield [key, data] as const;
-				}
-			}
-		}
-
-		return iterator();
+		return this.#crdt.entries();
 	}
 
 	/**
@@ -279,7 +279,9 @@ export class Store<T> {
 				// Merge into staging collection
 				staging.merge({
 					"~docs": [doc],
-					"~eventstamp": doc["~data"] ? Object.values(doc["~data"])[0]?.[1] ?? "" : "",
+					"~eventstamp": doc["~data"]
+						? (Object.values(doc["~data"])[0]?.[1] ?? "")
+						: "",
 				});
 
 				const decoded = staging.get(doc["~id"]);
