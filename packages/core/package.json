@@ -12,6 +12,21 @@
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
+		"./lite": {
+			"types": "./dist/store-lite.d.ts",
+			"import": "./dist/store-lite.js",
+			"default": "./dist/store-lite.js"
+		},
+		"./adapter": {
+			"types": "./dist/adapter.d.ts",
+			"import": "./dist/adapter.js",
+			"default": "./dist/adapter.js"
+		},
+		"./adapter/memory": {
+			"types": "./dist/adapters/memory.d.ts",
+			"import": "./dist/adapters/memory.js",
+			"default": "./dist/adapters/memory.js"
+		},
 		"./plugin-unstorage": {
 			"types": "./dist/plugins/unstorage/plugin.d.ts",
 			"import": "./dist/plugins/unstorage/plugin.js",
