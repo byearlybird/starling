@@ -44,8 +44,6 @@ export type StoreSetTransaction<T> = {
 	add: (value: T, options?: StoreAddOptions) => string;
 	/** Update a document with a partial value (field-level merge) */
 	update: (key: string, value: DeepPartial<T>) => void;
-	/** Merge an encoded document (used by sync/persistence plugins) */
-	merge: (doc: EncodedDocument) => void;
 	/** Soft-delete a document */
 	del: (key: string) => void;
 	/** Get a document within this transaction */
@@ -271,29 +269,6 @@ export class Store<T> {
 				const merged = staging.get(key);
 				if (merged !== undefined) {
 					updateEntries.push([key, merged] as const);
-				}
-			},
-			merge: (doc) => {
-				const isNew = !this.#crdt.has(doc["~id"]);
-
-				// Merge into staging collection
-				staging.merge({
-					"~docs": [doc],
-					"~eventstamp": doc["~data"]
-						? (Object.values(doc["~data"])[0]?.[1] ?? "")
-						: "",
-				});
-
-				const decoded = staging.get(doc["~id"]);
-
-				if (doc["~deletedAt"]) {
-					deleteKeys.push(doc["~id"]);
-				} else if (decoded !== undefined) {
-					if (isNew) {
-						addEntries.push([doc["~id"], decoded] as const);
-					} else {
-						updateEntries.push([doc["~id"], decoded] as const);
-					}
 				}
 			},
 			del: (key) => {
