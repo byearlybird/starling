@@ -22,6 +22,11 @@
 			"import": "./dist/plugins/indexeddb/plugin.js",
 			"default": "./dist/plugins/indexeddb/plugin.js"
 		},
+		"./plugin-http": {
+			"types": "./dist/plugins/http/plugin.d.ts",
+			"import": "./dist/plugins/http/plugin.js",
+			"default": "./dist/plugins/http/plugin.js"
+		},
 		"./crdt": {
 			"types": "./dist/crdt/index.d.ts",
 			"import": "./dist/crdt/index.js",
