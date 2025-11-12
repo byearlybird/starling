@@ -1,12 +1,5 @@
-import { Clock } from "./clock";
 import type { Collection, EncodedDocument } from "./crdt";
-import {
-	decodeDoc,
-	deleteDoc,
-	encodeDoc,
-	mergeCollections,
-	mergeDocs,
-} from "./crdt";
+import { CRDT, decodeDoc, mergeCollections } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -51,8 +44,6 @@ export type StoreSetTransaction<T> = {
 	add: (value: T, options?: StoreAddOptions) => string;
 	/** Update a document with a partial value (field-level merge) */
 	update: (key: string, value: DeepPartial<T>) => void;
-	/** Merge an encoded document (used by sync/persistence plugins) */
-	merge: (doc: EncodedDocument) => void;
 	/** Soft-delete a document */
 	del: (key: string) => void;
 	/** Get a document within this transaction */
@@ -159,8 +150,7 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T> {
-	#readMap = new Map<string, EncodedDocument>();
-	#clock = new Clock();
+	#crdt = new CRDT<T>();
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -176,28 +166,29 @@ export class Store<T> {
 	}
 
 	/**
+	 * Check if a document exists by ID.
+	 * @param key - Document ID
+	 * @param opts - Options object with includeDeleted flag
+	 * @returns True if document exists, false otherwise
+	 */
+	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
+		return this.#crdt.has(key, opts);
+	}
+
+	/**
 	 * Get a document by ID.
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
-		return this.#decodeActive(this.#readMap.get(key) ?? null);
+		const current = this.#crdt.get(key);
+		return current ?? null;
 	}
 
 	/**
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		const self = this;
-		function* iterator() {
-			for (const [key, doc] of self.#readMap.entries()) {
-				const data = self.#decodeActive(doc);
-				if (data !== null) {
-					yield [key, data] as const;
-				}
-			}
-		}
-
-		return iterator();
+		return this.#crdt.entries();
 	}
 
 	/**
@@ -205,10 +196,7 @@ export class Store<T> {
 	 * @returns Collection containing all documents and the latest eventstamp
 	 */
 	collection(): Collection {
-		return {
-			"~docs": Array.from(this.#readMap.values()),
-			"~eventstamp": this.#clock.latest(),
-		};
+		return this.#crdt.snapshot();
 	}
 
 	/**
@@ -219,10 +207,8 @@ export class Store<T> {
 		const currentCollection = this.collection();
 		const result = mergeCollections(currentCollection, collection);
 
-		this.#clock.forward(result.collection["~eventstamp"]);
-		this.#readMap = new Map(
-			result.collection["~docs"].map((doc) => [doc["~id"], doc]),
-		);
+		// Replace the CRDT with the merged state
+		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
@@ -267,52 +253,33 @@ export class Store<T> {
 		const updateEntries: Array<readonly [string, T]> = [];
 		const deleteKeys: Array<string> = [];
 
-		const staging = new Map(this.#readMap);
+		// Create a staging CRDT by cloning the current state
+		const staging = CRDT.fromSnapshot<T>(this.#crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
 			add: (value, options) => {
 				const key = options?.withId ?? this.#getId();
-				staging.set(key, this.#encodeValue(key, value));
+				staging.add(key, value);
 				addEntries.push([key, value] as const);
 				return key;
 			},
 			update: (key, value) => {
-				const doc = encodeDoc(key, value as T, this.#clock.now());
-				const prev = staging.get(key);
-				const mergedDoc = prev ? mergeDocs(prev, doc)[0] : doc;
-				staging.set(key, mergedDoc);
-				const merged = this.#decodeActive(mergedDoc);
-				if (merged !== null) {
+				staging.update(key, value as Partial<T>);
+				const merged = staging.get(key);
+				if (merged !== undefined) {
 					updateEntries.push([key, merged] as const);
 				}
 			},
-			merge: (doc) => {
-				const existing = staging.get(doc["~id"]);
-				const mergedDoc = existing ? mergeDocs(existing, doc)[0] : doc;
-				staging.set(doc["~id"], mergedDoc);
-
-				const decoded = this.#decodeActive(mergedDoc);
-				const isNew = !this.#readMap.has(doc["~id"]);
-
-				if (mergedDoc["~deletedAt"]) {
-					deleteKeys.push(doc["~id"]);
-				} else if (decoded !== null) {
-					if (isNew) {
-						addEntries.push([doc["~id"], decoded] as const);
-					} else {
-						updateEntries.push([doc["~id"], decoded] as const);
-					}
-				}
-			},
 			del: (key) => {
-				const currentDoc = staging.get(key);
-				if (!currentDoc) return;
-
-				staging.set(key, deleteDoc(currentDoc, this.#clock.now()));
+				if (!staging.has(key)) return;
+				staging.delete(key);
 				deleteKeys.push(key);
 			},
-			get: (key) => this.#decodeActive(staging.get(key) ?? null),
+			get: (key) => {
+				const encoded = staging.cloneMap().get(key);
+				return this.#decodeActive(encoded ?? null);
+			},
 			rollback: () => {
 				rolledBack = true;
 			},
@@ -321,7 +288,7 @@ export class Store<T> {
 		const result = callback(tx);
 
 		if (!rolledBack) {
-			this.#readMap = staging;
+			this.#crdt = staging;
 			if (!silent) {
 				this.#emitMutations(addEntries, updateEntries, deleteKeys);
 			}
@@ -460,10 +427,6 @@ export class Store<T> {
 				query.results.clear();
 			},
 		};
-	}
-
-	#encodeValue(key: string, value: T): EncodedDocument {
-		return encodeDoc(key, value, this.#clock.now());
 	}
 
 	#decodeActive(doc: EncodedDocument | null): T | null {

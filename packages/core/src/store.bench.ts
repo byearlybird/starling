@@ -271,11 +271,7 @@ group("Test 13: MERGE 1000 documents", () => {
 
 	bench("batch merge x1000", () => {
 		const mergeStore = new Store<TestData>();
-		mergeStore.begin((tx) => {
-			collection["~docs"].forEach((doc) => {
-				tx.merge(doc);
-			});
-		});
+		mergeStore.merge(collection);
 	});
 });
 
@@ -294,11 +290,7 @@ group("Test 14: MERGE 25000 documents", () => {
 
 	bench("batch merge x25000", () => {
 		const mergeStore = new Store<TestData>();
-		mergeStore.begin((tx) => {
-			collection["~docs"].forEach((doc) => {
-				tx.merge(doc);
-			});
-		});
+		mergeStore.merge(collection);
 	});
 });
 
