@@ -37,10 +37,10 @@ const store = await new StoreLite<{ text: string; completed: boolean }>({
   adapter: new InMemoryAdapter(),
 }).init();
 
-// All mutations via transactions (async)
-const id = await store.begin(async (tx) => {
-  const id = await tx.add({ text: "Buy milk", completed: false });
-  await tx.update(id, { completed: true });
+// All mutations via transactions (operations are synchronous)
+const id = await store.begin((tx) => {
+  const id = tx.add({ text: "Buy milk", completed: false });
+  tx.update(id, { completed: true });
   return id;
 });
 
@@ -106,39 +106,41 @@ await store.merge(remoteSnapshot);
 
 ### Mutations (Transactions Only)
 
-#### `begin<R>(callback: (tx) => Promise<R>): Promise<R>`
+#### `begin<R>(callback: (tx) => R): Promise<R>`
 
 Run multiple operations in a transaction with rollback support. All mutations must go through transactions.
 
+Transaction operations are **synchronous** - the dataset is loaded into memory at the start, operations run synchronously, then changes are committed atomically.
+
 ```typescript
-const id = await store.begin(async (tx) => {
-  const id1 = await tx.add({ text: "Task 1", completed: false });
-  await tx.add({ text: "Task 2", completed: false }, { withId: "task-2" });
-  await tx.update(id1, { completed: true });
+const id = await store.begin((tx) => {
+  const id1 = tx.add({ text: "Task 1", completed: false });
+  tx.add({ text: "Task 2", completed: false }, { withId: "task-2" });
+  tx.update(id1, { completed: true });
   return id1; // Return value becomes begin()'s return value
 });
 ```
 
 **Transaction methods:**
 
-- `tx.add(value, options?)` - Add a document
+- `tx.add(value, options?)` - Add a document (returns ID)
 - `tx.update(key, partial)` - Update a document (field-level merge)
 - `tx.del(key)` - Soft-delete a document
-- `tx.get(key)` - Read from staging area
+- `tx.get(key)` - Read from staging area (returns data or null)
 - `tx.rollback()` - Abort all changes
 
 **Rollback example:**
 
 ```typescript
-await store.begin(async (tx) => {
-  const id = await tx.add({ text: "Task", completed: false });
+await store.begin((tx) => {
+  const id = tx.add({ text: "Task", completed: false });
 
-  if (!isValid(await tx.get(id))) {
+  if (!isValid(tx.get(id))) {
     tx.rollback(); // Discard all changes
     return;
   }
 
-  await tx.update(id, { verified: true });
+  tx.update(id, { verified: true });
 });
 ```
 
@@ -379,7 +381,7 @@ function useAddTodo() {
 
   return useMutation({
     mutationFn: async (text: string) => {
-      return store.begin(async (tx) => {
+      return store.begin((tx) => {
         return tx.add({ text, completed: false });
       });
     },
@@ -395,8 +397,8 @@ function useUpdateTodo() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Todo> }) => {
-      await store.begin(async (tx) => {
-        await tx.update(id, updates);
+      await store.begin((tx) => {
+        tx.update(id, updates);
       });
     },
     onSuccess: () => {
@@ -411,8 +413,8 @@ function useDeleteTodo() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await store.begin(async (tx) => {
-        await tx.del(id);
+      await store.begin((tx) => {
+        tx.del(id);
       });
     },
     onSuccess: () => {
@@ -480,7 +482,7 @@ class TodoStore {
   }
 
   async addTodo(text: string) {
-    const id = await this.store.begin(async (tx) => {
+    const id = await this.store.begin((tx) => {
       return tx.add({ text, completed: false });
     });
 
@@ -493,8 +495,8 @@ class TodoStore {
     const todo = this.todos.get(id);
     if (!todo) return;
 
-    await this.store.begin(async (tx) => {
-      await tx.update(id, { completed: !todo.completed });
+    await this.store.begin((tx) => {
+      tx.update(id, { completed: !todo.completed });
     });
 
     runInAction(() => {
@@ -503,8 +505,8 @@ class TodoStore {
   }
 
   async deleteTodo(id: string) {
-    await this.store.begin(async (tx) => {
-      await tx.del(id);
+    await this.store.begin((tx) => {
+      tx.del(id);
     });
 
     runInAction(() => {
@@ -522,15 +524,15 @@ StoreLite supports the same sync pattern as Store:
 // Client A
 const storeA = await new StoreLite({ adapter: adapterA }).init();
 
-await storeA.begin(async (tx) => {
-  await tx.add({ text: "Task from A" }, { withId: "task-1" });
+await storeA.begin((tx) => {
+  tx.add({ text: "Task from A" }, { withId: "task-1" });
 });
 
 // Client B
 const storeB = await new StoreLite({ adapter: adapterB }).init();
 
-await storeB.begin(async (tx) => {
-  await tx.add({ text: "Task from B" }, { withId: "task-2" });
+await storeB.begin((tx) => {
+  tx.add({ text: "Task from B" }, { withId: "task-2" });
 });
 
 // Sync: A pulls from B
@@ -576,9 +578,9 @@ const store = await new StoreLite<Todo>({
   adapter: new IndexedDBAdapter('todos')
 }).init();
 
-const id = await store.begin(async (tx) => {
-  const id = await tx.add({ text: 'Buy milk' });
-  await tx.update(id, { completed: true });
+const id = await store.begin((tx) => {
+  const id = tx.add({ text: 'Buy milk' });
+  tx.update(id, { completed: true });
   return id;
 });
 
@@ -598,11 +600,11 @@ const { data: active } = useQuery({
 StoreLite enforces transactions for all mutations, encouraging batching:
 
 ```typescript
-// ✅ Good - batched in single transaction
-await store.begin(async (tx) => {
-  const id1 = await tx.add(todo1);
-  const id2 = await tx.add(todo2);
-  await tx.update(id1, { related: id2 });
+// ✅ Good - batched in single transaction (operations are synchronous!)
+await store.begin((tx) => {
+  const id1 = tx.add(todo1);
+  const id2 = tx.add(todo2);
+  tx.update(id1, { related: id2 });
 });
 
 // ❌ Not possible - no direct add/update/del methods
@@ -653,8 +655,8 @@ Use your query library's optimistic update features:
 ```typescript
 const updateTodo = useMutation({
   mutationFn: async ({ id, updates }) => {
-    await store.begin(async (tx) => {
-      await tx.update(id, updates);
+    await store.begin((tx) => {
+      tx.update(id, updates);
     });
   },
   onMutate: async ({ id, updates }) => {

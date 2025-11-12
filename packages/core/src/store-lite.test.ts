@@ -29,8 +29,8 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Buy milk", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Buy milk", completed: false });
 		});
 
 		const todo = await store.get(id);
@@ -43,8 +43,8 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		await store.begin(async (tx) => {
-			await tx.add({ text: "Buy milk", completed: false }, { withId: "todo1" });
+		await store.begin((tx) => {
+			tx.add({ text: "Buy milk", completed: false }, { withId: "todo1" });
 		});
 
 		const todo = await store.get("todo1");
@@ -57,12 +57,12 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Buy milk", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Buy milk", completed: false });
 		});
 
-		await store.begin(async (tx) => {
-			await tx.update(id, { completed: true });
+		await store.begin((tx) => {
+			tx.update(id, { completed: true });
 		});
 
 		const todo = await store.get(id);
@@ -75,12 +75,12 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Buy milk", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Buy milk", completed: false });
 		});
 
-		await store.begin(async (tx) => {
-			await tx.del(id);
+		await store.begin((tx) => {
+			tx.del(id);
 		});
 
 		expect(await store.get(id)).toBeNull();
@@ -92,10 +92,10 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const [id1, id2] = await store.begin(async (tx) => {
-			const id1 = await tx.add({ text: "Task 1", completed: false });
-			const id2 = await tx.add({ text: "Task 2", completed: false });
-			await tx.update(id1, { completed: true });
+		const [id1, id2] = await store.begin((tx) => {
+			const id1 = tx.add({ text: "Task 1", completed: false });
+			const id2 = tx.add({ text: "Task 2", completed: false });
+			tx.update(id1, { completed: true });
 			return [id1, id2];
 		});
 
@@ -109,8 +109,8 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		await store.begin(async (tx) => {
-			await tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
+		await store.begin((tx) => {
+			tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
 			tx.rollback();
 		});
 
@@ -123,13 +123,13 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Task 1", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Task 1", completed: false });
 		});
 
-		await store.begin(async (tx) => {
-			await tx.update(id, { completed: true });
-			await tx.add({ text: "Task 2", completed: false }, { withId: "todo2" });
+		await store.begin((tx) => {
+			tx.update(id, { completed: true });
+			tx.add({ text: "Task 2", completed: false }, { withId: "todo2" });
 			tx.rollback();
 		});
 
@@ -145,9 +145,9 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const result = await store.begin(async (tx) => {
-			const id = await tx.add({ text: "Task 1", completed: false });
-			const todo = await tx.get(id);
+		const result = await store.begin((tx) => {
+			const id = tx.add({ text: "Task 1", completed: false });
+			const todo = tx.get(id);
 			return todo;
 		});
 
@@ -160,13 +160,13 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Task 1", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Task 1", completed: false });
 		});
 
-		const result = await store.begin(async (tx) => {
-			await tx.update(id, { completed: true });
-			return await tx.get(id);
+		const result = await store.begin((tx) => {
+			tx.update(id, { completed: true });
+			return tx.get(id);
 		});
 
 		expect(result).toEqual({ text: "Task 1", completed: true });
@@ -178,10 +178,10 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const [id1, id2, id3] = await store.begin(async (tx) => {
-			const id1 = await tx.add({ text: "Task 1", completed: false });
-			const id2 = await tx.add({ text: "Task 2", completed: true });
-			const id3 = await tx.add({ text: "Task 3", completed: false });
+		const [id1, id2, id3] = await store.begin((tx) => {
+			const id1 = tx.add({ text: "Task 1", completed: false });
+			const id2 = tx.add({ text: "Task 2", completed: true });
+			const id3 = tx.add({ text: "Task 3", completed: false });
 			return [id1, id2, id3];
 		});
 
@@ -199,14 +199,14 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const [id1, id2] = await store.begin(async (tx) => {
-			const id1 = await tx.add({ text: "Task 1", completed: false });
-			const id2 = await tx.add({ text: "Task 2", completed: true });
+		const [id1, id2] = await store.begin((tx) => {
+			const id1 = tx.add({ text: "Task 1", completed: false });
+			const id2 = tx.add({ text: "Task 2", completed: true });
 			return [id1, id2];
 		});
 
-		await store.begin(async (tx) => {
-			await tx.del(id1);
+		await store.begin((tx) => {
+			tx.del(id1);
 		});
 
 		const entries = await store.entries();
@@ -221,14 +221,14 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const [id1, id2] = await store.begin(async (tx) => {
-			const id1 = await tx.add({ text: "Task 1", completed: false });
-			const id2 = await tx.add({ text: "Task 2", completed: true });
+		const [id1, id2] = await store.begin((tx) => {
+			const id1 = tx.add({ text: "Task 1", completed: false });
+			const id2 = tx.add({ text: "Task 2", completed: true });
 			return [id1, id2];
 		});
 
-		await store.begin(async (tx) => {
-			await tx.del(id1);
+		await store.begin((tx) => {
+			tx.del(id1);
 		});
 
 		const collection = await store.collection();
@@ -248,13 +248,13 @@ describe("StoreLite", () => {
 		}).init();
 
 		// Add to store1
-		await store1.begin(async (tx) => {
-			await tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
+		await store1.begin((tx) => {
+			tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
 		});
 
 		// Add to store2
-		await store2.begin(async (tx) => {
-			await tx.add({ text: "Task 2", completed: false }, { withId: "todo2" });
+		await store2.begin((tx) => {
+			tx.add({ text: "Task 2", completed: false }, { withId: "todo2" });
 		});
 
 		// Merge store2 into store1
@@ -280,15 +280,15 @@ describe("StoreLite", () => {
 		}).init();
 
 		// Add same ID to both stores
-		await store1.begin(async (tx) => {
-			await tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
+		await store1.begin((tx) => {
+			tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
 		});
 
 		// Slight delay to ensure different timestamp
 		await new Promise((resolve) => setTimeout(resolve, 5));
 
-		await store2.begin(async (tx) => {
-			await tx.add({ text: "Task 2", completed: true }, { withId: "todo1" });
+		await store2.begin((tx) => {
+			tx.add({ text: "Task 2", completed: true }, { withId: "todo1" });
 		});
 
 		// Merge store2 into store1 - store2's version should win (newer)
@@ -309,12 +309,12 @@ describe("StoreLite", () => {
 			getId: () => `todo-${++counter}`,
 		}).init();
 
-		const id1 = await store.begin(async (tx) => {
-			return await tx.add({ text: "Task 1", completed: false });
+		const id1 = await store.begin((tx) => {
+			return tx.add({ text: "Task 1", completed: false });
 		});
 
-		const id2 = await store.begin(async (tx) => {
-			return await tx.add({ text: "Task 2", completed: false });
+		const id2 = await store.begin((tx) => {
+			return tx.add({ text: "Task 2", completed: false });
 		});
 
 		expect(id1).toBe("todo-1");
@@ -328,8 +328,8 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const result = await store.begin(async (tx) => {
-			const id = await tx.add({ text: "Task 1", completed: false });
+		const result = await store.begin((tx) => {
+			const id = tx.add({ text: "Task 1", completed: false });
 			return { id, message: "Created successfully" };
 		});
 
@@ -346,12 +346,12 @@ describe("StoreLite", () => {
 			adapter: new InMemoryAdapter(),
 		}).init();
 
-		const id = await store.begin(async (tx) => {
-			return await tx.add({ text: "Task 1", completed: false });
+		const id = await store.begin((tx) => {
+			return tx.add({ text: "Task 1", completed: false });
 		});
 
-		await store.begin(async (tx) => {
-			await tx.update(id, { completed: true });
+		await store.begin((tx) => {
+			tx.update(id, { completed: true });
 		});
 
 		const todo = await store.get(id);

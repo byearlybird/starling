@@ -34,13 +34,13 @@ export type StoreLiteConfig = {
 /**
  * Transaction context for batching multiple operations with rollback support.
  *
- * All transaction operations are async.
+ * Transaction operations are synchronous, working on an in-memory staging area.
  *
  * @example
  * ```ts
- * await store.begin(async (tx) => {
- *   const id = await tx.add({ name: 'Alice' });
- *   if (!isValid(await tx.get(id))) {
+ * await store.begin((tx) => {
+ *   const id = tx.add({ name: 'Alice' });
+ *   if (!isValid(tx.get(id))) {
  *     tx.rollback(); // Abort all changes
  *   }
  * });
@@ -48,15 +48,15 @@ export type StoreLiteConfig = {
  */
 export type StoreLiteTransaction<T> = {
 	/** Add a document and return its ID */
-	add: (value: T, options?: StoreLiteAddOptions) => Promise<string>;
+	add: (value: T, options?: StoreLiteAddOptions) => string;
 	/** Update a document with a partial value (field-level merge) */
-	update: (key: string, value: DeepPartial<T>) => Promise<void>;
+	update: (key: string, value: DeepPartial<T>) => void;
 	/** Merge an encoded document (used by sync) */
-	merge: (doc: EncodedDocument) => Promise<void>;
+	merge: (doc: EncodedDocument) => void;
 	/** Soft-delete a document */
-	del: (key: string) => Promise<void>;
+	del: (key: string) => void;
 	/** Get a document within this transaction */
-	get: (key: string) => Promise<T | null>;
+	get: (key: string) => T | null;
 	/** Abort the transaction and discard all changes */
 	rollback: () => void;
 };
@@ -78,10 +78,10 @@ export type StoreLiteTransaction<T> = {
  *   adapter: new InMemoryAdapter()
  * }).init();
  *
- * // All mutations via transactions
- * const id = await store.begin(async (tx) => {
- *   const id = await tx.add({ text: 'Buy milk', completed: false });
- *   await tx.update(id, { completed: true });
+ * // All mutations via transactions (operations are synchronous)
+ * const id = await store.begin((tx) => {
+ *   const id = tx.add({ text: 'Buy milk', completed: false });
+ *   tx.update(id, { completed: true });
  *   return id;
  * });
  * ```
@@ -154,61 +154,61 @@ export class StoreLite<T> {
 	/**
 	 * Run multiple operations in a transaction with rollback support.
 	 *
-	 * All operations are batched and committed atomically.
+	 * Loads the dataset into memory, runs synchronous operations, then commits.
 	 *
-	 * @param callback - Async function receiving a transaction context
+	 * @param callback - Function receiving a transaction context (operations are sync)
 	 * @returns The callback's return value
 	 *
 	 * @example
 	 * ```ts
-	 * const id = await store.begin(async (tx) => {
-	 *   const newId = await tx.add({ text: 'Buy milk' });
-	 *   await tx.update(newId, { priority: 'high' });
+	 * const id = await store.begin((tx) => {
+	 *   const newId = tx.add({ text: 'Buy milk' });
+	 *   tx.update(newId, { priority: 'high' });
 	 *   return newId; // Return value becomes begin()'s return value
 	 * });
 	 * ```
 	 */
 	async begin<R = void>(
-		callback: (tx: StoreLiteTransaction<T>) => Promise<R>,
+		callback: (tx: StoreLiteTransaction<T>) => R,
 	): Promise<R> {
-		// Load all current docs into staging
+		// Load all current docs into staging (async once at start)
 		const allEntries = await this.#adapter.entries();
 		const staging = new Map<string, EncodedDocument>(allEntries);
 		let rolledBack = false;
 
 		const tx: StoreLiteTransaction<T> = {
-			add: async (value, options) => {
+			add: (value, options) => {
 				const key = options?.withId ?? this.#getId();
 				staging.set(key, this.#encodeValue(key, value));
 				return key;
 			},
-			update: async (key, value) => {
+			update: (key, value) => {
 				const doc = encodeDoc(key, value as T, this.#clock.now());
 				const prev = staging.get(key);
 				const mergedDoc = prev ? mergeDocs(prev, doc)[0] : doc;
 				staging.set(key, mergedDoc);
 			},
-			merge: async (doc) => {
+			merge: (doc) => {
 				const existing = staging.get(doc["~id"]);
 				const mergedDoc = existing ? mergeDocs(existing, doc)[0] : doc;
 				staging.set(doc["~id"], mergedDoc);
 			},
-			del: async (key) => {
+			del: (key) => {
 				const currentDoc = staging.get(key);
 				if (!currentDoc) return;
 
 				staging.set(key, deleteDoc(currentDoc, this.#clock.now()));
 			},
-			get: async (key) => this.#decodeActive(staging.get(key) ?? null),
+			get: (key) => this.#decodeActive(staging.get(key) ?? null),
 			rollback: () => {
 				rolledBack = true;
 			},
 		};
 
-		const result = await callback(tx);
+		const result = callback(tx);
 
 		if (!rolledBack) {
-			// Commit staging back to adapter
+			// Commit staging back to adapter (async once at end)
 			await this.#adapter.clear();
 			for (const [key, doc] of staging.entries()) {
 				await this.#adapter.set(key, doc);
