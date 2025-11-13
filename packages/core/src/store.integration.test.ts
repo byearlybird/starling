@@ -299,12 +299,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// The document should be deleted (not appear in active entries)
 		expect(consolidated.get("user-1")).toBeNull();
 
-		// The collection should show the document as deleted (with meta.deletedAt timestamp)
+		// The collection should show the document as deleted (with meta.~deletedAt timestamp)
 		const collection = consolidated.collection();
 		const deletedDoc = collection.data.find(
 			(doc) => doc.id === "user-1",
 		);
-		expect(deletedDoc?.meta.deletedAt).toBeDefined();
+		expect(deletedDoc?.meta["~deletedAt"]).toBeDefined();
 
 		// The consolidated store should have 0 active entries
 		const entries = Array.from(consolidated.entries());

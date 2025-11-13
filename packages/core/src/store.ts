@@ -430,7 +430,7 @@ export class Store<T> {
 	}
 
 	#decodeActive(doc: EncodedDocument | null): T | null {
-		if (!doc || doc.meta.deletedAt) return null;
+		if (!doc || doc.meta["~deletedAt"]) return null;
 		return decodeDoc<T>(doc).data;
 	}
 

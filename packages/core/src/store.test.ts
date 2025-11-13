@@ -262,7 +262,7 @@ describe("Store - Iteration & State", () => {
 			(doc) => doc.id === "user-1",
 		);
 		expect(deletedDoc).toBeDefined();
-		expect(deletedDoc?.meta.deletedAt).toBeDefined();
+		expect(deletedDoc?.meta["~deletedAt"]).toBeDefined();
 	});
 });
 

@@ -32,7 +32,7 @@ export type EncodedDocument = {
 	/** System metadata and internal fields */
 	meta: {
 		/** Eventstamp when this document was soft-deleted, or null if not deleted */
-		deletedAt: string | null;
+		"~deletedAt": string | null;
 	};
 };
 
@@ -50,7 +50,7 @@ export function encodeDoc<T>(
 			? encodeRecord(obj as Record<string, unknown>, eventstamp)
 			: encodeValue(obj, eventstamp),
 		meta: {
-			deletedAt,
+			"~deletedAt": deletedAt,
 		},
 	};
 }
@@ -60,7 +60,7 @@ export function decodeDoc<T>(doc: EncodedDocument): {
 	id: string;
 	data: T;
 	meta: {
-		deletedAt: string | null;
+		"~deletedAt": string | null;
 	};
 } {
 	return {
@@ -70,7 +70,7 @@ export function decodeDoc<T>(doc: EncodedDocument): {
 			? decodeValue(doc.attributes as EncodedValue<T>)
 			: decodeRecord(doc.attributes as EncodedRecord)) as T,
 		meta: {
-			deletedAt: doc.meta.deletedAt,
+			"~deletedAt": doc.meta["~deletedAt"],
 		},
 	};
 }
@@ -99,11 +99,11 @@ export function mergeDocs(
 				);
 
 	const mergedDeletedAt =
-		into.meta.deletedAt && from.meta.deletedAt
-			? into.meta.deletedAt > from.meta.deletedAt
-				? into.meta.deletedAt
-				: from.meta.deletedAt
-			: into.meta.deletedAt || from.meta.deletedAt || null;
+		into.meta["~deletedAt"] && from.meta["~deletedAt"]
+			? into.meta["~deletedAt"] > from.meta["~deletedAt"]
+				? into.meta["~deletedAt"]
+				: from.meta["~deletedAt"]
+			: into.meta["~deletedAt"] || from.meta["~deletedAt"] || null;
 
 	// Bubble up the greatest eventstamp from both data and deletion timestamp
 	let greatestEventstamp: string = dataEventstamp;
@@ -117,7 +117,7 @@ export function mergeDocs(
 			id: into.id,
 			attributes: mergedData,
 			meta: {
-				deletedAt: mergedDeletedAt,
+				"~deletedAt": mergedDeletedAt,
 			},
 		},
 		greatestEventstamp,
@@ -133,7 +133,7 @@ export function deleteDoc(
 		id: doc.id,
 		attributes: doc.attributes,
 		meta: {
-			deletedAt: eventstamp,
+			"~deletedAt": eventstamp,
 		},
 	};
 }
@@ -169,7 +169,7 @@ export function processDocument(
 		id: doc.id,
 		attributes: processedData,
 		meta: {
-			deletedAt: doc.meta.deletedAt,
+			"~deletedAt": doc.meta["~deletedAt"],
 		},
 	};
 }

@@ -119,7 +119,7 @@ test("mergeCollections marks document as deleted", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
+	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
 	const from: Collection = {
 		data: [deletedDoc],
@@ -129,7 +129,7 @@ test("mergeCollections marks document as deleted", () => {
 	const result = mergeCollections(into, from);
 
 	expect(result.collection.data.length).toBe(1);
-	expect(result.collection.data[0]?.meta.deletedAt).toBe(
+	expect(result.collection.data[0]?.meta["~deletedAt"]).toBe(
 		"2025-01-01T00:05:00.000Z|0001|c3d4",
 	);
 	expect(result.changes.added.size).toBe(0);
@@ -144,7 +144,7 @@ test("mergeCollections keeps deleted document deleted on update", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	deletedDoc.meta.deletedAt = "2025-01-01T00:02:00.000Z|0001|b2c3";
+	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:02:00.000Z|0001|b2c3";
 
 	const into: Collection = {
 		data: [deletedDoc],
@@ -166,7 +166,7 @@ test("mergeCollections keeps deleted document deleted on update", () => {
 
 	// Deletion is final: document stays deleted, but data is merged internally
 	expect(result.collection.data.length).toBe(1);
-	expect(result.collection.data[0]?.meta.deletedAt).toBe(
+	expect(result.collection.data[0]?.meta["~deletedAt"]).toBe(
 		"2025-01-01T00:02:00.000Z|0001|b2c3",
 	);
 	expect(result.changes.added.size).toBe(0);
@@ -182,7 +182,7 @@ test("mergeCollections does not track deleted documents as added", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:05:00.000Z|0001|c3d4",
 	);
-	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
+	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
 	const from: Collection = {
 		data: [deletedDoc],
@@ -219,7 +219,7 @@ test("mergeCollections merges multiple documents with mixed operations", () => {
 		{ name: "Bob" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
+	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
 	const from: Collection = {
 		data: [
@@ -338,7 +338,7 @@ test("mergeCollections with primitive values", () => {
 				type: "resource",
 				id: "doc-1",
 				attributes: encodeValue("hello", "2025-01-01T00:00:00.000Z|0000|a1b2"),
-				meta: { deletedAt: null },
+				meta: { "~deletedAt": null },
 			},
 		],
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
@@ -350,7 +350,7 @@ test("mergeCollections with primitive values", () => {
 				type: "resource",
 				id: "doc-1",
 				attributes: encodeValue("world", "2025-01-01T00:05:00.000Z|0001|c3d4"),
-				meta: { deletedAt: null },
+				meta: { "~deletedAt": null },
 			},
 		],
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },

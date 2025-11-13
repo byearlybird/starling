@@ -45,7 +45,7 @@ export class CRDT<T> {
 	has(id: string, opts: { includeDeleted?: boolean } = {}): boolean {
 		const raw = this.#map.get(id);
 		if (!raw) return false;
-		return opts.includeDeleted || !raw.meta.deletedAt;
+		return opts.includeDeleted || !raw.meta["~deletedAt"];
 	}
 
 	/**
@@ -55,7 +55,7 @@ export class CRDT<T> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw.meta.deletedAt ? undefined : (decodeDoc(raw).data as T);
+		return raw.meta["~deletedAt"] ? undefined : (decodeDoc(raw).data as T);
 	}
 
 	/**
@@ -65,7 +65,7 @@ export class CRDT<T> {
 		const self = this;
 		function* iterator() {
 			for (const [key, doc] of self.#map.entries()) {
-				if (!doc.meta.deletedAt) {
+				if (!doc.meta["~deletedAt"]) {
 					const decoded = decodeDoc<T>(doc).data;
 					yield [key, decoded] as const;
 				}

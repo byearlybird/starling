@@ -216,7 +216,7 @@ describe("CRDT", () => {
 			const collection = crdt.snapshot();
 
 			expect(collection.data).toHaveLength(1);
-			expect(collection.data[0]?.meta.deletedAt).not.toBeNull();
+			expect(collection.data[0]?.meta["~deletedAt"]).not.toBeNull();
 		});
 
 		test("eventstamp reflects latest operation", () => {
@@ -259,7 +259,7 @@ describe("CRDT", () => {
 
 		test("preserves deleted documents", () => {
 			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			deletedDoc.meta.deletedAt = "2025-01-01T00:00:01.000Z|0001|abcd";
+			deletedDoc.meta["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
 
 			const collection: Collection = {
 				data: [deletedDoc],
@@ -343,7 +343,7 @@ describe("CRDT", () => {
 			// Should still be deleted (delete eventstamp is newer)
 			const collection = crdt.snapshot();
 			const doc = collection.data.find((d) => d.id === "id1");
-			expect(doc?.meta.deletedAt).not.toBeNull();
+			expect(doc?.meta["~deletedAt"]).not.toBeNull();
 		});
 	});
 
@@ -417,7 +417,7 @@ describe("CRDT", () => {
 
 			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
 			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			deletedDoc.meta.deletedAt = deletionEventstamp;
+			deletedDoc.meta["~deletedAt"] = deletionEventstamp;
 
 			const remoteCollection: Collection = {
 				data: [deletedDoc],
@@ -429,7 +429,7 @@ describe("CRDT", () => {
 			// Document is soft-deleted
 			const collection = crdt.snapshot();
 			const doc = collection.data.find((d) => d.id === "id1");
-			expect(doc?.meta.deletedAt).not.toBeNull();
+			expect(doc?.meta["~deletedAt"]).not.toBeNull();
 		});
 
 		test("forwards clock to remote eventstamp during merge", () => {

@@ -115,7 +115,7 @@ export function mergeCollections(
 		if (!intoDoc) {
 			// New document from source - store it and track if not deleted
 			mergedDocsById.set(id, fromDoc);
-			if (!fromDoc.meta.deletedAt) {
+			if (!fromDoc.meta["~deletedAt"]) {
 				added.set(id, fromDoc);
 			}
 		} else {
@@ -129,8 +129,8 @@ export function mergeCollections(
 			mergedDocsById.set(id, mergedDoc);
 
 			// Track state transitions for hook notifications
-			const wasDeleted = intoDoc.meta.deletedAt !== null;
-			const isDeleted = mergedDoc.meta.deletedAt !== null;
+			const wasDeleted = intoDoc.meta["~deletedAt"] !== null;
+			const isDeleted = mergedDoc.meta["~deletedAt"] !== null;
 
 			// Only track transitions: new deletion or non-deleted update
 			if (!wasDeleted && isDeleted) {
