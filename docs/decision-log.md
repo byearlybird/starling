@@ -28,32 +28,65 @@ Key-based serialization makes data self-documenting:
 
 ---
 
-## Decision 002 — Tilde Prefix for System Keys
+## Decision 002 — JSON:API Serialization Format
 
 **Context**
 
-Internal metadata fields (IDs, timestamps, deletion markers) need to be:
-1. Clearly distinguishable from user-defined data
-2. Compact (don't bloat JSON payloads)
-3. Consistent across the codebase
+Starling needed a standardized, interoperable format for document and collection serialization that:
+1. Is widely recognized and documented
+2. Works across disk storage, sync messages, network transport, and export/import
+3. Clearly separates user data from system metadata
+4. Supports extensibility and tooling integration
 
 **Decision**
 
-Prefix all system-reserved keys with a tilde (`~`): `~id`, `~deletedAt`, `~createdAt`.
+Adopt JSON:API as the canonical serialized format for all documents and collections.
+
+**Document structure** (resource object):
+```typescript
+{
+  type: "resource",           // Resource type identifier
+  id: "doc-1",                // Document ID
+  attributes: { /* CRDT */ }, // User data with eventstamps
+  meta: {                     // System metadata
+    deletedAt: null
+  }
+}
+```
+
+**Collection structure** (document):
+```typescript
+{
+  data: [/* resource objects */],  // Array of documents
+  meta: {
+    eventstamp: "..."               // Clock synchronization
+  }
+}
+```
 
 **Rationale**
 
-The tilde prefix provides visual and functional separation:
+JSON:API provides a well-established standard with significant benefits:
 
-- **IDE ergonomics**: Tilde-prefixed keys sort to the bottom of IntelliSense suggestions, keeping user fields prominent
-- **Visual distinction**: The tilde is rarely used in user identifiers, making system keys immediately recognizable
-- **Compact**: Single-character prefix minimizes payload overhead
+- **Industry standard**: [JSON:API specification](https://jsonapi.org/) is widely adopted, well-documented, and understood by developers
+- **Clear structure**: Separates concerns cleanly—`type`/`id` for identity, `attributes` for data, `meta` for system fields
+- **Tooling ecosystem**: Existing libraries, validators, and API clients work with this format out-of-the-box
+- **Extensibility**: The spec defines clear extension points (`meta`, `links`, `relationships`) for future features
+- **Human-readable**: Clear field names (`data`, `meta`, `attributes`) make debugging and inspection straightforward
+- **Transport-agnostic**: Works equally well for disk storage, HTTP APIs, WebSocket messages, and file exports
+
+**Migration from Tilde Prefix**
+
+This decision supersedes an earlier internal format using tilde prefixes (`~id`, `~data`, `~deletedAt`). The JSON:API format provides superior:
+- **Interoperability**: Standard format works with existing tools and ecosystems
+- **Clarity**: Explicit nesting (`meta.deletedAt`) vs. flat namespace (`~deletedAt`)
+- **Extensibility**: Defined extension points for future system metadata
 
 **Alternatives Considered**
 
-- **Double underscore (`__id`)** — Common, but blends with user-defined private fields
-- **Dollar sign (`$id`)** — Reserved in some query languages (MongoDB) and can confuse developers familiar with those conventions
-- **Namespace object (`{ _meta: { id, deletedAt } }`)** — Cleaner separation but adds nesting depth and complicates field-level merging
+- **Keep tilde prefix** — Custom format works but lacks ecosystem support and requires documentation
+- **GraphQL format** — More complex, focused on query language rather than data serialization
+- **Custom nested format** — Could work but reinvents the wheel and requires custom tooling
 
 ---
 

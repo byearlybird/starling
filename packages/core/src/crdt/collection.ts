@@ -1,18 +1,29 @@
 import { type EncodedDocument, mergeDocs } from "./document";
 
 /**
- * A collection represents the complete state of a store:
- * - A set of documents (including soft-deleted ones)
- * - The highest eventstamp observed across all operations
+ * A collection represents the complete state of a store following JSON:API
+ * document structure.
+ *
+ * This is the canonical format used across disk storage, sync messages,
+ * network transport, and export/import operations.
+ *
+ * Collections contain:
+ * - An array of resource objects (documents, including soft-deleted ones)
+ * - Metadata including the highest eventstamp for clock synchronization
  *
  * Collections are the unit of synchronization between store replicas.
+ *
+ * @see https://jsonapi.org/format/#document-structure
  */
 export type Collection = {
-	/** Array of encoded documents with eventstamps and metadata */
-	"~docs": EncodedDocument[];
+	/** Array of resource objects (documents) with CRDT data and metadata */
+	data: EncodedDocument[];
 
-	/** Latest eventstamp observed by this collection for clock synchronization */
-	"~eventstamp": string;
+	/** Collection-level metadata */
+	meta: {
+		/** Latest eventstamp observed by this collection for clock synchronization */
+		eventstamp: string;
+	};
 };
 
 /**
@@ -84,8 +95,8 @@ export function mergeCollections(
 ): MergeCollectionsResult {
 	// Build index of base documents by ID for efficient lookup
 	const intoDocsById = new Map<string, EncodedDocument>();
-	for (const doc of into["~docs"]) {
-		intoDocsById.set(doc["~id"], doc);
+	for (const doc of into.data) {
+		intoDocsById.set(doc.id, doc);
 	}
 
 	// Track changes for hook notifications
@@ -97,14 +108,14 @@ export function mergeCollections(
 	const mergedDocsById = new Map<string, EncodedDocument>(intoDocsById);
 
 	// Process each source document
-	for (const fromDoc of from["~docs"]) {
-		const id = fromDoc["~id"];
+	for (const fromDoc of from.data) {
+		const id = fromDoc.id;
 		const intoDoc = intoDocsById.get(id);
 
 		if (!intoDoc) {
 			// New document from source - store it and track if not deleted
 			mergedDocsById.set(id, fromDoc);
-			if (!fromDoc["~deletedAt"]) {
+			if (!fromDoc.meta.deletedAt) {
 				added.set(id, fromDoc);
 			}
 		} else {
@@ -118,8 +129,8 @@ export function mergeCollections(
 			mergedDocsById.set(id, mergedDoc);
 
 			// Track state transitions for hook notifications
-			const wasDeleted = intoDoc["~deletedAt"] !== null;
-			const isDeleted = mergedDoc["~deletedAt"] !== null;
+			const wasDeleted = intoDoc.meta.deletedAt !== null;
+			const isDeleted = mergedDoc.meta.deletedAt !== null;
 
 			// Only track transitions: new deletion or non-deleted update
 			if (!wasDeleted && isDeleted) {
@@ -136,14 +147,16 @@ export function mergeCollections(
 
 	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
 	const newestEventstamp =
-		into["~eventstamp"] >= from["~eventstamp"]
-			? into["~eventstamp"]
-			: from["~eventstamp"];
+		into.meta.eventstamp >= from.meta.eventstamp
+			? into.meta.eventstamp
+			: from.meta.eventstamp;
 
 	return {
 		collection: {
-			"~docs": Array.from(mergedDocsById.values()),
-			"~eventstamp": newestEventstamp,
+			data: Array.from(mergedDocsById.values()),
+			meta: {
+				eventstamp: newestEventstamp,
+			},
 		},
 		changes: {
 			added,
@@ -167,7 +180,9 @@ export function mergeCollections(
  */
 export function createCollection(eventstamp: string): Collection {
 	return {
-		"~docs": [],
-		"~eventstamp": eventstamp,
+		data: [],
+		meta: {
+			eventstamp,
+		},
 	};
 }

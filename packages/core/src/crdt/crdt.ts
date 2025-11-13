@@ -45,7 +45,7 @@ export class CRDT<T> {
 	has(id: string, opts: { includeDeleted?: boolean } = {}): boolean {
 		const raw = this.#map.get(id);
 		if (!raw) return false;
-		return opts.includeDeleted || !raw["~deletedAt"];
+		return opts.includeDeleted || !raw.meta.deletedAt;
 	}
 
 	/**
@@ -55,7 +55,7 @@ export class CRDT<T> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw["~deletedAt"] ? undefined : (decodeDoc(raw)["~data"] as T);
+		return raw.meta.deletedAt ? undefined : (decodeDoc(raw).data as T);
 	}
 
 	/**
@@ -65,8 +65,8 @@ export class CRDT<T> {
 		const self = this;
 		function* iterator() {
 			for (const [key, doc] of self.#map.entries()) {
-				if (!doc["~deletedAt"]) {
-					const decoded = decodeDoc<T>(doc)["~data"];
+				if (!doc.meta.deletedAt) {
+					const decoded = decodeDoc<T>(doc).data;
 					yield [key, decoded] as const;
 				}
 			}
@@ -118,8 +118,10 @@ export class CRDT<T> {
 
 	snapshot(): Collection {
 		return {
-			"~eventstamp": this.#clock.latest(),
-			"~docs": Array.from(this.#map.values()),
+			data: Array.from(this.#map.values()),
+			meta: {
+				eventstamp: this.#clock.latest(),
+			},
 		};
 	}
 
@@ -131,16 +133,16 @@ export class CRDT<T> {
 		const currentCollection = this.snapshot();
 		const result = mergeCollections(currentCollection, collection);
 
-		this.#clock.forward(result.collection["~eventstamp"]);
+		this.#clock.forward(result.collection.meta.eventstamp);
 		this.#map = new Map(
-			result.collection["~docs"].map((doc) => [doc["~id"], doc]),
+			result.collection.data.map((doc) => [doc.id, doc]),
 		);
 	}
 
 	static fromSnapshot<U>(collection: Collection): CRDT<U> {
 		return new CRDT<U>(
-			new Map(collection["~docs"].map((doc) => [doc["~id"], doc])),
-			collection["~eventstamp"],
+			new Map(collection.data.map((doc) => [doc.id, doc])),
+			collection.meta.eventstamp,
 		);
 	}
 }

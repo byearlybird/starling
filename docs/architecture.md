@@ -116,43 +116,50 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 { todos: { "id1": { text: "..." }, "id2": { text: "..." } } }  // Each todo merges independently
 ```
 
-**Deletions**: Soft-deleted via `~deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
+**Deletions**: Soft-deleted via `meta.deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
 
 ### Collection Format
 
-The `Collection` type represents the complete persistent state of a store, following the tilde convention for system-reserved keys:
+The `Collection` type represents the complete persistent state of a store, following the JSON:API document specification:
 
 ```typescript
 export type Collection = {
-  "~docs": EncodedDocument[];
-  "~eventstamp": string;
+  data: EncodedDocument[];
+  meta: {
+    eventstamp: string;
+  };
 };
 ```
 
 **Design notes:**
 
-- **`~docs`**: Array of encoded documents, including soft-deleted items (those with `~deletedAt` set). This ensures deletion events propagate during sync.
-- **`~eventstamp`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
+- **`data`**: Array of resource objects (encoded documents), including soft-deleted items (those with `meta.deletedAt` set). This ensures deletion events propagate during sync.
+- **`meta.eventstamp`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
 
 Example collection:
 
 ```typescript
 {
-  "~docs": [
+  data: [
     {
-      "~id": "user-1",
-      "~data": {
-        "name": ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
-        "email": ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
+      type: "resource",
+      id: "user-1",
+      attributes: {
+        name: ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
+        email: ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
       },
-      "~deletedAt": null
+      meta: {
+        deletedAt: null
+      }
     }
   ],
-  "~eventstamp": "2025-10-26T10:00:00.000Z|0001|a7f2"
+  meta: {
+    eventstamp: "2025-10-26T10:00:00.000Z|0001|a7f2"
+  }
 }
 ```
 
-The tilde prefix (`~`) distinguishes system metadata from user-defined data, maintaining consistency with other system-reserved keys like `~id` and `~deletedAt` in encoded documents.
+This format follows the [JSON:API specification](https://jsonapi.org/format/#document-structure) and is used consistently across disk storage, sync messages, network transport, and export/import operations.
 
 ### Merging Collections
 
@@ -239,7 +246,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`document.ts`](../packages/core/src/crdt/document.ts) | Attaches system metadata (`~id`, `~deletedAt`) and handles soft-deletion |
+| [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta.deletedAt`) and soft-deletion |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
 | [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 

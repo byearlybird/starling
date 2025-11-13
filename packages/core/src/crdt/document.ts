@@ -14,19 +14,26 @@ import {
 } from "./value";
 
 /**
- * Top-level document structure with system metadata for tracking identity,
- * data, and deletion state. Documents are the primary unit of storage and
- * synchronization in Starling.
+ * Top-level document structure following JSON:API resource object specification.
+ * Documents are the primary unit of storage and synchronization in Starling.
  *
- * The tilde prefix (~) distinguishes system metadata from user-defined data.
+ * This format is used consistently across disk storage, sync messages, network
+ * transport, and export/import operations.
+ *
+ * @see https://jsonapi.org/format/#document-resource-objects
  */
 export type EncodedDocument = {
+	/** Resource type identifier (collection name) */
+	type: string;
 	/** Unique identifier for this document */
-	"~id": string;
-	/** The document's data, either a primitive value or nested object structure */
-	"~data": EncodedValue<unknown> | EncodedRecord;
-	/** Eventstamp when this document was soft-deleted, or null if not deleted */
-	"~deletedAt": string | null;
+	id: string;
+	/** The document's CRDT data with eventstamps */
+	attributes: EncodedValue<unknown> | EncodedRecord;
+	/** System metadata and internal fields */
+	meta: {
+		/** Eventstamp when this document was soft-deleted, or null if not deleted */
+		deletedAt: string | null;
+	};
 };
 
 export function encodeDoc<T>(
@@ -34,27 +41,37 @@ export function encodeDoc<T>(
 	obj: T,
 	eventstamp: string,
 	deletedAt: string | null = null,
+	type = "resource",
 ): EncodedDocument {
 	return {
-		"~id": id,
-		"~data": isObject(obj)
+		type,
+		id,
+		attributes: isObject(obj)
 			? encodeRecord(obj as Record<string, unknown>, eventstamp)
 			: encodeValue(obj, eventstamp),
-		"~deletedAt": deletedAt,
+		meta: {
+			deletedAt,
+		},
 	};
 }
 
 export function decodeDoc<T>(doc: EncodedDocument): {
-	"~id": string;
-	"~data": T;
-	"~deletedAt": string | null;
+	type: string;
+	id: string;
+	data: T;
+	meta: {
+		deletedAt: string | null;
+	};
 } {
 	return {
-		"~id": doc["~id"],
-		"~data": (isEncodedValue(doc["~data"])
-			? decodeValue(doc["~data"] as EncodedValue<T>)
-			: decodeRecord(doc["~data"] as EncodedRecord)) as T,
-		"~deletedAt": doc["~deletedAt"],
+		type: doc.type,
+		id: doc.id,
+		data: (isEncodedValue(doc.attributes)
+			? decodeValue(doc.attributes as EncodedValue<T>)
+			: decodeRecord(doc.attributes as EncodedRecord)) as T,
+		meta: {
+			deletedAt: doc.meta.deletedAt,
+		},
 	};
 }
 
@@ -62,8 +79,8 @@ export function mergeDocs(
 	into: EncodedDocument,
 	from: EncodedDocument,
 ): [EncodedDocument, string] {
-	const intoIsValue = isEncodedValue(into["~data"]);
-	const fromIsValue = isEncodedValue(from["~data"]);
+	const intoIsValue = isEncodedValue(into.attributes);
+	const fromIsValue = isEncodedValue(from.attributes);
 
 	// Type mismatch: cannot merge primitive with object
 	if (intoIsValue !== fromIsValue) {
@@ -73,20 +90,20 @@ export function mergeDocs(
 	const [mergedData, dataEventstamp] =
 		intoIsValue && fromIsValue
 			? mergeValues(
-					into["~data"] as EncodedValue<unknown>,
-					from["~data"] as EncodedValue<unknown>,
+					into.attributes as EncodedValue<unknown>,
+					from.attributes as EncodedValue<unknown>,
 				)
 			: mergeRecords(
-					into["~data"] as EncodedRecord,
-					from["~data"] as EncodedRecord,
+					into.attributes as EncodedRecord,
+					from.attributes as EncodedRecord,
 				);
 
 	const mergedDeletedAt =
-		into["~deletedAt"] && from["~deletedAt"]
-			? into["~deletedAt"] > from["~deletedAt"]
-				? into["~deletedAt"]
-				: from["~deletedAt"]
-			: into["~deletedAt"] || from["~deletedAt"] || null;
+		into.meta.deletedAt && from.meta.deletedAt
+			? into.meta.deletedAt > from.meta.deletedAt
+				? into.meta.deletedAt
+				: from.meta.deletedAt
+			: into.meta.deletedAt || from.meta.deletedAt || null;
 
 	// Bubble up the greatest eventstamp from both data and deletion timestamp
 	let greatestEventstamp: string = dataEventstamp;
@@ -96,9 +113,12 @@ export function mergeDocs(
 
 	return [
 		{
-			"~id": into["~id"],
-			"~data": mergedData,
-			"~deletedAt": mergedDeletedAt,
+			type: into.type,
+			id: into.id,
+			attributes: mergedData,
+			meta: {
+				deletedAt: mergedDeletedAt,
+			},
 		},
 		greatestEventstamp,
 	];
@@ -109,9 +129,12 @@ export function deleteDoc(
 	eventstamp: string,
 ): EncodedDocument {
 	return {
-		"~id": doc["~id"],
-		"~data": doc["~data"],
-		"~deletedAt": eventstamp,
+		type: doc.type,
+		id: doc.id,
+		attributes: doc.attributes,
+		meta: {
+			deletedAt: eventstamp,
+		},
 	};
 }
 
@@ -137,13 +160,16 @@ export function processDocument(
 	doc: EncodedDocument,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
 ): EncodedDocument {
-	const processedData = isEncodedValue(doc["~data"])
-		? process(doc["~data"] as EncodedValue<unknown>)
-		: processRecord(doc["~data"] as EncodedRecord, process);
+	const processedData = isEncodedValue(doc.attributes)
+		? process(doc.attributes as EncodedValue<unknown>)
+		: processRecord(doc.attributes as EncodedRecord, process);
 
 	return {
-		"~id": doc["~id"],
-		"~data": processedData,
-		"~deletedAt": doc["~deletedAt"],
+		type: doc.type,
+		id: doc.id,
+		attributes: processedData,
+		meta: {
+			deletedAt: doc.meta.deletedAt,
+		},
 	};
 }

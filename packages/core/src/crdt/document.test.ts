@@ -8,9 +8,9 @@ test("encodeDoc creates EncodedDocument with null ~deletedAt", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	expect(result["~id"]).toBe("user-1");
-	expect(result["~deletedAt"]).toBe(null);
-	expect(result["~data"]).toBeDefined();
+	expect(result.id).toBe("user-1");
+	expect(result.meta.deletedAt).toBe(null);
+	expect(result.attributes).toBeDefined();
 });
 
 test("encodeDoc with id", () => {
@@ -20,9 +20,9 @@ test("encodeDoc with id", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	expect(result["~id"]).toBe("user-2");
-	expect(result["~deletedAt"]).toBe(null);
-	expect(result["~data"]).toBeDefined();
+	expect(result.id).toBe("user-2");
+	expect(result.meta.deletedAt).toBe(null);
+	expect(result.attributes).toBeDefined();
 });
 
 test("decodeDoc returns original data structure", () => {
@@ -31,9 +31,9 @@ test("decodeDoc returns original data structure", () => {
 	const encoded = encodeDoc("user-3", original, eventstamp);
 	const decoded = decodeDoc(encoded);
 
-	expect(decoded["~id"]).toBe("user-3");
-	expect(decoded["~deletedAt"]).toBe(null);
-	expect(decoded["~data"]).toEqual(original);
+	expect(decoded.id).toBe("user-3");
+	expect(decoded.meta.deletedAt).toBe(null);
+	expect(decoded.data).toEqual(original);
 });
 
 test("mergeDocs both deleted - keeps greater timestamp", () => {
@@ -41,14 +41,14 @@ test("mergeDocs both deleted - keeps greater timestamp", () => {
 	const eventstamp2 = "2025-01-02T00:00:00.000Z|0000|c3d4";
 
 	const doc1 = encodeDoc("doc-1", { name: "Alice" }, eventstamp1);
-	doc1["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
+	doc1.meta.deletedAt = "2025-01-01T12:00:00.000Z|0001|g7h8";
 
 	const doc2 = encodeDoc("doc-2", { name: "Bob" }, eventstamp2);
-	doc2["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
+	doc2.meta.deletedAt = "2025-01-02T12:00:00.000Z|0002|i9j0";
 
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
-	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
+	expect(merged.meta.deletedAt).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 });
 
@@ -58,18 +58,18 @@ test("mergeDocs both deleted - keeps greater timestamp (reverse order)", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	doc1["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
+	doc1.meta.deletedAt = "2025-01-02T12:00:00.000Z|0002|i9j0";
 
 	const doc2 = encodeDoc(
 		"doc-2",
 		{ name: "Bob" },
 		"2025-01-02T00:00:00.000Z|0000|c3d4",
 	);
-	doc2["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
+	doc2.meta.deletedAt = "2025-01-01T12:00:00.000Z|0001|g7h8";
 
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
-	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
+	expect(merged.meta.deletedAt).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 });
 
@@ -79,18 +79,18 @@ test("mergeDocs one deleted - keeps the deleted one", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	doc1["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
+	doc1.meta.deletedAt = "2025-01-01T12:00:00.000Z|0001|g7h8";
 
 	const doc2 = encodeDoc(
 		"doc-2",
 		{ name: "Bob" },
 		"2025-01-02T00:00:00.000Z|0000|c3d4",
 	);
-	doc2["~deletedAt"] = null;
+	doc2.meta.deletedAt = null;
 
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
-	expect(merged["~deletedAt"]).toBe("2025-01-01T12:00:00.000Z|0001|g7h8");
+	expect(merged.meta.deletedAt).toBe("2025-01-01T12:00:00.000Z|0001|g7h8");
 	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
 });
 
@@ -100,18 +100,18 @@ test("mergeDocs one deleted (from) - keeps the deleted one", () => {
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	doc1["~deletedAt"] = null;
+	doc1.meta.deletedAt = null;
 
 	const doc2 = encodeDoc(
 		"doc-2",
 		{ name: "Bob" },
 		"2025-01-02T00:00:00.000Z|0000|c3d4",
 	);
-	doc2["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
+	doc2.meta.deletedAt = "2025-01-02T12:00:00.000Z|0002|i9j0";
 
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
-	expect(merged["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
+	expect(merged.meta.deletedAt).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
 });
 
@@ -129,7 +129,7 @@ test("mergeDocs neither deleted - returns null", () => {
 
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 
-	expect(merged["~deletedAt"]).toBe(null);
+	expect(merged.meta.deletedAt).toBe(null);
 	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
 });
 
@@ -148,7 +148,7 @@ test("mergeDocs preserves ~id from into document", () => {
 
 	const [merged] = mergeDocs(doc1, doc2);
 
-	expect(merged["~id"]).toBe("doc-1");
+	expect(merged.id).toBe("doc-1");
 });
 
 test("mergeDocs merges ~data using object mergeDocs", () => {
@@ -166,8 +166,8 @@ test("mergeDocs merges ~data using object mergeDocs", () => {
 	const [merged, eventstamp] = mergeDocs(doc1, doc2);
 	const decoded = decodeDoc(merged);
 
-	expect(decoded["~data"]).toBeDefined();
-	expect(merged["~data"]).toBeDefined();
+	expect(decoded.data).toBeDefined();
+	expect(merged.attributes).toBeDefined();
 	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
 });
 
@@ -178,9 +178,9 @@ test("deleteDoc marks document as deleted with eventstamp", () => {
 
 	const deleted = deleteDoc(doc, deleteEventstamp);
 
-	expect(deleted["~deletedAt"]).toBe(deleteEventstamp);
-	expect(deleted["~id"]).toBe("user-1");
-	expect(deleted["~data"]).toEqual(doc["~data"]);
+	expect(deleted.meta.deletedAt).toBe(deleteEventstamp);
+	expect(deleted.id).toBe("user-1");
+	expect(deleted.attributes).toEqual(doc.attributes);
 });
 
 test("deleteDoc preserves original document id and data", () => {
@@ -192,8 +192,8 @@ test("deleteDoc preserves original document id and data", () => {
 
 	const deleted = deleteDoc(doc, "2025-01-02T00:00:00.000Z|1");
 
-	expect(deleted["~id"]).toBe("doc-123");
-	expect(deleted["~data"]).toBe(doc["~data"]);
+	expect(deleted.id).toBe("doc-123");
+	expect(deleted.attributes).toBe(doc.attributes);
 });
 
 test("deleteDoc can be called on already deleted document", () => {
@@ -202,11 +202,11 @@ test("deleteDoc can be called on already deleted document", () => {
 		{ name: "Bob" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	doc["~deletedAt"] = "2025-01-02T00:00:00.000Z|1";
+	doc.meta.deletedAt = "2025-01-02T00:00:00.000Z|1";
 
 	const redeleted = deleteDoc(doc, "2025-01-03T00:00:00.000Z|0002|e5f6");
 
-	expect(redeleted["~deletedAt"]).toBe("2025-01-03T00:00:00.000Z|0002|e5f6");
+	expect(redeleted.meta.deletedAt).toBe("2025-01-03T00:00:00.000Z|0002|e5f6");
 });
 
 test("deleteDoc with decodeDoc shows document is deleted", () => {
@@ -218,8 +218,8 @@ test("deleteDoc with decodeDoc shows document is deleted", () => {
 	const deleted = deleteDoc(doc, "2025-01-02T00:00:00.000Z|1");
 	const decoded = decodeDoc(deleted);
 
-	expect(decoded["~deletedAt"]).toBe("2025-01-02T00:00:00.000Z|1");
-	expect(decoded["~data"]).toEqual({ name: "Alice" });
+	expect(decoded.meta.deletedAt).toBe("2025-01-02T00:00:00.000Z|1");
+	expect(decoded.data).toEqual({ name: "Alice" });
 });
 
 // === Primitive Document Tests ===
@@ -231,9 +231,9 @@ test("encodeDoc primitive (string) creates valid EncodedDocument", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	expect(result["~id"]).toBe("msg-1");
-	expect(result["~deletedAt"]).toBe(null);
-	expect(result["~data"]).toBeDefined();
+	expect(result.id).toBe("msg-1");
+	expect(result.meta.deletedAt).toBe(null);
+	expect(result.attributes).toBeDefined();
 });
 
 test("encodeDoc/decodeDoc primitive (string) round-trip", () => {
@@ -245,9 +245,9 @@ test("encodeDoc/decodeDoc primitive (string) round-trip", () => {
 	);
 	const decoded = decodeDoc<string>(encoded);
 
-	expect(decoded["~id"]).toBe("key-1");
-	expect(decoded["~data"]).toBe(original);
-	expect(decoded["~deletedAt"]).toBe(null);
+	expect(decoded.id).toBe("key-1");
+	expect(decoded.data).toBe(original);
+	expect(decoded.meta.deletedAt).toBe(null);
 });
 
 test("encodeDoc/decodeDoc primitive (number) round-trip", () => {
@@ -259,8 +259,8 @@ test("encodeDoc/decodeDoc primitive (number) round-trip", () => {
 	);
 	const decoded = decodeDoc<number>(encoded);
 
-	expect(decoded["~id"]).toBe("count-1");
-	expect(decoded["~data"]).toBe(original);
+	expect(decoded.id).toBe("count-1");
+	expect(decoded.data).toBe(original);
 });
 
 test("encodeDoc/decodeDoc primitive (boolean) round-trip", () => {
@@ -272,8 +272,8 @@ test("encodeDoc/decodeDoc primitive (boolean) round-trip", () => {
 	);
 	const decoded = decodeDoc<boolean>(encoded);
 
-	expect(decoded["~id"]).toBe("flag-1");
-	expect(decoded["~data"]).toBe(original);
+	expect(decoded.id).toBe("flag-1");
+	expect(decoded.data).toBe(original);
 });
 
 test("mergeDocs primitives - newer eventstamp wins", () => {
@@ -292,7 +292,7 @@ test("mergeDocs primitives - newer eventstamp wins", () => {
 	const decoded = decodeDoc<number>(merged);
 
 	// Newer value (200) should win
-	expect(decoded["~data"]).toBe(200);
+	expect(decoded.data).toBe(200);
 	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
 });
 
@@ -312,7 +312,7 @@ test("mergeDocs primitives - newer eventstamp wins (reverse order)", () => {
 	const decoded = decodeDoc<string>(merged);
 
 	// Newer value ("new message") should win
-	expect(decoded["~data"]).toBe("new message");
+	expect(decoded.data).toBe("new message");
 	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
 });
 
@@ -325,7 +325,7 @@ test("mergeDocs primitives with equal eventstamps uses from value", () => {
 	const decoded = decodeDoc<string>(merged);
 
 	// With equal timestamps, from value (second parameter) is used
-	expect(decoded["~data"]).toBe("second");
+	expect(decoded.data).toBe("second");
 	expect(returnedEventstamp).toBe(eventstamp);
 });
 
@@ -333,12 +333,12 @@ test("deleteDoc primitive document works correctly", () => {
 	const doc = encodeDoc("count-1", 42, "2025-01-01T00:00:00.000Z|0000|a1b2");
 	const deleted = deleteDoc(doc, "2025-01-02T00:00:00.000Z|1");
 
-	expect(deleted["~deletedAt"]).toBe("2025-01-02T00:00:00.000Z|1");
-	expect(deleted["~id"]).toBe("count-1");
+	expect(deleted.meta.deletedAt).toBe("2025-01-02T00:00:00.000Z|1");
+	expect(deleted.id).toBe("count-1");
 
 	const decoded = decodeDoc<number>(deleted);
-	expect(decoded["~data"]).toBe(42);
-	expect(decoded["~deletedAt"]).not.toBeNull();
+	expect(decoded.data).toBe(42);
+	expect(decoded.meta.deletedAt).not.toBeNull();
 });
 
 test("mergeDocs throws error when merging primitive with object", () => {
@@ -395,8 +395,8 @@ test("mergeDocs bubbles newest eventstamp from nested object fields", () => {
 	// The newest eventstamp should bubble up to mergeDocs
 	expect(eventstamp).toBe("2025-01-05T00:00:00.000Z|0000|k1l2");
 	// And the merge should work correctly
-	expect(decoded["~data"].user.name).toBe("Alice");
-	expect(decoded["~data"].user.email).toBe("alice@new.com");
+	expect(decoded.data.user.name).toBe("Alice");
+	expect(decoded.data.user.email).toBe("alice@new.com");
 });
 
 test("mergeDocs returns newest eventstamp even with multiple nested changes", () => {

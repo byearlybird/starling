@@ -211,10 +211,10 @@ export class Store<T> {
 		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -430,8 +430,8 @@ export class Store<T> {
 	}
 
 	#decodeActive(doc: EncodedDocument | null): T | null {
-		if (!doc || doc["~deletedAt"]) return null;
-		return decodeDoc<T>(doc)["~data"];
+		if (!doc || doc.meta.deletedAt) return null;
+		return decodeDoc<T>(doc).data;
 	}
 
 	#emitMutations(
