@@ -1,4 +1,4 @@
-import { type EncodedDocument, mergeDocs } from "./document";
+import { type ResourceObject, mergeDocs } from "./document";
 
 /**
  * A collection represents the complete state of a store following JSON:API
@@ -17,7 +17,7 @@ import { type EncodedDocument, mergeDocs } from "./document";
  */
 export type Collection = {
 	/** Array of resource objects (documents) with CRDT data and metadata */
-	data: EncodedDocument[];
+	data: ResourceObject[];
 
 	/** Collection-level metadata */
 	meta: {
@@ -32,10 +32,10 @@ export type Collection = {
  */
 export type CollectionChanges = {
 	/** Documents that were newly added (didn't exist before or were previously deleted) */
-	added: Map<string, EncodedDocument>;
+	added: Map<string, ResourceObject>;
 
 	/** Documents that were modified (existed before and changed) */
-	updated: Map<string, EncodedDocument>;
+	updated: Map<string, ResourceObject>;
 
 	/** Documents that were deleted (newly marked with ~deletedAt) */
 	deleted: Set<string>;
@@ -94,18 +94,18 @@ export function mergeCollections(
 	from: Collection,
 ): MergeCollectionsResult {
 	// Build index of base documents by ID for efficient lookup
-	const intoDocsById = new Map<string, EncodedDocument>();
+	const intoDocsById = new Map<string, ResourceObject>();
 	for (const doc of into.data) {
 		intoDocsById.set(doc.id, doc);
 	}
 
 	// Track changes for hook notifications
-	const added = new Map<string, EncodedDocument>();
-	const updated = new Map<string, EncodedDocument>();
+	const added = new Map<string, ResourceObject>();
+	const updated = new Map<string, ResourceObject>();
 	const deleted = new Set<string>();
 
 	// Start with base documents, will update/add as we process source
-	const mergedDocsById = new Map<string, EncodedDocument>(intoDocsById);
+	const mergedDocsById = new Map<string, ResourceObject>(intoDocsById);
 
 	// Process each source document
 	for (const fromDoc of from.data) {

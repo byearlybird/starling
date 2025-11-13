@@ -1,6 +1,6 @@
 export type {
 	Collection,
-	EncodedDocument,
+	ResourceObject,
 	EncodedRecord,
 	EncodedValue,
 } from "./crdt";

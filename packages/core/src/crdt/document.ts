@@ -14,15 +14,15 @@ import {
 } from "./value";
 
 /**
- * Top-level document structure following JSON:API resource object specification.
- * Documents are the primary unit of storage and synchronization in Starling.
+ * JSON:API resource object representing a document with CRDT data.
  *
+ * Resource objects are the primary unit of storage and synchronization in Starling.
  * This format is used consistently across disk storage, sync messages, network
  * transport, and export/import operations.
  *
  * @see https://jsonapi.org/format/#document-resource-objects
  */
-export type EncodedDocument = {
+export type ResourceObject = {
 	/** Resource type identifier (collection name) */
 	type: string;
 	/** Unique identifier for this document */
@@ -42,7 +42,7 @@ export function encodeDoc<T>(
 	eventstamp: string,
 	deletedAt: string | null = null,
 	type = "resource",
-): EncodedDocument {
+): ResourceObject {
 	return {
 		type,
 		id,
@@ -55,7 +55,7 @@ export function encodeDoc<T>(
 	};
 }
 
-export function decodeDoc<T>(doc: EncodedDocument): {
+export function decodeDoc<T>(doc: ResourceObject): {
 	type: string;
 	id: string;
 	data: T;
@@ -76,9 +76,9 @@ export function decodeDoc<T>(doc: EncodedDocument): {
 }
 
 export function mergeDocs(
-	into: EncodedDocument,
-	from: EncodedDocument,
-): [EncodedDocument, string] {
+	into: ResourceObject,
+	from: ResourceObject,
+): [ResourceObject, string] {
 	const intoIsValue = isEncodedValue(into.attributes);
 	const fromIsValue = isEncodedValue(from.attributes);
 
@@ -125,9 +125,9 @@ export function mergeDocs(
 }
 
 export function deleteDoc(
-	doc: EncodedDocument,
+	doc: ResourceObject,
 	eventstamp: string,
-): EncodedDocument {
+): ResourceObject {
 	return {
 		type: doc.type,
 		id: doc.id,
@@ -157,9 +157,9 @@ export function deleteDoc(
  * ```
  */
 export function processDocument(
-	doc: EncodedDocument,
+	doc: ResourceObject,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): EncodedDocument {
+): ResourceObject {
 	const processedData = isEncodedValue(doc.attributes)
 		? process(doc.attributes as EncodedValue<unknown>)
 		: processRecord(doc.attributes as EncodedRecord, process);

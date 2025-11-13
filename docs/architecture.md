@@ -124,7 +124,7 @@ The `Collection` type represents the complete persistent state of a store, follo
 
 ```typescript
 export type Collection = {
-  data: EncodedDocument[];
+  data: ResourceObject[];
   meta: {
     eventstamp: string;
   };
@@ -278,7 +278,7 @@ Starling ships as a monorepo with subpath exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `EncodedDocument`, `processDocument`  
+**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `ResourceObject`, `processDocument`
 **Dependencies**: Zero runtime dependencies
 
 Provides the core store implementation, built-in queries, and plugin hooks.

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from ".";
 
-test("encodeDoc creates EncodedDocument with null ~deletedAt", () => {
+test("encodeDoc creates ResourceObject with null ~deletedAt", () => {
 	const result = encodeDoc(
 		"user-1",
 		{ name: "Alice", age: 30 },
@@ -224,7 +224,7 @@ test("deleteDoc with decodeDoc shows document is deleted", () => {
 
 // === Primitive Document Tests ===
 
-test("encodeDoc primitive (string) creates valid EncodedDocument", () => {
+test("encodeDoc primitive (string) creates valid ResourceObject", () => {
 	const result = encodeDoc(
 		"msg-1",
 		"hello",

@@ -1,7 +1,7 @@
 import { Clock } from "../clock";
 import type { Collection } from "./collection";
 import { mergeCollections } from "./collection";
-import type { EncodedDocument } from "./document";
+import type { ResourceObject } from "./document";
 import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
 
 /**
@@ -23,11 +23,11 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  * ```
  */
 export class CRDT<T> {
-	#map: Map<string, EncodedDocument>;
+	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 
 	constructor(
-		map: Map<string, EncodedDocument> = new Map(),
+		map: Map<string, ResourceObject> = new Map(),
 		eventstamp?: string,
 	) {
 		this.#map = map;
@@ -112,7 +112,7 @@ export class CRDT<T> {
 	/**
 	 * Clone the internal map of encoded documents.
 	 */
-	cloneMap(): Map<string, EncodedDocument> {
+	cloneMap(): Map<string, ResourceObject> {
 		return new Map(this.#map);
 	}
 

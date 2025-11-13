@@ -1,7 +1,7 @@
 import { bench, group, run } from "mitata";
 import {
 	decodeDoc,
-	type EncodedDocument,
+	type ResourceObject,
 	encodeDoc,
 	generateNonce,
 	mergeDocs,
@@ -55,8 +55,8 @@ function generateEventstamp(counter: number): string {
 }
 
 // Create pre-encoded documents for decode benchmarks
-function createEncodedDocuments(count: number): EncodedDocument[] {
-	const docs: EncodedDocument[] = [];
+function createEncodedDocuments(count: number): ResourceObject[] {
+	const docs: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
 		const doc = encodeDoc(
 			`doc-${i}`,
@@ -71,9 +71,9 @@ function createEncodedDocuments(count: number): EncodedDocument[] {
 // Create paired document sets for merging
 function createPairedDocuments(
 	count: number,
-): [EncodedDocument[], EncodedDocument[]] {
-	const docs1: EncodedDocument[] = [];
-	const docs2: EncodedDocument[] = [];
+): [ResourceObject[], ResourceObject[]] {
+	const docs1: ResourceObject[] = [];
+	const docs2: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
 		docs1.push(
 			encodeDoc(`doc-${i}`, generateTestData(i), generateEventstamp(i)),

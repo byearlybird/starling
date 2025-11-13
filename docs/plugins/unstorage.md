@@ -50,7 +50,7 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 **Parameters:**
 
 - `namespace` – Unique key for the dataset inside your storage backend.
-- `storage` – Any `Storage<Collection>` instance returned by `createStorage()`. Collections follow JSON:API format: `{ data: EncodedDocument[], meta: { eventstamp: string } }`.
+- `storage` – Any `Storage<Collection>` instance returned by `createStorage()`. Collections follow JSON:API format: `{ data: ResourceObject[], meta: { eventstamp: string } }`.
 - `config.debounceMs` – Optional delay (in ms) used to collapse rapid mutations into a single persistence call. Defaults to `0` (write immediately).
 - `config.pollIntervalMs` – Optional interval (in ms) to poll storage for external changes. When set, the plugin will periodically check storage and merge any external updates. Useful for multi-process or shared storage scenarios.
 - `config.skip` – Optional function that returns `true` to skip persistence operations. Useful for conditional persistence (e.g., `skip: () => !navigator.onLine` to skip when offline).

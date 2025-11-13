@@ -1,4 +1,4 @@
-import type { Collection, EncodedDocument } from "./crdt";
+import type { Collection, ResourceObject } from "./crdt";
 import { CRDT, decodeDoc, mergeCollections } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
@@ -429,7 +429,7 @@ export class Store<T> {
 		};
 	}
 
-	#decodeActive(doc: EncodedDocument | null): T | null {
+	#decodeActive(doc: ResourceObject | null): T | null {
 		if (!doc || doc.meta["~deletedAt"]) return null;
 		return decodeDoc<T>(doc).data;
 	}
