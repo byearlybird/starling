@@ -1,35 +1,35 @@
 import { Clock } from "../clock";
-import type { Document } from "./collection";
-import { mergeDocuments } from "./collection";
-import type { ResourceObject } from "./document";
+import type { Document } from "./document";
+import { mergeDocuments } from "./document";
+import type { ResourceObject } from "./resource";
 import {
 	decodeResource,
 	deleteResource,
 	encodeResource,
 	mergeResources,
-} from "./document";
+} from "./resource";
 
 /**
- * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
- * Last-Write-Wins semantics for conflict resolution.
+ * An Observed-Remove Map (OR-Map) with Last-Write-Wins semantics for
+ * conflict resolution.
  *
  * This class provides state-based replication with automatic convergence.
  * Multiple replicas applying the same operations will converge to the same state.
  *
- * The CRDT layer handles merge logic and I/O operations with a clean public
+ * The ResourceMap handles merge logic and I/O operations with a clean public
  * interface using plain JavaScript objects, while internally managing encoded
- * documents for merge tracking.
+ * resource objects for merge tracking.
  *
- * Per JSON:API specification, documents must be objects (not primitives).
+ * Documents must be objects (not primitives).
  *
  * @example
  * ```typescript
- * const crdt = new CRDT(new Map());
- * crdt.add("id1", { name: "Alice" });
- * const doc = crdt.get("id1"); // { name: "Alice" }
+ * const map = new ResourceMap();
+ * map.add("id1", { name: "Alice" });
+ * const doc = map.get("id1"); // { name: "Alice" }
  * ```
  */
-export class CRDT<T extends Record<string, unknown>> {
+export class ResourceMap<T extends Record<string, unknown>> {
 	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 
@@ -117,13 +117,17 @@ export class CRDT<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Clone the internal map of encoded documents.
+	 * Clone the internal map of encoded resource objects.
 	 */
 	cloneMap(): Map<string, ResourceObject> {
 		return new Map(this.#map);
 	}
 
-	snapshot(): Document {
+	/**
+	 * Export the current state as a document.
+	 * @returns Document containing all resource objects and metadata
+	 */
+	document(): Document {
 		return {
 			data: Array.from(this.#map.values()),
 			meta: {
@@ -133,11 +137,11 @@ export class CRDT<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Merge another document into this CRDT using field-level Last-Write-Wins.
-	 * @param document - JSON:API document from another replica or storage
+	 * Merge another document into this map using field-level Last-Write-Wins.
+	 * @param document - Document from another replica or storage
 	 */
 	merge(document: Document): void {
-		const currentDocument = this.snapshot();
+		const currentDocument = this.document();
 		const result = mergeDocuments(currentDocument, document);
 
 		this.#clock.forward(result.document.meta["~eventstamp"]);
@@ -146,10 +150,15 @@ export class CRDT<T extends Record<string, unknown>> {
 		);
 	}
 
-	static fromSnapshot<U extends Record<string, unknown>>(
+	/**
+	 * Create a ResourceMap instance from a document.
+	 * @param document - Document to hydrate from
+	 * @returns New ResourceMap instance initialized with the document's data
+	 */
+	static fromDocument<U extends Record<string, unknown>>(
 		document: Document,
-	): CRDT<U> {
-		return new CRDT<U>(
+	): ResourceMap<U> {
+		return new ResourceMap<U>(
 			new Map(document.data.map((resource) => [resource.id, resource])),
 			document.meta["~eventstamp"],
 		);

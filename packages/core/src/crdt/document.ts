@@ -1,198 +1,189 @@
-import {
-	decodeRecord,
-	type EncodedRecord,
-	encodeRecord,
-	mergeRecords,
-	processRecord,
-} from "./record";
-import { isObject } from "./utils";
-import type { EncodedValue } from "./value";
+import { mergeResources, type ResourceObject } from "./resource";
 
 /**
- * JSON:API resource object representing a document with CRDT data.
+ * A document representing the complete state of a store.
  *
- * Resource objects are the primary unit of storage and synchronization in Starling.
- * This format is used consistently across disk storage, sync messages, network
- * transport, and export/import operations.
+ * This is the canonical format used across disk storage, sync messages,
+ * network transport, and export/import operations.
  *
- * Per JSON:API specification, attributes must be an object (not a primitive).
+ * Documents contain:
+ * - An array of resource objects (including soft-deleted ones)
+ * - Metadata including the highest eventstamp for clock synchronization
  *
- * @see https://jsonapi.org/format/#document-resource-objects
+ * Documents are the unit of synchronization between store replicas.
+ *
+ * @see https://jsonapi.org/format/#document-structure
  */
-export type ResourceObject = {
-	/** Resource type identifier (collection name) */
-	type: string;
-	/** Unique identifier for this resource */
-	id: string;
-	/** The resource's CRDT data with eventstamps (must be an object per JSON:API spec) */
-	attributes: EncodedRecord;
-	/** System metadata and internal fields */
+export type Document = {
+	/** Array of resource objects with versioned data and metadata */
+	data: ResourceObject[];
+
+	/** Document-level metadata */
 	meta: {
-		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
-		"~deletedAt": string | null;
+		/** Latest eventstamp observed by this document for clock synchronization */
+		"~eventstamp": string;
 	};
 };
 
 /**
- * Encode a plain JavaScript object into a JSON:API resource object with CRDT metadata.
- *
- * Per JSON:API specification, only objects are supported (not primitives).
- *
- * @param id - Unique identifier for this resource
- * @param obj - Plain JavaScript object to encode (must be an object, not a primitive)
- * @param eventstamp - Timestamp for this write operation
- * @param deletedAt - Optional deletion timestamp
- * @param type - Resource type identifier (defaults to "resource")
- * @returns Encoded resource object with CRDT data
- * @throws Error if obj is not an object
+ * Change tracking information returned by mergeDocuments.
+ * Categorizes resource objects by mutation type for hook notifications.
  */
-export function encodeResource<T extends Record<string, unknown>>(
-	id: string,
-	obj: T,
-	eventstamp: string,
-	deletedAt: string | null = null,
-	type = "resource",
-): ResourceObject {
-	if (!isObject(obj)) {
-		throw new Error(
-			"Resource attributes must be an object per JSON:API specification",
-		);
-	}
+export type DocumentChanges = {
+	/** Resource objects that were newly added (didn't exist before or were previously deleted) */
+	added: Map<string, ResourceObject>;
 
-	return {
-		type,
-		id,
-		attributes: encodeRecord(obj, eventstamp),
-		meta: {
-			"~deletedAt": deletedAt,
-		},
-	};
-}
+	/** Resource objects that were modified (existed before and changed) */
+	updated: Map<string, ResourceObject>;
+
+	/** Resource objects that were deleted (newly marked with ~deletedAt) */
+	deleted: Set<string>;
+};
 
 /**
- * Decode a JSON:API resource object back into a plain JavaScript object.
- *
- * @param resource - Encoded resource object
- * @returns Decoded object with type, id, data, and metadata
+ * Result of merging two JSON:API documents.
  */
-export function decodeResource<T extends Record<string, unknown>>(
-	resource: ResourceObject,
-): {
-	type: string;
-	id: string;
-	data: T;
-	meta: {
-		"~deletedAt": string | null;
-	};
-} {
-	return {
-		type: resource.type,
-		id: resource.id,
-		data: decodeRecord(resource.attributes) as T,
-		meta: {
-			"~deletedAt": resource.meta["~deletedAt"],
-		},
-	};
-}
+export type MergeDocumentsResult = {
+	/** The merged document with updated resource objects and forwarded clock */
+	document: Document;
+
+	/** Change tracking for plugin hook notifications */
+	changes: DocumentChanges;
+};
 
 /**
- * Merge two JSON:API resource objects using field-level Last-Write-Wins.
+ * Merges two JSON:API documents using field-level Last-Write-Wins semantics.
  *
- * Per JSON:API specification, attributes are always objects, so we merge them
- * using field-level LWW semantics.
+ * The merge operation:
+ * 1. Forwards the clock to the newest eventstamp from either document
+ * 2. Merges each resource object pair using field-level LWW (via mergeDocs)
+ * 3. Tracks what changed for hook notifications (added/updated/deleted)
  *
- * @param into - Base resource object
- * @param from - Source resource object to merge in
- * @returns Tuple of [merged resource object, greatest eventstamp]
- */
-export function mergeResources(
-	into: ResourceObject,
-	from: ResourceObject,
-): [ResourceObject, string] {
-	// Merge attributes using field-level LWW (both are EncodedRecord per JSON:API spec)
-	const [mergedData, dataEventstamp] = mergeRecords(
-		into.attributes,
-		from.attributes,
-	);
-
-	const mergedDeletedAt =
-		into.meta["~deletedAt"] && from.meta["~deletedAt"]
-			? into.meta["~deletedAt"] > from.meta["~deletedAt"]
-				? into.meta["~deletedAt"]
-				: from.meta["~deletedAt"]
-			: into.meta["~deletedAt"] || from.meta["~deletedAt"] || null;
-
-	// Bubble up the greatest eventstamp from both data and deletion timestamp
-	let greatestEventstamp: string = dataEventstamp;
-	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
-		greatestEventstamp = mergedDeletedAt;
-	}
-
-	return [
-		{
-			type: into.type,
-			id: into.id,
-			attributes: mergedData,
-			meta: {
-				"~deletedAt": mergedDeletedAt,
-			},
-		},
-		greatestEventstamp,
-	];
-}
-
-/**
- * Mark a JSON:API resource object as soft-deleted.
+ * Deletion is final: once a resource object is deleted, updates to it are merged
+ * into its data but don't restore visibility. Only new resource objects or
+ * transitions into the deleted state are tracked.
  *
- * @param resource - Resource object to delete
- * @param eventstamp - Deletion timestamp
- * @returns Resource object marked with deletion timestamp
- */
-export function deleteResource(
-	resource: ResourceObject,
-	eventstamp: string,
-): ResourceObject {
-	return {
-		type: resource.type,
-		id: resource.id,
-		attributes: resource.attributes,
-		meta: {
-			"~deletedAt": eventstamp,
-		},
-	};
-}
-
-/**
- * Transform all values in a resource object using a provided function.
- *
- * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
- *
- * @param resource - Resource object to transform
- * @param process - Function to apply to each leaf value
- * @returns New resource object with transformed values
+ * @param into - The base document to merge into
+ * @param from - The source document to merge from
+ * @returns Merged document and categorized changes
  *
  * @example
- * ```ts
- * // Encrypt all values before persisting
- * const encrypted = processResource(resource, (value) => ({
- *   ...value,
- *   "~value": encrypt(value["~value"])
- * }));
+ * ```typescript
+ * const into = {
+ *   data: [{ type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }],
+ *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
+ * };
+ *
+ * const from = {
+ *   data: [
+ *     { type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }, // updated
+ *     { type: "resource", id: "doc2", attributes: {...}, meta: { "~deletedAt": null } }  // new
+ *   ],
+ *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
+ * };
+ *
+ * const result = mergeDocuments(into, from);
+ * // result.document.meta["~eventstamp"] === "2025-01-01T00:05:00.000Z|0001|c3d4"
+ * // result.changes.added has "doc2"
+ * // result.changes.updated has "doc1"
  * ```
  */
-export function processResource(
-	resource: ResourceObject,
-	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): ResourceObject {
-	// Per JSON:API spec, attributes are always objects (EncodedRecord)
-	const processedData = processRecord(resource.attributes, process);
+export function mergeDocuments(
+	into: Document,
+	from: Document,
+): MergeDocumentsResult {
+	// Build index of base resource objects by ID for efficient lookup
+	const intoResourcesById = new Map<string, ResourceObject>();
+	for (const resource of into.data) {
+		intoResourcesById.set(resource.id, resource);
+	}
+
+	// Track changes for hook notifications
+	const added = new Map<string, ResourceObject>();
+	const updated = new Map<string, ResourceObject>();
+	const deleted = new Set<string>();
+
+	// Start with base resource objects, will update/add as we process source
+	const mergedResourcesById = new Map<string, ResourceObject>(
+		intoResourcesById,
+	);
+
+	// Process each source resource object
+	for (const fromResource of from.data) {
+		const id = fromResource.id;
+		const intoResource = intoResourcesById.get(id);
+
+		if (!intoResource) {
+			// New resource object from source - store it and track if not deleted
+			mergedResourcesById.set(id, fromResource);
+			if (!fromResource.meta["~deletedAt"]) {
+				added.set(id, fromResource);
+			}
+		} else {
+			// Skip merge if resource objects are identical (same reference)
+			if (intoResource === fromResource) {
+				continue;
+			}
+
+			// Merge existing resource object using field-level LWW
+			const [mergedResource] = mergeResources(intoResource, fromResource);
+			mergedResourcesById.set(id, mergedResource);
+
+			// Track state transitions for hook notifications
+			const wasDeleted = intoResource.meta["~deletedAt"] !== null;
+			const isDeleted = mergedResource.meta["~deletedAt"] !== null;
+
+			// Only track transitions: new deletion or non-deleted update
+			if (!wasDeleted && isDeleted) {
+				// Transitioned to deleted
+				deleted.add(id);
+			} else if (!isDeleted) {
+				// Not deleted, so this is an update
+				// (including updates that occur while resource is deleted, which merge silently)
+				updated.set(id, mergedResource);
+			}
+			// If wasDeleted && isDeleted, resource stays deleted - no change tracking
+		}
+	}
+
+	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
+	const newestEventstamp =
+		into.meta["~eventstamp"] >= from.meta["~eventstamp"]
+			? into.meta["~eventstamp"]
+			: from.meta["~eventstamp"];
 
 	return {
-		type: resource.type,
-		id: resource.id,
-		attributes: processedData,
+		document: {
+			data: Array.from(mergedResourcesById.values()),
+			meta: {
+				"~eventstamp": newestEventstamp,
+			},
+		},
+		changes: {
+			added,
+			updated,
+			deleted,
+		},
+	};
+}
+
+/**
+ * Creates an empty JSON:API document with the given eventstamp.
+ * Useful for initializing new stores or testing.
+ *
+ * @param eventstamp - Initial clock value for this document
+ * @returns Empty document
+ *
+ * @example
+ * ```typescript
+ * const empty = createDocument("2025-01-01T00:00:00.000Z|0000|0000");
+ * ```
+ */
+export function createDocument(eventstamp: string): Document {
+	return {
+		data: [],
 		meta: {
-			"~deletedAt": resource.meta["~deletedAt"],
+			"~eventstamp": eventstamp,
 		},
 	};
 }

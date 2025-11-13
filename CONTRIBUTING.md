@@ -15,7 +15,7 @@ bun install
 
 ## Repository Structure
 
-For a detailed overview of the repository layout, architecture, eventstamps, CRDT-like merging, and module organization, see [Architecture](docs/architecture.md).
+For a detailed overview of the repository layout, architecture, eventstamps, state-based merging, and module organization, see [Architecture](docs/architecture.md).
 
 For a record of project-wide decisions, see the [Architecture Decision Log](docs/decision-log.md).
 
@@ -31,7 +31,7 @@ bun test --watch
 bun test packages/core/src/store.test.ts
 ```
 
-- The `core` suite exercises every CRDT primitive; run it whenever you touch merge logic, transaction behavior, or store hooks.
+- The `core` suite exercises every replication primitive; run it whenever you touch merge logic, transaction behavior, or store hooks.
 - When changing / creating plugins, add scenario-specific tests (e.g., using Bun's `test()` runner) in the same directory as the plugin.
 
 ## Linting and Formatting

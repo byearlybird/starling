@@ -1,5 +1,5 @@
 import type { Document, ResourceObject } from "./crdt";
-import { CRDT, decodeResource, mergeDocuments } from "./crdt";
+import { decodeResource, mergeDocuments, ResourceMap } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -133,7 +133,7 @@ type QueryInternal<T, U> = {
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * Per JSON:API specification, documents must be objects (not primitives).
+ * Documents must be objects (not primitives).
  *
  * @template T - The type of documents stored (must be a record/object type)
  *
@@ -154,7 +154,7 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T extends Record<string, unknown>> {
-	#crdt = new CRDT<T>();
+	#ResourceMap = new ResourceMap<T>();
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -176,7 +176,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns True if document exists, false otherwise
 	 */
 	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
-		return this.#crdt.has(key, opts);
+		return this.#ResourceMap.has(key, opts);
 	}
 
 	/**
@@ -184,7 +184,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
-		const current = this.#crdt.get(key);
+		const current = this.#ResourceMap.get(key);
 		return current ?? null;
 	}
 
@@ -192,27 +192,27 @@ export class Store<T extends Record<string, unknown>> {
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		return this.#crdt.entries();
+		return this.#ResourceMap.entries();
 	}
 
 	/**
-	 * Get the complete store state as a JSON:API document for persistence or sync.
+	 * Get the complete store state as a document for persistence or sync.
 	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
 	document(): Document {
-		return this.#crdt.snapshot();
+		return this.#ResourceMap.document();
 	}
 
 	/**
-	 * Merge a JSON:API document from storage or another replica using field-level LWW.
+	 * Merge a document from storage or another replica using field-level LWW.
 	 * @param document - Document from storage or another store instance
 	 */
 	merge(document: Document): void {
 		const currentDocument = this.document();
 		const result = mergeDocuments(currentDocument, document);
 
-		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.document);
+		// Replace the ResourceMap with the merged state
+		this.#ResourceMap = ResourceMap.fromDocument<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
@@ -257,8 +257,8 @@ export class Store<T extends Record<string, unknown>> {
 		const updateEntries: Array<readonly [string, T]> = [];
 		const deleteKeys: Array<string> = [];
 
-		// Create a staging CRDT by cloning the current state
-		const staging = CRDT.fromSnapshot<T>(this.#crdt.snapshot());
+		// Create a staging ResourceMap by cloning the current state
+		const staging = ResourceMap.fromDocument<T>(this.#ResourceMap.document());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
@@ -292,7 +292,7 @@ export class Store<T extends Record<string, unknown>> {
 		const result = callback(tx);
 
 		if (!rolledBack) {
-			this.#crdt = staging;
+			this.#ResourceMap = staging;
 			if (!silent) {
 				this.#emitMutations(addEntries, updateEntries, deleteKeys);
 			}

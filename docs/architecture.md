@@ -95,7 +95,7 @@ State-based replication keeps the implementation focused and efficient:
 
 ### Merge Behavior
 
-**Objects**: Per JSON:API specification, documents must be objects (not primitives). Starling merges objects recursively at the field level. Each nested field carries its own eventstamp, enabling fine-grained conflict resolution:
+**Objects**: Documents must be objects (not primitives). Starling merges objects recursively at the field level. Each nested field carries its own eventstamp, enabling fine-grained conflict resolution:
 
 ```typescript
 // Both clients edit different fields simultaneously
@@ -120,7 +120,7 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 
 ### Document Format
 
-The `Document` type represents the complete persistent state of a store, following the JSON:API document specification:
+The `Document` type represents the complete persistent state of a store as plain JSON:
 
 ```typescript
 export type Document = {
@@ -159,7 +159,7 @@ Example collection:
 }
 ```
 
-This format follows the [JSON:API specification](https://jsonapi.org/format/#document-structure) and is used consistently across disk storage, sync messages, network transport, and export/import operations.
+This JSON-serializable format is used consistently across disk storage, sync messages, network transport, and export/import operations. The structure follows [JSON:API](https://jsonapi.org/format/#document-structure) for interoperability with standard tooling.
 
 ### Merging Documents
 
@@ -246,9 +246,10 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitive field values (string, number, boolean, null) with eventstamps and merges them by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`); enforces object-only documents per JSON:API spec |
+| [`document.ts`](../packages/core/src/crdt/document.ts) | Resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`); enforces object-only documents |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
+| [`record-map.ts`](../packages/core/src/crdt/record-map.ts) | Observed-Remove Map implementing state-based replication with LWW semantics; provides add/update/delete operations and document-level merge |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal ResourceMap storage with transactional staging |
 
 ### Data Flow
 
@@ -267,7 +268,7 @@ store.merge(document) → mergeDocuments(into, from) → Resource merge (mergeRe
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
-                       Update CRDT map             Track changes (add/update/delete)
+                      Update ResourceMap             Track changes (add/update/delete)
                               ↓
                         Plugin hooks (with tracked changes)
 ```
@@ -281,7 +282,7 @@ Starling ships as a monorepo with subpath exports:
 **Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `Document`, `ResourceObject`, `encodeResource`, `decodeResource`, `mergeResources`, `deleteResource`, `processResource`
 **Dependencies**: Zero runtime dependencies
 
-Provides the core store implementation, built-in queries, plugin hooks, and CRDT primitives for resource object manipulation.
+Provides the core store implementation, built-in queries, plugin hooks, and utilities for resource object manipulation.
 
 ### `@byearlybird/starling/plugin-unstorage`
 

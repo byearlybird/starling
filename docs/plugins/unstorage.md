@@ -96,7 +96,7 @@ store.begin((tx) => {
 **How it works:**
 - Each plugin registers its own hooks independently
 - Mutations trigger all registered hooks (persist to all storages)
-- CRDT eventstamps resolve conflicts automatically
+- Eventstamps resolve conflicts automatically using Last-Write-Wins
 - No manual merge code required
 
 This enables powerful patterns like:

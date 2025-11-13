@@ -1,6 +1,6 @@
 /**
  * A primitive value wrapped with its eventstamp for Last-Write-Wins conflict resolution.
- * Used as the leaf nodes in the CRDT data structure.
+ * Used as the leaf nodes in the versioned data structure.
  *
  * @template T - The type of the wrapped value (primitive or complex type)
  */
