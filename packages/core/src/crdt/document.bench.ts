@@ -1,10 +1,10 @@
 import { bench, group, run } from "mitata";
 import {
-	decodeDoc,
-	type EncodedDocument,
-	encodeDoc,
+	decodeResource,
+	encodeResource,
 	generateNonce,
-	mergeDocs,
+	mergeResources,
+	type ResourceObject,
 } from ".";
 
 // Test data type: 4+ properties with 3-level nesting
@@ -54,39 +54,39 @@ function generateEventstamp(counter: number): string {
 	return `${isoString}|${counter.toString(16).padStart(4, "0")}|${nonce}`;
 }
 
-// Create pre-encoded documents for decode benchmarks
-function createEncodedDocuments(count: number): EncodedDocument[] {
-	const docs: EncodedDocument[] = [];
+// Create pre-encoded resource objects for decode benchmarks
+function createEncodedResources(count: number): ResourceObject[] {
+	const resources: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
-		const doc = encodeDoc(
+		const resource = encodeResource(
 			`doc-${i}`,
 			generateTestData(i),
 			generateEventstamp(i),
 		);
-		docs.push(doc);
+		resources.push(resource);
 	}
-	return docs;
+	return resources;
 }
 
-// Create paired document sets for merging
-function createPairedDocuments(
+// Create paired resource object sets for merging
+function createPairedResources(
 	count: number,
-): [EncodedDocument[], EncodedDocument[]] {
-	const docs1: EncodedDocument[] = [];
-	const docs2: EncodedDocument[] = [];
+): [ResourceObject[], ResourceObject[]] {
+	const resources1: ResourceObject[] = [];
+	const resources2: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
-		docs1.push(
-			encodeDoc(`doc-${i}`, generateTestData(i), generateEventstamp(i)),
+		resources1.push(
+			encodeResource(`doc-${i}`, generateTestData(i), generateEventstamp(i)),
 		);
-		docs2.push(
-			encodeDoc(
+		resources2.push(
+			encodeResource(
 				`doc-${i}`,
 				generateTestData(i + count),
 				generateEventstamp(i + count),
 			),
 		);
 	}
-	return [docs1, docs2];
+	return [resources1, resources2];
 }
 
 // ============================================================================
@@ -94,88 +94,88 @@ function createPairedDocuments(
 // ============================================================================
 
 // --- 100 Items ---
-group("encodeDoc/decodeDoc - 100 items", () => {
+group("encodeResource/decodeResource - 100 items", () => {
 	const items = Array.from({ length: 100 }, (_, i) => ({
 		id: `doc-${i}`,
 		data: generateTestData(i),
 		eventstamp: generateEventstamp(i),
 	}));
-	const encodedDocs = createEncodedDocuments(100);
+	const encodedResources = createEncodedResources(100);
 
-	bench("encodeDoc x100", () => {
+	bench("encodeResource x100", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			encodeDoc(id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
-	bench("decodeDoc x100", () => {
-		encodedDocs.forEach((doc) => {
-			decodeDoc(doc);
+	bench("decodeResource x100", () => {
+		encodedResources.forEach((resource) => {
+			decodeResource(resource);
 		});
 	});
 
 	bench("round-trip (encode + decode) x100", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = encodeDoc(id, data, eventstamp);
-			decodeDoc(encoded);
+			const encoded = encodeResource(id, data, eventstamp);
+			decodeResource(encoded);
 		});
 	});
 });
 
 // --- 5,000 Items ---
-group("encodeDoc/decodeDoc - 5,000 items", () => {
+group("encodeResource/decodeResource - 5,000 items", () => {
 	const items = Array.from({ length: 5000 }, (_, i) => ({
 		id: `doc-${i}`,
 		data: generateTestData(i),
 		eventstamp: generateEventstamp(i),
 	}));
-	const encodedDocs = createEncodedDocuments(5000);
+	const encodedResources = createEncodedResources(5000);
 
-	bench("encodeDoc x5000", () => {
+	bench("encodeResource x5000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			encodeDoc(id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
-	bench("decodeDoc x5000", () => {
-		encodedDocs.forEach((doc) => {
-			decodeDoc(doc);
+	bench("decodeResource x5000", () => {
+		encodedResources.forEach((resource) => {
+			decodeResource(resource);
 		});
 	});
 
 	bench("round-trip (encode + decode) x5000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = encodeDoc(id, data, eventstamp);
-			decodeDoc(encoded);
+			const encoded = encodeResource(id, data, eventstamp);
+			decodeResource(encoded);
 		});
 	});
 });
 
 // --- 100,000 Items ---
-group("encodeDoc/decodeDoc - 100,000 items", () => {
+group("encodeResource/decodeResource - 100,000 items", () => {
 	const items = Array.from({ length: 100000 }, (_, i) => ({
 		id: `doc-${i}`,
 		data: generateTestData(i),
 		eventstamp: generateEventstamp(i),
 	}));
-	const encodedDocs = createEncodedDocuments(100000);
+	const encodedResources = createEncodedResources(100000);
 
-	bench("encodeDoc x100000", () => {
+	bench("encodeResource x100000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			encodeDoc(id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
-	bench("decodeDoc x100000", () => {
-		encodedDocs.forEach((doc) => {
-			decodeDoc(doc);
+	bench("decodeResource x100000", () => {
+		encodedResources.forEach((resource) => {
+			decodeResource(resource);
 		});
 	});
 
 	bench("round-trip (encode + decode) x100000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = encodeDoc(id, data, eventstamp);
-			decodeDoc(encoded);
+			const encoded = encodeResource(id, data, eventstamp);
+			decodeResource(encoded);
 		});
 	});
 });
@@ -185,37 +185,37 @@ group("encodeDoc/decodeDoc - 100,000 items", () => {
 // ============================================================================
 
 // --- 100 Items ---
-group("mergeDocs - 100 items", () => {
-	const [encodedDocs1, encodedDocs2] = createPairedDocuments(100);
+group("mergeResources - 100 items", () => {
+	const [encodedResources1, encodedResources2] = createPairedResources(100);
 
-	bench("mergeDocs x100", () => {
-		let result = encodedDocs1[0];
+	bench("mergeResources x100", () => {
+		let result = encodedResources1[0];
 		for (let i = 1; i < 100; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			result = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
 
 // --- 5,000 Items ---
-group("mergeDocs - 5,000 items", () => {
-	const [encodedDocs1, encodedDocs2] = createPairedDocuments(5000);
+group("mergeResources - 5,000 items", () => {
+	const [encodedResources1, encodedResources2] = createPairedResources(5000);
 
-	bench("mergeDocs x5000", () => {
-		let result = encodedDocs1[0];
+	bench("mergeResources x5000", () => {
+		let result = encodedResources1[0];
 		for (let i = 1; i < 5000; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			result = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
 
 // --- 100,000 Items ---
-group("mergeDocs - 100,000 items", () => {
-	const [encodedDocs1, encodedDocs2] = createPairedDocuments(100000);
+group("mergeResources - 100,000 items", () => {
+	const [encodedResources1, encodedResources2] = createPairedResources(100000);
 
-	bench("mergeDocs x100000", () => {
-		let result = encodedDocs1[0];
+	bench("mergeResources x100000", () => {
+		let result = encodedResources1[0];
 		for (let i = 1; i < 100000; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			result = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });

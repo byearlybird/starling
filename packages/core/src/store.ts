@@ -1,5 +1,5 @@
-import type { Collection, EncodedDocument } from "./crdt";
-import { CRDT, decodeDoc, mergeCollections } from "./crdt";
+import type { Document, ResourceObject } from "./crdt";
+import { CRDT, decodeResource, mergeDocuments } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -58,6 +58,8 @@ export type StoreSetTransaction<T> = {
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
  *
+ * @template T - The type of documents stored (must be a record/object type)
+ *
  * @example
  * ```ts
  * const loggingPlugin: Plugin<Todo> = {
@@ -67,7 +69,7 @@ export type StoreSetTransaction<T> = {
  * };
  * ```
  */
-export type Plugin<T> = {
+export type Plugin<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
 	onInit: (store: Store<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -131,7 +133,9 @@ type QueryInternal<T, U> = {
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * @template T - The type of documents stored in this collection
+ * Per JSON:API specification, documents must be objects (not primitives).
+ *
+ * @template T - The type of documents stored (must be a record/object type)
  *
  * @example
  * ```ts
@@ -149,7 +153,7 @@ type QueryInternal<T, U> = {
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export class Store<T> {
+export class Store<T extends Record<string, unknown>> {
 	#crdt = new CRDT<T>();
 	#getId: () => string;
 
@@ -192,29 +196,29 @@ export class Store<T> {
 	}
 
 	/**
-	 * Get the complete store state as a Collection for persistence or sync.
-	 * @returns Collection containing all documents and the latest eventstamp
+	 * Get the complete store state as a JSON:API document for persistence or sync.
+	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
-	collection(): Collection {
+	document(): Document {
 		return this.#crdt.snapshot();
 	}
 
 	/**
-	 * Merge a collection from storage or another replica using field-level LWW.
-	 * @param collection - Collection from storage or another store instance
+	 * Merge a JSON:API document from storage or another replica using field-level LWW.
+	 * @param document - Document from storage or another store instance
 	 */
-	merge(collection: Collection): void {
-		const currentCollection = this.collection();
-		const result = mergeCollections(currentCollection, collection);
+	merge(document: Document): void {
+		const currentDocument = this.document();
+		const result = mergeDocuments(currentDocument, document);
 
 		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
+		this.#crdt = CRDT.fromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -429,9 +433,9 @@ export class Store<T> {
 		};
 	}
 
-	#decodeActive(doc: EncodedDocument | null): T | null {
-		if (!doc || doc["~deletedAt"]) return null;
-		return decodeDoc<T>(doc)["~data"];
+	#decodeActive(resource: ResourceObject | null): T | null {
+		if (!resource || resource.meta["~deletedAt"]) return null;
+		return decodeResource<T>(resource).data;
 	}
 
 	#emitMutations(

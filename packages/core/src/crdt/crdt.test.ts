@@ -1,34 +1,34 @@
 import { describe, expect, test } from "bun:test";
-import type { Collection } from "./collection";
+import type { Document } from "./collection";
 import { CRDT } from "./crdt";
-import { decodeDoc, encodeDoc } from "./document";
+import { decodeResource, encodeResource } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
 
 describe("CRDT", () => {
 	describe("constructor", () => {
 		test("creates empty CRDT with default eventstamp", () => {
 			const crdt = new CRDT(new Map());
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
-			expect(collection["~docs"]).toHaveLength(0);
-			expect(collection["~eventstamp"]).toBeDefined();
+			expect(document.data).toHaveLength(0);
+			expect(document.meta["~eventstamp"]).toBeDefined();
 		});
 
 		test("creates CRDT with initial eventstamp and forwards clock", () => {
 			const eventstamp = "2025-01-01T00:00:00.000Z|0001|abcd";
 			const crdt = new CRDT(new Map(), eventstamp);
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
 			// Clock should be at least at the provided eventstamp
-			expect(collection["~eventstamp"] >= eventstamp).toBe(true);
+			expect(document.meta["~eventstamp"] >= eventstamp).toBe(true);
 		});
 
 		test("creates CRDT with existing documents", () => {
-			const doc1 = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP);
+			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
 			const map = new Map([
-				[doc1["~id"], doc1],
-				[doc2["~id"], doc2],
+				[doc1.id, doc1],
+				[doc2.id, doc2],
 			]);
 
 			const crdt = new CRDT<{ name: string }>(map);
@@ -41,8 +41,8 @@ describe("CRDT", () => {
 
 	describe("has", () => {
 		test("returns true for existing documents", () => {
-			const doc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const crdt = new CRDT<{ name: string }>(new Map([[doc["~id"], doc]]));
+			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const crdt = new CRDT<{ name: string }>(new Map([[doc.id, doc]]));
 
 			expect(crdt.has("id1")).toBe(true);
 		});
@@ -56,8 +56,8 @@ describe("CRDT", () => {
 
 	describe("get", () => {
 		test("returns document for existing id", () => {
-			const doc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const crdt = new CRDT<{ name: string }>(new Map([[doc["~id"], doc]]));
+			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const crdt = new CRDT<{ name: string }>(new Map([[doc.id, doc]]));
 
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
 		});
@@ -152,17 +152,17 @@ describe("CRDT", () => {
 
 			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
-			const collection1 = crdt.snapshot();
+			const document1 = crdt.snapshot();
 
 			// Re-add and delete again
 			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
-			const collection2 = crdt.snapshot();
+			const document2 = crdt.snapshot();
 
-			// Collections should have different eventstamps due to second delete
-			expect(collection2["~eventstamp"] > collection1["~eventstamp"]).toBe(
-				true,
-			);
+			// Documents should have different eventstamps due to second delete
+			expect(
+				document2.meta["~eventstamp"] > document1.meta["~eventstamp"],
+			).toBe(true);
 		});
 	});
 
@@ -176,7 +176,7 @@ describe("CRDT", () => {
 			expect(clonedMap).not.toBe(crdt.cloneMap());
 			expect(clonedMap.size).toBe(1);
 			expect(clonedMap.get("id1")).toBeDefined();
-			expect(clonedMap.get("id1")?.["~id"]).toBe("id1");
+			expect(clonedMap.get("id1")?.id).toBe("id1");
 		});
 
 		test("modifications to cloned map don't affect original", () => {
@@ -191,32 +191,32 @@ describe("CRDT", () => {
 	});
 
 	describe("snapshot", () => {
-		test("returns collection with documents and eventstamp", () => {
-			const doc1 = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP);
+		test("returns document with documents and eventstamp", () => {
+			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
 			const crdt = new CRDT(
 				new Map([
-					[doc1["~id"], doc1],
-					[doc2["~id"], doc2],
+					[doc1.id, doc1],
+					[doc2.id, doc2],
 				]),
 			);
 
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
-			expect(collection["~docs"]).toHaveLength(2);
-			expect(collection["~eventstamp"]).toBeDefined();
+			expect(document.data).toHaveLength(2);
+			expect(document.meta["~eventstamp"]).toBeDefined();
 		});
 
-		test("includes deleted documents in collection", () => {
+		test("includes deleted documents in document", () => {
 			const crdt = new CRDT<{ name: string }>(new Map());
 
 			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
 
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
-			expect(collection["~docs"]).toHaveLength(1);
-			expect(collection["~docs"][0]?.["~deletedAt"]).not.toBeNull();
+			expect(document.data).toHaveLength(1);
+			expect(document.data[0]?.meta["~deletedAt"]).not.toBeNull();
 		});
 
 		test("eventstamp reflects latest operation", () => {
@@ -228,45 +228,49 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
 
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
 			// Eventstamp should be from the delete operation, which is more recent
 			expect(
-				collection["~eventstamp"] > "2025-01-01T00:00:00.000Z|0001|abcd",
+				document.meta["~eventstamp"] > "2025-01-01T00:00:00.000Z|0001|abcd",
 			).toBe(true);
 		});
 	});
 
 	describe("fromSnapshot", () => {
-		test("creates CRDT from collection", () => {
-			const collection: Collection = {
-				"~docs": [
-					encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP),
-					encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP),
+		test("creates CRDT from document", () => {
+			const document: Document = {
+				data: [
+					encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP),
+					encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP),
 				],
-				"~eventstamp": "2025-01-01T00:00:00.000Z|0001|abcd",
+				meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|abcd" },
 			};
 
-			const crdt = CRDT.fromSnapshot<{ name: string }>(collection);
+			const crdt = CRDT.fromSnapshot<{ name: string }>(document);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			// Clock forwards to at least the provided eventstamp
-			expect(crdt.snapshot()["~eventstamp"] >= collection["~eventstamp"]).toBe(
-				true,
-			);
+			expect(
+				crdt.snapshot().meta["~eventstamp"] >= document.meta["~eventstamp"],
+			).toBe(true);
 		});
 
 		test("preserves deleted documents", () => {
-			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			deletedDoc["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
+			const deletedDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				MIN_EVENTSTAMP,
+			);
+			deletedDoc.meta["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
 
-			const collection: Collection = {
-				"~docs": [deletedDoc],
-				"~eventstamp": "2025-01-01T00:00:01.000Z|0001|abcd",
+			const document: Document = {
+				data: [deletedDoc],
+				meta: { "~eventstamp": "2025-01-01T00:00:01.000Z|0001|abcd" },
 			};
 
-			const crdt = CRDT.fromSnapshot<{ name: string }>(collection);
+			const crdt = CRDT.fromSnapshot<{ name: string }>(document);
 
 			// Deleted documents still exist internally, but default has() returns false
 			expect(crdt.has("id1")).toBe(false);
@@ -282,9 +286,9 @@ describe("CRDT", () => {
 			);
 			original.add("id1", { name: "Alice", age: 30 });
 
-			const collection = original.snapshot();
+			const document = original.snapshot();
 			const restored = CRDT.fromSnapshot<{ name: string; age: number }>(
-				collection,
+				document,
 			);
 
 			expect(restored.has("id1")).toBe(true);
@@ -304,10 +308,10 @@ describe("CRDT", () => {
 			replica2.add("id1", { name: "Alice", age: 25 });
 
 			// Merge replica1 into replica2
-			const collection1 = replica1.snapshot();
-			for (const encodedDoc of collection1["~docs"]) {
-				const decoded = decodeDoc(encodedDoc);
-				replica2.update(decoded["~id"], decoded["~data"] as any);
+			const document1 = replica1.snapshot();
+			for (const encodedDoc of document1.data) {
+				const decoded = decodeResource(encodedDoc);
+				replica2.update(decoded.id, decoded.data as any);
 			}
 
 			// Age should be 31 (most recent update)
@@ -341,42 +345,42 @@ describe("CRDT", () => {
 			crdt.update("id1", { name: "Bob" });
 
 			// Should still be deleted (delete eventstamp is newer)
-			const collection = crdt.snapshot();
-			const doc = collection["~docs"].find((d) => d["~id"] === "id1");
-			expect(doc?.["~deletedAt"]).not.toBeNull();
+			const document = crdt.snapshot();
+			const doc = document.data.find((d) => d.id === "id1");
+			expect(doc?.meta["~deletedAt"]).not.toBeNull();
 		});
 	});
 
 	describe("clock forwarding", () => {
 		test("clock forwards when loading newer eventstamp", () => {
-			const collection: Collection = {
-				"~docs": [],
-				"~eventstamp": "2025-01-01T00:00:10.000Z|0001|abcd",
+			const document: Document = {
+				data: [],
+				meta: { "~eventstamp": "2025-01-01T00:00:10.000Z|0001|abcd" },
 			};
 
-			const restored = CRDT.fromSnapshot<{ name: string }>(collection);
+			const restored = CRDT.fromSnapshot<{ name: string }>(document);
 			restored.add("id1", { name: "Alice" });
 
 			// New operations should have eventstamps >= the loaded eventstamp
 			restored.delete("id1");
-			const collectionAfter = restored.snapshot();
-			expect(collectionAfter["~eventstamp"] >= collection["~eventstamp"]).toBe(
-				true,
-			);
+			const documentAfter = restored.snapshot();
+			expect(
+				documentAfter.meta["~eventstamp"] >= document.meta["~eventstamp"],
+			).toBe(true);
 		});
 	});
 
 	describe("merge", () => {
-		test("merges new documents from a collection", () => {
+		test("merges new documents from a document", () => {
 			const crdt = new CRDT<{ name: string }>(new Map());
 			crdt.add("id1", { name: "Alice" });
 
-			const remoteCollection: Collection = {
-				"~docs": [encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP)],
-				"~eventstamp": MIN_EVENTSTAMP,
+			const remoteDocument: Document = {
+				data: [encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP)],
+				meta: { "~eventstamp": MIN_EVENTSTAMP },
 			};
 
-			crdt.merge(remoteCollection);
+			crdt.merge(remoteDocument);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
@@ -387,7 +391,7 @@ describe("CRDT", () => {
 		test("applies field-level last-write-wins during merge", () => {
 			// Create a local document with an older eventstamp
 			const localEventstamp = "2025-01-01T00:00:00.000Z|0001|aaaa";
-			const localDoc = encodeDoc(
+			const localDoc = encodeResource(
 				"id1",
 				{ name: "Alice", age: 30 },
 				localEventstamp,
@@ -399,92 +403,100 @@ describe("CRDT", () => {
 
 			// Create a remote document with a newer eventstamp for one field
 			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteCollection: Collection = {
-				"~docs": [encodeDoc("id1", { age: 31 }, laterEventstamp)],
-				"~eventstamp": laterEventstamp,
+			const remoteDocument: Document = {
+				data: [encodeResource("id1", { age: 31 }, laterEventstamp)],
+				meta: { "~eventstamp": laterEventstamp },
 			};
 
-			crdt.merge(remoteCollection);
+			crdt.merge(remoteDocument);
 
 			const merged = crdt.get("id1");
 			expect(merged?.name).toBe("Alice"); // Local value preserved
 			expect(merged?.age).toBe(31); // Remote value wins (later eventstamp)
 		});
 
-		test("handles deleted documents in remote collection", () => {
+		test("handles deleted documents in remote document", () => {
 			const crdt = new CRDT<{ name: string }>(new Map());
 			crdt.add("id1", { name: "Alice" });
 
-			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const deletedDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				MIN_EVENTSTAMP,
+			);
 			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			deletedDoc["~deletedAt"] = deletionEventstamp;
+			deletedDoc.meta["~deletedAt"] = deletionEventstamp;
 
-			const remoteCollection: Collection = {
-				"~docs": [deletedDoc],
-				"~eventstamp": deletionEventstamp,
+			const remoteDocument: Document = {
+				data: [deletedDoc],
+				meta: { "~eventstamp": deletionEventstamp },
 			};
 
-			crdt.merge(remoteCollection);
+			crdt.merge(remoteDocument);
 
 			// Document is soft-deleted
-			const collection = crdt.snapshot();
-			const doc = collection["~docs"].find((d) => d["~id"] === "id1");
-			expect(doc?.["~deletedAt"]).not.toBeNull();
+			const document = crdt.snapshot();
+			const doc = document.data.find((d) => d.id === "id1");
+			expect(doc?.meta["~deletedAt"]).not.toBeNull();
 		});
 
 		test("forwards clock to remote eventstamp during merge", () => {
 			const crdt = new CRDT<{ name: string }>(new Map(), MIN_EVENTSTAMP);
 
 			const futureEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const remoteCollection: Collection = {
-				"~docs": [],
-				"~eventstamp": futureEventstamp,
+			const remoteDocument: Document = {
+				data: [],
+				meta: { "~eventstamp": futureEventstamp },
 			};
 
-			crdt.merge(remoteCollection);
+			crdt.merge(remoteDocument);
 
 			// Add a new document after merge
 			crdt.add("id1", { name: "Alice" });
-			const collection = crdt.snapshot();
+			const document = crdt.snapshot();
 
 			// New eventstamp should be >= remote eventstamp
-			expect(collection["~eventstamp"] >= futureEventstamp).toBe(true);
+			expect(document.meta["~eventstamp"] >= futureEventstamp).toBe(true);
 		});
 
 		test("merge is idempotent", () => {
 			const crdt = new CRDT<{ name: string; age: number }>(new Map());
 			crdt.add("id1", { name: "Alice", age: 30 });
 
-			const remoteCollection: Collection = {
-				"~docs": [encodeDoc("id2", { name: "Bob", age: 25 }, MIN_EVENTSTAMP)],
-				"~eventstamp": MIN_EVENTSTAMP,
+			const remoteDocument: Document = {
+				data: [encodeResource("id2", { name: "Bob", age: 25 }, MIN_EVENTSTAMP)],
+				meta: { "~eventstamp": MIN_EVENTSTAMP },
 			};
 
-			crdt.merge(remoteCollection);
-			const collection2 = crdt.snapshot();
+			crdt.merge(remoteDocument);
+			const document2 = crdt.snapshot();
 
 			// Merge again
-			crdt.merge(remoteCollection);
-			const collection3 = crdt.snapshot();
+			crdt.merge(remoteDocument);
+			const document3 = crdt.snapshot();
 
 			// Results should be identical
-			expect(collection2["~docs"].length).toBe(collection3["~docs"].length);
+			expect(document2.data.length).toBe(document3.data.length);
 			expect(crdt.get("id1")).toEqual({ name: "Alice", age: 30 });
 			expect(crdt.get("id2")).toEqual({ name: "Bob", age: 25 });
 		});
 
 		test("merge preserves local data when remote is older", () => {
 			const localEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const localDoc = encodeDoc("id1", { name: "Alice" }, localEventstamp);
+			const localDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				localEventstamp,
+			);
 			const crdt = new CRDT(new Map([["id1", localDoc]]));
 
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteCollection: Collection = {
-				"~docs": [encodeDoc("id1", { name: "Bob" }, olderEventstamp)],
-				"~eventstamp": olderEventstamp,
+			const remoteDocument: Document = {
+				data: [encodeResource("id1", { name: "Bob" }, olderEventstamp)],
+				meta: { "~eventstamp": olderEventstamp },
 			};
 
-			crdt.merge(remoteCollection);
+			crdt.merge(remoteDocument);
 
 			// Local value should be preserved (newer eventstamp)
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
@@ -505,8 +517,8 @@ describe("CRDT", () => {
 			replica2.update("todo1", { completed: true }); // Update existing
 
 			// Merge replica2's changes into replica1
-			const collection2 = replica2.snapshot();
-			replica1.merge(collection2);
+			const document2 = replica2.snapshot();
+			replica1.merge(document2);
 
 			// replica1 should now have all three todos
 			expect(replica1.has("todo1")).toBe(true);

@@ -1,8 +1,13 @@
 import { Clock } from "../clock";
-import type { Collection } from "./collection";
-import { mergeCollections } from "./collection";
-import type { EncodedDocument } from "./document";
-import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
+import type { Document } from "./collection";
+import { mergeDocuments } from "./collection";
+import type { ResourceObject } from "./document";
+import {
+	decodeResource,
+	deleteResource,
+	encodeResource,
+	mergeResources,
+} from "./document";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -15,6 +20,8 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  * interface using plain JavaScript objects, while internally managing encoded
  * documents for merge tracking.
  *
+ * Per JSON:API specification, documents must be objects (not primitives).
+ *
  * @example
  * ```typescript
  * const crdt = new CRDT(new Map());
@@ -22,12 +29,12 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  * const doc = crdt.get("id1"); // { name: "Alice" }
  * ```
  */
-export class CRDT<T> {
-	#map: Map<string, EncodedDocument>;
+export class CRDT<T extends Record<string, unknown>> {
+	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 
 	constructor(
-		map: Map<string, EncodedDocument> = new Map(),
+		map: Map<string, ResourceObject> = new Map(),
 		eventstamp?: string,
 	) {
 		this.#map = map;
@@ -45,7 +52,7 @@ export class CRDT<T> {
 	has(id: string, opts: { includeDeleted?: boolean } = {}): boolean {
 		const raw = this.#map.get(id);
 		if (!raw) return false;
-		return opts.includeDeleted || !raw["~deletedAt"];
+		return opts.includeDeleted || !raw.meta["~deletedAt"];
 	}
 
 	/**
@@ -55,7 +62,7 @@ export class CRDT<T> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw["~deletedAt"] ? undefined : (decodeDoc(raw)["~data"] as T);
+		return raw.meta["~deletedAt"] ? undefined : (decodeResource(raw).data as T);
 	}
 
 	/**
@@ -64,9 +71,9 @@ export class CRDT<T> {
 	entries(): IterableIterator<readonly [string, T]> {
 		const self = this;
 		function* iterator() {
-			for (const [key, doc] of self.#map.entries()) {
-				if (!doc["~deletedAt"]) {
-					const decoded = decodeDoc<T>(doc)["~data"];
+			for (const [key, resource] of self.#map.entries()) {
+				if (!resource.meta["~deletedAt"]) {
+					const decoded = decodeResource<T>(resource).data;
 					yield [key, decoded] as const;
 				}
 			}
@@ -80,7 +87,7 @@ export class CRDT<T> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = encodeResource(id, object, this.#clock.now());
 		this.#map.set(id, encoded);
 	}
 
@@ -91,10 +98,10 @@ export class CRDT<T> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = encodeResource(id, object, this.#clock.now());
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeDocs(current, encoded);
+			const [merged] = mergeResources(current, encoded);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, encoded);
@@ -104,43 +111,47 @@ export class CRDT<T> {
 	delete(id: string): void {
 		const current = this.#map.get(id);
 		if (current) {
-			const doc = deleteDoc(current, this.#clock.now());
-			this.#map.set(id, doc);
+			const resource = deleteResource(current, this.#clock.now());
+			this.#map.set(id, resource);
 		}
 	}
 
 	/**
 	 * Clone the internal map of encoded documents.
 	 */
-	cloneMap(): Map<string, EncodedDocument> {
+	cloneMap(): Map<string, ResourceObject> {
 		return new Map(this.#map);
 	}
 
-	snapshot(): Collection {
+	snapshot(): Document {
 		return {
-			"~eventstamp": this.#clock.latest(),
-			"~docs": Array.from(this.#map.values()),
+			data: Array.from(this.#map.values()),
+			meta: {
+				"~eventstamp": this.#clock.latest(),
+			},
 		};
 	}
 
 	/**
-	 * Merge another collection into this CRDT using field-level Last-Write-Wins.
-	 * @param collection - Collection from another replica or storage
+	 * Merge another document into this CRDT using field-level Last-Write-Wins.
+	 * @param document - JSON:API document from another replica or storage
 	 */
-	merge(collection: Collection): void {
-		const currentCollection = this.snapshot();
-		const result = mergeCollections(currentCollection, collection);
+	merge(document: Document): void {
+		const currentDocument = this.snapshot();
+		const result = mergeDocuments(currentDocument, document);
 
-		this.#clock.forward(result.collection["~eventstamp"]);
+		this.#clock.forward(result.document.meta["~eventstamp"]);
 		this.#map = new Map(
-			result.collection["~docs"].map((doc) => [doc["~id"], doc]),
+			result.document.data.map((resource) => [resource.id, resource]),
 		);
 	}
 
-	static fromSnapshot<U>(collection: Collection): CRDT<U> {
+	static fromSnapshot<U extends Record<string, unknown>>(
+		document: Document,
+	): CRDT<U> {
 		return new CRDT<U>(
-			new Map(collection["~docs"].map((doc) => [doc["~id"], doc])),
-			collection["~eventstamp"],
+			new Map(document.data.map((resource) => [resource.id, resource])),
+			document.meta["~eventstamp"],
 		);
 	}
 }
