@@ -5,13 +5,8 @@ import {
 	mergeRecords,
 	processRecord,
 } from "./record";
-import { isEncodedValue, isObject } from "./utils";
-import {
-	decodeValue,
-	type EncodedValue,
-	encodeValue,
-	mergeValues,
-} from "./value";
+import { isObject } from "./utils";
+import type { EncodedValue } from "./value";
 
 /**
  * JSON:API resource object representing a document with CRDT data.

@@ -62,9 +62,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw.meta["~deletedAt"]
-			? undefined
-			: (decodeResource(raw).data as T);
+		return raw.meta["~deletedAt"] ? undefined : (decodeResource(raw).data as T);
 	}
 
 	/**

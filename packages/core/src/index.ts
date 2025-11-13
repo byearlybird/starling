@@ -1,14 +1,14 @@
 export type {
 	Document,
-	ResourceObject,
 	EncodedRecord,
 	EncodedValue,
+	ResourceObject,
 } from "./crdt";
 export {
-	encodeResource,
 	decodeResource,
-	mergeResources,
 	deleteResource,
+	encodeResource,
+	mergeResources,
 	processResource,
 } from "./crdt";
 export * from "./store";

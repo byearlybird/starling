@@ -124,7 +124,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 			documentC.meta["~eventstamp"],
 		];
 		const maxRemoteStamp = stamps.sort().pop() || "";
-		expect(consolidated.document().meta["~eventstamp"] >= maxRemoteStamp).toBe(true);
+		expect(consolidated.document().meta["~eventstamp"] >= maxRemoteStamp).toBe(
+			true,
+		);
 	});
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
@@ -301,9 +303,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// The document should show the document as deleted (with meta.~deletedAt timestamp)
 		const document = consolidated.document();
-		const deletedDoc = document.data.find(
-			(doc) => doc.id === "user-1",
-		);
+		const deletedDoc = document.data.find((doc) => doc.id === "user-1");
 		expect(deletedDoc?.meta["~deletedAt"]).toBeDefined();
 
 		// The consolidated store should have 0 active entries
@@ -317,9 +317,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 			meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000" },
 		};
 
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			emptyDocument,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>([emptyDocument]);
 
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
@@ -450,8 +448,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[documentA2.meta["~eventstamp"], documentB2.meta["~eventstamp"]].sort().pop() ||
-			"";
+			[documentA2.meta["~eventstamp"], documentB2.meta["~eventstamp"]]
+				.sort()
+				.pop() || "";
 		const consolidatedClock = consolidated.document().meta["~eventstamp"];
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 

@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { decodeResource, deleteResource, encodeResource, mergeResources } from ".";
+import {
+	decodeResource,
+	deleteResource,
+	encodeResource,
+	mergeResources,
+} from ".";
 
 test("encodeResource creates ResourceObject with null ~deletedAt", () => {
 	const result = encodeResource(
@@ -206,7 +211,9 @@ test("deleteResource can be called on already deleted document", () => {
 
 	const redeleted = deleteResource(doc, "2025-01-03T00:00:00.000Z|0002|e5f6");
 
-	expect(redeleted.meta["~deletedAt"]).toBe("2025-01-03T00:00:00.000Z|0002|e5f6");
+	expect(redeleted.meta["~deletedAt"]).toBe(
+		"2025-01-03T00:00:00.000Z|0002|e5f6",
+	);
 });
 
 test("deleteResource with decodeResource shows document is deleted", () => {
@@ -236,31 +243,19 @@ test("encodeResource throws error for primitive string (per JSON:API spec)", () 
 
 test("encodeResource throws error for primitive number (per JSON:API spec)", () => {
 	expect(() =>
-		encodeResource(
-			"count-1",
-			42 as any,
-			"2025-01-01T00:00:00.000Z|0000|a1b2",
-		),
+		encodeResource("count-1", 42 as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
 test("encodeResource throws error for primitive boolean (per JSON:API spec)", () => {
 	expect(() =>
-		encodeResource(
-			"flag-1",
-			true as any,
-			"2025-01-01T00:00:00.000Z|0000|a1b2",
-		),
+		encodeResource("flag-1", true as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
 test("encodeResource throws error for null (per JSON:API spec)", () => {
 	expect(() =>
-		encodeResource(
-			"null-1",
-			null as any,
-			"2025-01-01T00:00:00.000Z|0000|a1b2",
-		),
+		encodeResource("null-1", null as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 

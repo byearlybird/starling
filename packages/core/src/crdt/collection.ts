@@ -1,4 +1,4 @@
-import { type ResourceObject, mergeResources } from "./document";
+import { mergeResources, type ResourceObject } from "./document";
 
 /**
  * A JSON:API document representing the complete state of a store.
@@ -104,7 +104,9 @@ export function mergeDocuments(
 	const deleted = new Set<string>();
 
 	// Start with base resource objects, will update/add as we process source
-	const mergedResourcesById = new Map<string, ResourceObject>(intoResourcesById);
+	const mergedResourcesById = new Map<string, ResourceObject>(
+		intoResourcesById,
+	);
 
 	// Process each source resource object
 	for (const fromResource of from.data) {

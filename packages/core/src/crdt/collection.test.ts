@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-	type Document,
-	createDocument,
-	mergeDocuments,
-} from "./collection";
+import { createDocument, type Document, mergeDocuments } from "./collection";
 import { encodeResource } from "./document";
 import { encodeValue } from "./value";
 
@@ -88,7 +84,11 @@ test("mergeDocuments updates existing document", () => {
 	};
 	const from: Document = {
 		data: [
-			encodeResource("doc-1", { age: 31 }, "2025-01-01T00:05:00.000Z|0001|c3d4"),
+			encodeResource(
+				"doc-1",
+				{ age: 31 },
+				"2025-01-01T00:05:00.000Z|0001|c3d4",
+			),
 		],
 		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
@@ -223,7 +223,11 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 
 	const from: Document = {
 		data: [
-			encodeResource("doc-1", { age: 31 }, "2025-01-01T00:05:00.000Z|0001|c3d4"), // update
+			encodeResource(
+				"doc-1",
+				{ age: 31 },
+				"2025-01-01T00:05:00.000Z|0001|c3d4",
+			), // update
 			deletedDoc, // delete
 			encodeResource(
 				"doc-3",
@@ -253,7 +257,11 @@ test("mergeDocuments preserves documents only in base collection", () => {
 				{ name: "Alice" },
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
-			encodeResource("doc-2", { name: "Bob" }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+			encodeResource(
+				"doc-2",
+				{ name: "Bob" },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
 		],
 		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};

@@ -1,10 +1,10 @@
 import { bench, group, run } from "mitata";
 import {
 	decodeResource,
-	type ResourceObject,
 	encodeResource,
 	generateNonce,
 	mergeResources,
+	type ResourceObject,
 } from ".";
 
 // Test data type: 4+ properties with 3-level nesting

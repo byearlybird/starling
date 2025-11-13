@@ -160,9 +160,9 @@ describe("CRDT", () => {
 			const document2 = crdt.snapshot();
 
 			// Documents should have different eventstamps due to second delete
-			expect(document2.meta["~eventstamp"] > document1.meta["~eventstamp"]).toBe(
-				true,
-			);
+			expect(
+				document2.meta["~eventstamp"] > document1.meta["~eventstamp"],
+			).toBe(true);
 		});
 	});
 
@@ -252,13 +252,17 @@ describe("CRDT", () => {
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			// Clock forwards to at least the provided eventstamp
-			expect(crdt.snapshot().meta["~eventstamp"] >= document.meta["~eventstamp"]).toBe(
-				true,
-			);
+			expect(
+				crdt.snapshot().meta["~eventstamp"] >= document.meta["~eventstamp"],
+			).toBe(true);
 		});
 
 		test("preserves deleted documents", () => {
-			const deletedDoc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const deletedDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				MIN_EVENTSTAMP,
+			);
 			deletedDoc.meta["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
 
 			const document: Document = {
@@ -360,9 +364,9 @@ describe("CRDT", () => {
 			// New operations should have eventstamps >= the loaded eventstamp
 			restored.delete("id1");
 			const documentAfter = restored.snapshot();
-			expect(documentAfter.meta["~eventstamp"] >= document.meta["~eventstamp"]).toBe(
-				true,
-			);
+			expect(
+				documentAfter.meta["~eventstamp"] >= document.meta["~eventstamp"],
+			).toBe(true);
 		});
 	});
 
@@ -415,7 +419,11 @@ describe("CRDT", () => {
 			const crdt = new CRDT<{ name: string }>(new Map());
 			crdt.add("id1", { name: "Alice" });
 
-			const deletedDoc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const deletedDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				MIN_EVENTSTAMP,
+			);
 			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			deletedDoc.meta["~deletedAt"] = deletionEventstamp;
 
@@ -475,7 +483,11 @@ describe("CRDT", () => {
 
 		test("merge preserves local data when remote is older", () => {
 			const localEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const localDoc = encodeResource("id1", { name: "Alice" }, localEventstamp);
+			const localDoc = encodeResource(
+				"id1",
+				{ name: "Alice" },
+				localEventstamp,
+			);
 			const crdt = new CRDT(new Map([["id1", localDoc]]));
 
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
