@@ -255,10 +255,10 @@ describe("Store - Iteration & State", () => {
 			tx.del("user-1");
 		});
 
-		const collection = store.collection();
-		expect(collection.data.length).toBe(3);
+		const document = store.document();
+		expect(document.data.length).toBe(3);
 
-		const deletedDoc = collection.data.find(
+		const deletedDoc = document.data.find(
 			(doc) => doc.id === "user-1",
 		);
 		expect(deletedDoc).toBeDefined();

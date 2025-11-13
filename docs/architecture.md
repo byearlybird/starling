@@ -118,12 +118,12 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 
 **Deletions**: Soft-deleted via `meta.deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
 
-### Collection Format
+### Document Format
 
-The `Collection` type represents the complete persistent state of a store, following the JSON:API document specification:
+The `Document` type represents the complete persistent state of a store, following the JSON:API document specification:
 
 ```typescript
-export type Collection = {
+export type Document = {
   data: ResourceObject[];
   meta: {
     "~eventstamp": string;
@@ -134,7 +134,7 @@ export type Collection = {
 **Design notes:**
 
 - **`data`**: Array of resource objects (encoded documents), including soft-deleted items (those with `meta.deletedAt` set). This ensures deletion events propagate during sync.
-- **`meta["~eventstamp"]`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
+- **`meta["~eventstamp"]`**: The highest eventstamp observed by the document. When merging documents, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
 
 Example collection:
 
@@ -161,15 +161,15 @@ Example collection:
 
 This format follows the [JSON:API specification](https://jsonapi.org/format/#document-structure) and is used consistently across disk storage, sync messages, network transport, and export/import operations.
 
-### Merging Collections
+### Merging Documents
 
-The `mergeCollections(into, from)` function handles collection-level merging with automatic change detection:
+The `mergeDocuments(into, from)` function handles document-level merging with automatic change detection:
 
 1. **Field-level LWW**: Each document pair merges using `mergeDocs`, preserving the newest eventstamp for each field
-2. **Clock forwarding**: The resulting collection's eventstamp is the maximum of both input eventstamps
+2. **Clock forwarding**: The resulting document's eventstamp is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
 
-This design separates merge logic from store orchestration, enabling independent testing and reuse of collection operations.
+This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
 
 ## Design Scope
 
@@ -247,7 +247,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
 | [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`) and soft-deletion |
-| [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
+| [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
 | [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
 ### Data Flow
@@ -261,9 +261,9 @@ User mutation → Store → Transaction staging → Commit → Plugin hooks
                             Document/Record/Value merge
 ```
 
-**Collection sync:**
+**Document sync:**
 ```
-store.merge(snapshot) → mergeCollections(into, from) → Document merge (mergeDocs)
+store.merge(snapshot) → mergeDocuments(into, from) → Document merge (mergeDocs)
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓

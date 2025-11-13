@@ -1,5 +1,5 @@
 export type {
-	Collection,
+	Document,
 	ResourceObject,
 	EncodedRecord,
 	EncodedValue,

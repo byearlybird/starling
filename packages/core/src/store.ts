@@ -1,5 +1,5 @@
-import type { Collection, ResourceObject } from "./crdt";
-import { CRDT, decodeDoc, mergeCollections } from "./crdt";
+import type { Document, ResourceObject } from "./crdt";
+import { CRDT, decodeDoc, mergeDocuments } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -192,23 +192,23 @@ export class Store<T> {
 	}
 
 	/**
-	 * Get the complete store state as a Collection for persistence or sync.
-	 * @returns Collection containing all documents and the latest eventstamp
+	 * Get the complete store state as a JSON:API document for persistence or sync.
+	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
-	collection(): Collection {
+	document(): Document {
 		return this.#crdt.snapshot();
 	}
 
 	/**
-	 * Merge a collection from storage or another replica using field-level LWW.
-	 * @param collection - Collection from storage or another store instance
+	 * Merge a JSON:API document from storage or another replica using field-level LWW.
+	 * @param document - Document from storage or another store instance
 	 */
-	merge(collection: Collection): void {
-		const currentCollection = this.collection();
-		const result = mergeCollections(currentCollection, collection);
+	merge(document: Document): void {
+		const currentDocument = this.document();
+		const result = mergeDocuments(currentDocument, document);
 
 		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
+		this.#crdt = CRDT.fromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,

@@ -1,98 +1,97 @@
 import { type ResourceObject, mergeDocs } from "./document";
 
 /**
- * A collection represents the complete state of a store following JSON:API
- * document structure.
+ * A JSON:API document representing the complete state of a store.
  *
  * This is the canonical format used across disk storage, sync messages,
  * network transport, and export/import operations.
  *
- * Collections contain:
- * - An array of resource objects (documents, including soft-deleted ones)
+ * Documents contain:
+ * - An array of resource objects (including soft-deleted ones)
  * - Metadata including the highest eventstamp for clock synchronization
  *
- * Collections are the unit of synchronization between store replicas.
+ * Documents are the unit of synchronization between store replicas.
  *
  * @see https://jsonapi.org/format/#document-structure
  */
-export type Collection = {
-	/** Array of resource objects (documents) with CRDT data and metadata */
+export type Document = {
+	/** Array of resource objects with CRDT data and metadata */
 	data: ResourceObject[];
 
-	/** Collection-level metadata */
+	/** Document-level metadata */
 	meta: {
-		/** Latest eventstamp observed by this collection for clock synchronization */
+		/** Latest eventstamp observed by this document for clock synchronization */
 		"~eventstamp": string;
 	};
 };
 
 /**
- * Change tracking information returned by mergeCollections.
- * Categorizes documents by mutation type for hook notifications.
+ * Change tracking information returned by mergeDocuments.
+ * Categorizes resource objects by mutation type for hook notifications.
  */
-export type CollectionChanges = {
-	/** Documents that were newly added (didn't exist before or were previously deleted) */
+export type DocumentChanges = {
+	/** Resource objects that were newly added (didn't exist before or were previously deleted) */
 	added: Map<string, ResourceObject>;
 
-	/** Documents that were modified (existed before and changed) */
+	/** Resource objects that were modified (existed before and changed) */
 	updated: Map<string, ResourceObject>;
 
-	/** Documents that were deleted (newly marked with ~deletedAt) */
+	/** Resource objects that were deleted (newly marked with ~deletedAt) */
 	deleted: Set<string>;
 };
 
 /**
- * Result of merging two collections.
+ * Result of merging two JSON:API documents.
  */
-export type MergeCollectionsResult = {
-	/** The merged collection with updated documents and forwarded clock */
-	collection: Collection;
+export type MergeDocumentsResult = {
+	/** The merged document with updated resource objects and forwarded clock */
+	document: Document;
 
 	/** Change tracking for plugin hook notifications */
-	changes: CollectionChanges;
+	changes: DocumentChanges;
 };
 
 /**
- * Merges two collections using field-level Last-Write-Wins semantics.
+ * Merges two JSON:API documents using field-level Last-Write-Wins semantics.
  *
  * The merge operation:
- * 1. Forwards the clock to the newest eventstamp from either collection
- * 2. Merges each document pair using field-level LWW (via mergeDocs)
+ * 1. Forwards the clock to the newest eventstamp from either document
+ * 2. Merges each resource object pair using field-level LWW (via mergeDocs)
  * 3. Tracks what changed for hook notifications (added/updated/deleted)
  *
- * Deletion is final: once a document is deleted, updates to it are merged into
- * the document's data but don't restore visibility. Only new documents or
+ * Deletion is final: once a resource object is deleted, updates to it are merged
+ * into its data but don't restore visibility. Only new resource objects or
  * transitions into the deleted state are tracked.
  *
- * @param into - The base collection to merge into
- * @param from - The source collection to merge from
- * @returns Merged collection and categorized changes
+ * @param into - The base document to merge into
+ * @param from - The source document to merge from
+ * @returns Merged document and categorized changes
  *
  * @example
  * ```typescript
  * const into = {
- *   "~docs": [{ "~id": "doc1", "~data": {...}, "~deletedAt": null }],
- *   "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2"
+ *   data: [{ type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }],
+ *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
  * };
  *
  * const from = {
- *   "~docs": [
- *     { "~id": "doc1", "~data": {...}, "~deletedAt": null }, // updated
- *     { "~id": "doc2", "~data": {...}, "~deletedAt": null }  // new
+ *   data: [
+ *     { type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }, // updated
+ *     { type: "resource", id: "doc2", attributes: {...}, meta: { "~deletedAt": null } }  // new
  *   ],
- *   "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4"
+ *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
  * };
  *
- * const result = mergeCollections(into, from);
- * // result.collection.~eventstamp === "2025-01-01T00:05:00.000Z|0001|c3d4"
+ * const result = mergeDocuments(into, from);
+ * // result.document.meta["~eventstamp"] === "2025-01-01T00:05:00.000Z|0001|c3d4"
  * // result.changes.added has "doc2"
  * // result.changes.updated has "doc1"
  * ```
  */
-export function mergeCollections(
-	into: Collection,
-	from: Collection,
-): MergeCollectionsResult {
+export function mergeDocuments(
+	into: Document,
+	from: Document,
+): MergeDocumentsResult {
 	// Build index of base documents by ID for efficient lookup
 	const intoDocsById = new Map<string, ResourceObject>();
 	for (const doc of into.data) {
@@ -152,7 +151,7 @@ export function mergeCollections(
 			: from.meta["~eventstamp"];
 
 	return {
-		collection: {
+		document: {
 			data: Array.from(mergedDocsById.values()),
 			meta: {
 				"~eventstamp": newestEventstamp,
@@ -167,18 +166,18 @@ export function mergeCollections(
 }
 
 /**
- * Creates an empty collection with the given eventstamp.
+ * Creates an empty JSON:API document with the given eventstamp.
  * Useful for initializing new stores or testing.
  *
- * @param eventstamp - Initial clock value for this collection
- * @returns Empty collection
+ * @param eventstamp - Initial clock value for this document
+ * @returns Empty document
  *
  * @example
  * ```typescript
- * const empty = createCollection("2025-01-01T00:00:00.000Z|0000|0000");
+ * const empty = createDocument("2025-01-01T00:00:00.000Z|0000|0000");
  * ```
  */
-export function createCollection(eventstamp: string): Collection {
+export function createDocument(eventstamp: string): Document {
 	return {
 		data: [],
 		meta: {

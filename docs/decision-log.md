@@ -54,7 +54,7 @@ Adopt JSON:API as the canonical serialized format for all documents and collecti
 }
 ```
 
-**Collection structure** (document):
+**Document structure** (JSON:API document):
 ```typescript
 {
   data: [/* resource objects */],  // Array of documents

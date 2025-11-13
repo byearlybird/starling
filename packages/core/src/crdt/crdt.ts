@@ -1,6 +1,6 @@
 import { Clock } from "../clock";
-import type { Collection } from "./collection";
-import { mergeCollections } from "./collection";
+import type { Document } from "./collection";
+import { mergeDocuments } from "./collection";
 import type { ResourceObject } from "./document";
 import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
 
@@ -116,7 +116,7 @@ export class CRDT<T> {
 		return new Map(this.#map);
 	}
 
-	snapshot(): Collection {
+	snapshot(): Document {
 		return {
 			data: Array.from(this.#map.values()),
 			meta: {
@@ -126,23 +126,23 @@ export class CRDT<T> {
 	}
 
 	/**
-	 * Merge another collection into this CRDT using field-level Last-Write-Wins.
-	 * @param collection - Collection from another replica or storage
+	 * Merge another document into this CRDT using field-level Last-Write-Wins.
+	 * @param document - JSON:API document from another replica or storage
 	 */
-	merge(collection: Collection): void {
-		const currentCollection = this.snapshot();
-		const result = mergeCollections(currentCollection, collection);
+	merge(document: Document): void {
+		const currentDocument = this.snapshot();
+		const result = mergeDocuments(currentDocument, document);
 
-		this.#clock.forward(result.collection.meta["~eventstamp"]);
+		this.#clock.forward(result.document.meta["~eventstamp"]);
 		this.#map = new Map(
-			result.collection.data.map((doc) => [doc.id, doc]),
+			result.document.data.map((doc) => [doc.id, doc]),
 		);
 	}
 
-	static fromSnapshot<U>(collection: Collection): CRDT<U> {
+	static fromSnapshot<U>(document: Document): CRDT<U> {
 		return new CRDT<U>(
-			new Map(collection.data.map((doc) => [doc.id, doc])),
-			collection.meta["~eventstamp"],
+			new Map(document.data.map((doc) => [doc.id, doc])),
+			document.meta["~eventstamp"],
 		);
 	}
 }
