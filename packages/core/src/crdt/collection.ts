@@ -15,7 +15,7 @@ import { mergeResources, type ResourceObject } from "./document";
  * @see https://jsonapi.org/format/#document-structure
  */
 export type Document = {
-	/** Array of resource objects with CRDT data and metadata */
+	/** Array of resource objects with versioned data and metadata */
 	data: ResourceObject[];
 
 	/** Document-level metadata */

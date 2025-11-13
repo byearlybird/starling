@@ -248,7 +248,8 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
 | [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`); enforces object-only documents per JSON:API spec |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
+| [`record-map.ts`](../packages/core/src/crdt/record-map.ts) | Observed-Remove Map implementing state-based replication with LWW semantics; provides add/update/delete operations and document-level merge |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal RecordMap storage with transactional staging |
 
 ### Data Flow
 
@@ -267,7 +268,7 @@ store.merge(document) → mergeDocuments(into, from) → Resource merge (mergeRe
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
-                       Update CRDT map             Track changes (add/update/delete)
+                      Update RecordMap             Track changes (add/update/delete)
                               ↓
                         Plugin hooks (with tracked changes)
 ```
@@ -281,7 +282,7 @@ Starling ships as a monorepo with subpath exports:
 **Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `Document`, `ResourceObject`, `encodeResource`, `decodeResource`, `mergeResources`, `deleteResource`, `processResource`
 **Dependencies**: Zero runtime dependencies
 
-Provides the core store implementation, built-in queries, plugin hooks, and CRDT primitives for resource object manipulation.
+Provides the core store implementation, built-in queries, plugin hooks, and utilities for resource object manipulation.
 
 ### `@byearlybird/starling/plugin-unstorage`
 

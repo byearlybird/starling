@@ -47,7 +47,7 @@ Adopt JSON:API as the canonical serialized format for all documents and collecti
 {
   type: "resource",           // Resource type identifier
   id: "doc-1",                // Document ID
-  attributes: { /* CRDT */ }, // User data with eventstamps
+  attributes: { /* ... */ },  // User data with eventstamps
   meta: {                     // System metadata
     "~deletedAt": null
   }

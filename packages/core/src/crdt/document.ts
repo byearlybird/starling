@@ -9,7 +9,7 @@ import { isObject } from "./utils";
 import type { EncodedValue } from "./value";
 
 /**
- * JSON:API resource object representing a document with CRDT data.
+ * JSON:API resource object representing a document with versioned data.
  *
  * Resource objects are the primary unit of storage and synchronization in Starling.
  * This format is used consistently across disk storage, sync messages, network
@@ -24,7 +24,7 @@ export type ResourceObject = {
 	type: string;
 	/** Unique identifier for this resource */
 	id: string;
-	/** The resource's CRDT data with eventstamps (must be an object per JSON:API spec) */
+	/** The resource's data with eventstamps (must be an object per JSON:API spec) */
 	attributes: EncodedRecord;
 	/** System metadata and internal fields */
 	meta: {
@@ -34,7 +34,7 @@ export type ResourceObject = {
 };
 
 /**
- * Encode a plain JavaScript object into a JSON:API resource object with CRDT metadata.
+ * Encode a plain JavaScript object into a JSON:API resource object with versioned metadata.
  *
  * Per JSON:API specification, only objects are supported (not primitives).
  *
@@ -43,7 +43,7 @@ export type ResourceObject = {
  * @param eventstamp - Timestamp for this write operation
  * @param deletedAt - Optional deletion timestamp
  * @param type - Resource type identifier (defaults to "resource")
- * @returns Encoded resource object with CRDT data
+ * @returns Encoded resource object with versioned data
  * @throws Error if obj is not an object
  */
 export function encodeResource<T extends Record<string, unknown>>(
