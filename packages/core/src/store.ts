@@ -1,5 +1,5 @@
 import type { Document, ResourceObject } from "./crdt";
-import { CRDT, decodeDoc, mergeDocuments } from "./crdt";
+import { CRDT, decodeResource, mergeDocuments } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -211,10 +211,10 @@ export class Store<T> {
 		this.#crdt = CRDT.fromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -429,9 +429,9 @@ export class Store<T> {
 		};
 	}
 
-	#decodeActive(doc: ResourceObject | null): T | null {
-		if (!doc || doc.meta["~deletedAt"]) return null;
-		return decodeDoc<T>(doc).data;
+	#decodeActive(resource: ResourceObject | null): T | null {
+		if (!resource || resource.meta["~deletedAt"]) return null;
+		return decodeResource<T>(resource).data;
 	}
 
 	#emitMutations(

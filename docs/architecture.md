@@ -165,11 +165,11 @@ This format follows the [JSON:API specification](https://jsonapi.org/format/#doc
 
 The `mergeDocuments(into, from)` function handles document-level merging with automatic change detection:
 
-1. **Field-level LWW**: Each document pair merges using `mergeDocs`, preserving the newest eventstamp for each field
+1. **Field-level LWW**: Each resource object pair merges using `mergeResources`, preserving the newest eventstamp for each field
 2. **Clock forwarding**: The resulting document's eventstamp is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
 
-This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
+This design separates merge logic from store orchestration, enabling independent testing and reuse of operations.
 
 ## Design Scope
 
@@ -263,11 +263,11 @@ User mutation → Store → Transaction staging → Commit → Plugin hooks
 
 **Document sync:**
 ```
-store.merge(snapshot) → mergeDocuments(into, from) → Document merge (mergeDocs)
+store.merge(document) → mergeDocuments(into, from) → Resource merge (mergeResources)
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
-                       Update readMap              Track changes (add/update/delete)
+                       Update CRDT map             Track changes (add/update/delete)
                               ↓
                         Plugin hooks (with tracked changes)
 ```
@@ -278,10 +278,10 @@ Starling ships as a monorepo with subpath exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `ResourceObject`, `processDocument`
+**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `Document`, `ResourceObject`, `encodeResource`, `decodeResource`, `mergeResources`, `deleteResource`, `processResource`
 **Dependencies**: Zero runtime dependencies
 
-Provides the core store implementation, built-in queries, and plugin hooks.
+Provides the core store implementation, built-in queries, plugin hooks, and CRDT primitives for resource object manipulation.
 
 ### `@byearlybird/starling/plugin-unstorage`
 

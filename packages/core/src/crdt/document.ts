@@ -36,7 +36,17 @@ export type ResourceObject = {
 	};
 };
 
-export function encodeDoc<T>(
+/**
+ * Encode a plain JavaScript object into a JSON:API resource object with CRDT metadata.
+ *
+ * @param id - Unique identifier for this resource
+ * @param obj - Plain JavaScript object to encode
+ * @param eventstamp - Timestamp for this write operation
+ * @param deletedAt - Optional deletion timestamp
+ * @param type - Resource type identifier (defaults to "resource")
+ * @returns Encoded resource object with CRDT data
+ */
+export function encodeResource<T>(
 	id: string,
 	obj: T,
 	eventstamp: string,
@@ -55,7 +65,13 @@ export function encodeDoc<T>(
 	};
 }
 
-export function decodeDoc<T>(doc: ResourceObject): {
+/**
+ * Decode a JSON:API resource object back into a plain JavaScript object.
+ *
+ * @param resource - Encoded resource object
+ * @returns Decoded object with type, id, data, and metadata
+ */
+export function decodeResource<T>(resource: ResourceObject): {
 	type: string;
 	id: string;
 	data: T;
@@ -64,18 +80,25 @@ export function decodeDoc<T>(doc: ResourceObject): {
 	};
 } {
 	return {
-		type: doc.type,
-		id: doc.id,
-		data: (isEncodedValue(doc.attributes)
-			? decodeValue(doc.attributes as EncodedValue<T>)
-			: decodeRecord(doc.attributes as EncodedRecord)) as T,
+		type: resource.type,
+		id: resource.id,
+		data: (isEncodedValue(resource.attributes)
+			? decodeValue(resource.attributes as EncodedValue<T>)
+			: decodeRecord(resource.attributes as EncodedRecord)) as T,
 		meta: {
-			"~deletedAt": doc.meta["~deletedAt"],
+			"~deletedAt": resource.meta["~deletedAt"],
 		},
 	};
 }
 
-export function mergeDocs(
+/**
+ * Merge two JSON:API resource objects using field-level Last-Write-Wins.
+ *
+ * @param into - Base resource object
+ * @param from - Source resource object to merge in
+ * @returns Tuple of [merged resource object, greatest eventstamp]
+ */
+export function mergeResources(
 	into: ResourceObject,
 	from: ResourceObject,
 ): [ResourceObject, string] {
@@ -124,14 +147,21 @@ export function mergeDocs(
 	];
 }
 
-export function deleteDoc(
-	doc: ResourceObject,
+/**
+ * Mark a JSON:API resource object as soft-deleted.
+ *
+ * @param resource - Resource object to delete
+ * @param eventstamp - Deletion timestamp
+ * @returns Resource object marked with deletion timestamp
+ */
+export function deleteResource(
+	resource: ResourceObject,
 	eventstamp: string,
 ): ResourceObject {
 	return {
-		type: doc.type,
-		id: doc.id,
-		attributes: doc.attributes,
+		type: resource.type,
+		id: resource.id,
+		attributes: resource.attributes,
 		meta: {
 			"~deletedAt": eventstamp,
 		},
@@ -139,37 +169,37 @@ export function deleteDoc(
 }
 
 /**
- * Transform all values in a document using a provided function.
+ * Transform all values in a resource object using a provided function.
  *
  * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
  *
- * @param doc - Document to transform
+ * @param resource - Resource object to transform
  * @param process - Function to apply to each leaf value
- * @returns New document with transformed values
+ * @returns New resource object with transformed values
  *
  * @example
  * ```ts
  * // Encrypt all values before persisting
- * const encrypted = processDocument(doc, (value) => ({
+ * const encrypted = processResource(resource, (value) => ({
  *   ...value,
  *   "~value": encrypt(value["~value"])
  * }));
  * ```
  */
-export function processDocument(
-	doc: ResourceObject,
+export function processResource(
+	resource: ResourceObject,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
 ): ResourceObject {
-	const processedData = isEncodedValue(doc.attributes)
-		? process(doc.attributes as EncodedValue<unknown>)
-		: processRecord(doc.attributes as EncodedRecord, process);
+	const processedData = isEncodedValue(resource.attributes)
+		? process(resource.attributes as EncodedValue<unknown>)
+		: processRecord(resource.attributes as EncodedRecord, process);
 
 	return {
-		type: doc.type,
-		id: doc.id,
+		type: resource.type,
+		id: resource.id,
 		attributes: processedData,
 		meta: {
-			"~deletedAt": doc.meta["~deletedAt"],
+			"~deletedAt": resource.meta["~deletedAt"],
 		},
 	};
 }

@@ -1,4 +1,4 @@
-import { type ResourceObject, mergeDocs } from "./document";
+import { type ResourceObject, mergeResources } from "./document";
 
 /**
  * A JSON:API document representing the complete state of a store.
@@ -92,10 +92,10 @@ export function mergeDocuments(
 	into: Document,
 	from: Document,
 ): MergeDocumentsResult {
-	// Build index of base documents by ID for efficient lookup
-	const intoDocsById = new Map<string, ResourceObject>();
-	for (const doc of into.data) {
-		intoDocsById.set(doc.id, doc);
+	// Build index of base resource objects by ID for efficient lookup
+	const intoResourcesById = new Map<string, ResourceObject>();
+	for (const resource of into.data) {
+		intoResourcesById.set(resource.id, resource);
 	}
 
 	// Track changes for hook notifications
@@ -103,33 +103,33 @@ export function mergeDocuments(
 	const updated = new Map<string, ResourceObject>();
 	const deleted = new Set<string>();
 
-	// Start with base documents, will update/add as we process source
-	const mergedDocsById = new Map<string, ResourceObject>(intoDocsById);
+	// Start with base resource objects, will update/add as we process source
+	const mergedResourcesById = new Map<string, ResourceObject>(intoResourcesById);
 
-	// Process each source document
-	for (const fromDoc of from.data) {
-		const id = fromDoc.id;
-		const intoDoc = intoDocsById.get(id);
+	// Process each source resource object
+	for (const fromResource of from.data) {
+		const id = fromResource.id;
+		const intoResource = intoResourcesById.get(id);
 
-		if (!intoDoc) {
-			// New document from source - store it and track if not deleted
-			mergedDocsById.set(id, fromDoc);
-			if (!fromDoc.meta["~deletedAt"]) {
-				added.set(id, fromDoc);
+		if (!intoResource) {
+			// New resource object from source - store it and track if not deleted
+			mergedResourcesById.set(id, fromResource);
+			if (!fromResource.meta["~deletedAt"]) {
+				added.set(id, fromResource);
 			}
 		} else {
-			// Skip merge if documents are identical (same reference)
-			if (intoDoc === fromDoc) {
+			// Skip merge if resource objects are identical (same reference)
+			if (intoResource === fromResource) {
 				continue;
 			}
 
-			// Merge existing document using field-level LWW
-			const [mergedDoc] = mergeDocs(intoDoc, fromDoc);
-			mergedDocsById.set(id, mergedDoc);
+			// Merge existing resource object using field-level LWW
+			const [mergedResource] = mergeResources(intoResource, fromResource);
+			mergedResourcesById.set(id, mergedResource);
 
 			// Track state transitions for hook notifications
-			const wasDeleted = intoDoc.meta["~deletedAt"] !== null;
-			const isDeleted = mergedDoc.meta["~deletedAt"] !== null;
+			const wasDeleted = intoResource.meta["~deletedAt"] !== null;
+			const isDeleted = mergedResource.meta["~deletedAt"] !== null;
 
 			// Only track transitions: new deletion or non-deleted update
 			if (!wasDeleted && isDeleted) {
@@ -137,10 +137,10 @@ export function mergeDocuments(
 				deleted.add(id);
 			} else if (!isDeleted) {
 				// Not deleted, so this is an update
-				// (including updates that occur while doc is deleted, which merge silently)
-				updated.set(id, mergedDoc);
+				// (including updates that occur while resource is deleted, which merge silently)
+				updated.set(id, mergedResource);
 			}
-			// If wasDeleted && isDeleted, doc stays deleted - no change tracking
+			// If wasDeleted && isDeleted, resource stays deleted - no change tracking
 		}
 	}
 
@@ -152,7 +152,7 @@ export function mergeDocuments(
 
 	return {
 		document: {
-			data: Array.from(mergedDocsById.values()),
+			data: Array.from(mergedResourcesById.values()),
 			meta: {
 				"~eventstamp": newestEventstamp,
 			},

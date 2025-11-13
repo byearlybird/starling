@@ -2,7 +2,12 @@ import { Clock } from "../clock";
 import type { Document } from "./collection";
 import { mergeDocuments } from "./collection";
 import type { ResourceObject } from "./document";
-import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
+import {
+	decodeResource,
+	deleteResource,
+	encodeResource,
+	mergeResources,
+} from "./document";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -55,7 +60,9 @@ export class CRDT<T> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw.meta["~deletedAt"] ? undefined : (decodeDoc(raw).data as T);
+		return raw.meta["~deletedAt"]
+			? undefined
+			: (decodeResource(raw).data as T);
 	}
 
 	/**
@@ -64,9 +71,9 @@ export class CRDT<T> {
 	entries(): IterableIterator<readonly [string, T]> {
 		const self = this;
 		function* iterator() {
-			for (const [key, doc] of self.#map.entries()) {
-				if (!doc.meta["~deletedAt"]) {
-					const decoded = decodeDoc<T>(doc).data;
+			for (const [key, resource] of self.#map.entries()) {
+				if (!resource.meta["~deletedAt"]) {
+					const decoded = decodeResource<T>(resource).data;
 					yield [key, decoded] as const;
 				}
 			}
@@ -80,7 +87,7 @@ export class CRDT<T> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = encodeResource(id, object, this.#clock.now());
 		this.#map.set(id, encoded);
 	}
 
@@ -91,10 +98,10 @@ export class CRDT<T> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = encodeResource(id, object, this.#clock.now());
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeDocs(current, encoded);
+			const [merged] = mergeResources(current, encoded);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, encoded);
@@ -104,8 +111,8 @@ export class CRDT<T> {
 	delete(id: string): void {
 		const current = this.#map.get(id);
 		if (current) {
-			const doc = deleteDoc(current, this.#clock.now());
-			this.#map.set(id, doc);
+			const resource = deleteResource(current, this.#clock.now());
+			this.#map.set(id, resource);
 		}
 	}
 
@@ -135,13 +142,13 @@ export class CRDT<T> {
 
 		this.#clock.forward(result.document.meta["~eventstamp"]);
 		this.#map = new Map(
-			result.document.data.map((doc) => [doc.id, doc]),
+			result.document.data.map((resource) => [resource.id, resource]),
 		);
 	}
 
 	static fromSnapshot<U>(document: Document): CRDT<U> {
 		return new CRDT<U>(
-			new Map(document.data.map((doc) => [doc.id, doc])),
+			new Map(document.data.map((resource) => [resource.id, resource])),
 			document.meta["~eventstamp"],
 		);
 	}

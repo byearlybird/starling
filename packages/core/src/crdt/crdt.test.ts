@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Document } from "./collection";
 import { CRDT } from "./crdt";
-import { decodeDoc, encodeDoc } from "./document";
+import { decodeResource, encodeResource } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
 
 describe("CRDT", () => {
@@ -24,8 +24,8 @@ describe("CRDT", () => {
 		});
 
 		test("creates CRDT with existing documents", () => {
-			const doc1 = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP);
+			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
 			const map = new Map([
 				[doc1.id, doc1],
 				[doc2.id, doc2],
@@ -41,7 +41,7 @@ describe("CRDT", () => {
 
 	describe("has", () => {
 		test("returns true for existing documents", () => {
-			const doc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
 			const crdt = new CRDT<{ name: string }>(new Map([[doc.id, doc]]));
 
 			expect(crdt.has("id1")).toBe(true);
@@ -56,7 +56,7 @@ describe("CRDT", () => {
 
 	describe("get", () => {
 		test("returns document for existing id", () => {
-			const doc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
 			const crdt = new CRDT<{ name: string }>(new Map([[doc.id, doc]]));
 
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
@@ -192,8 +192,8 @@ describe("CRDT", () => {
 
 	describe("snapshot", () => {
 		test("returns document with documents and eventstamp", () => {
-			const doc1 = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP);
+			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
 			const crdt = new CRDT(
 				new Map([
 					[doc1.id, doc1],
@@ -241,8 +241,8 @@ describe("CRDT", () => {
 		test("creates CRDT from document", () => {
 			const document: Document = {
 				data: [
-					encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP),
-					encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP),
+					encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP),
+					encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP),
 				],
 				meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|abcd" },
 			};
@@ -258,7 +258,7 @@ describe("CRDT", () => {
 		});
 
 		test("preserves deleted documents", () => {
-			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const deletedDoc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
 			deletedDoc.meta["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
 
 			const document: Document = {
@@ -306,7 +306,7 @@ describe("CRDT", () => {
 			// Merge replica1 into replica2
 			const document1 = replica1.snapshot();
 			for (const encodedDoc of document1.data) {
-				const decoded = decodeDoc(encodedDoc);
+				const decoded = decodeResource(encodedDoc);
 				replica2.update(decoded.id, decoded.data as any);
 			}
 
@@ -372,7 +372,7 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice" });
 
 			const remoteDocument: Document = {
-				data: [encodeDoc("id2", { name: "Bob" }, MIN_EVENTSTAMP)],
+				data: [encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP)],
 				meta: { "~eventstamp": MIN_EVENTSTAMP },
 			};
 
@@ -387,7 +387,7 @@ describe("CRDT", () => {
 		test("applies field-level last-write-wins during merge", () => {
 			// Create a local document with an older eventstamp
 			const localEventstamp = "2025-01-01T00:00:00.000Z|0001|aaaa";
-			const localDoc = encodeDoc(
+			const localDoc = encodeResource(
 				"id1",
 				{ name: "Alice", age: 30 },
 				localEventstamp,
@@ -400,7 +400,7 @@ describe("CRDT", () => {
 			// Create a remote document with a newer eventstamp for one field
 			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			const remoteDocument: Document = {
-				data: [encodeDoc("id1", { age: 31 }, laterEventstamp)],
+				data: [encodeResource("id1", { age: 31 }, laterEventstamp)],
 				meta: { "~eventstamp": laterEventstamp },
 			};
 
@@ -415,7 +415,7 @@ describe("CRDT", () => {
 			const crdt = new CRDT<{ name: string }>(new Map());
 			crdt.add("id1", { name: "Alice" });
 
-			const deletedDoc = encodeDoc("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const deletedDoc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
 			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			deletedDoc.meta["~deletedAt"] = deletionEventstamp;
 
@@ -456,7 +456,7 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice", age: 30 });
 
 			const remoteDocument: Document = {
-				data: [encodeDoc("id2", { name: "Bob", age: 25 }, MIN_EVENTSTAMP)],
+				data: [encodeResource("id2", { name: "Bob", age: 25 }, MIN_EVENTSTAMP)],
 				meta: { "~eventstamp": MIN_EVENTSTAMP },
 			};
 
@@ -475,12 +475,12 @@ describe("CRDT", () => {
 
 		test("merge preserves local data when remote is older", () => {
 			const localEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const localDoc = encodeDoc("id1", { name: "Alice" }, localEventstamp);
+			const localDoc = encodeResource("id1", { name: "Alice" }, localEventstamp);
 			const crdt = new CRDT(new Map([["id1", localDoc]]));
 
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			const remoteDocument: Document = {
-				data: [encodeDoc("id1", { name: "Bob" }, olderEventstamp)],
+				data: [encodeResource("id1", { name: "Bob" }, olderEventstamp)],
 				meta: { "~eventstamp": olderEventstamp },
 			};
 
