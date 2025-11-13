@@ -22,7 +22,7 @@ export type Collection = {
 	/** Collection-level metadata */
 	meta: {
 		/** Latest eventstamp observed by this collection for clock synchronization */
-		eventstamp: string;
+		"~eventstamp": string;
 	};
 };
 
@@ -147,15 +147,15 @@ export function mergeCollections(
 
 	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
 	const newestEventstamp =
-		into.meta.eventstamp >= from.meta.eventstamp
-			? into.meta.eventstamp
-			: from.meta.eventstamp;
+		into.meta["~eventstamp"] >= from.meta["~eventstamp"]
+			? into.meta["~eventstamp"]
+			: from.meta["~eventstamp"];
 
 	return {
 		collection: {
 			data: Array.from(mergedDocsById.values()),
 			meta: {
-				eventstamp: newestEventstamp,
+				"~eventstamp": newestEventstamp,
 			},
 		},
 		changes: {
@@ -182,7 +182,7 @@ export function createCollection(eventstamp: string): Collection {
 	return {
 		data: [],
 		meta: {
-			eventstamp,
+			"~eventstamp": eventstamp,
 		},
 	};
 }

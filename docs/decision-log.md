@@ -59,7 +59,7 @@ Adopt JSON:API as the canonical serialized format for all documents and collecti
 {
   data: [/* resource objects */],  // Array of documents
   meta: {
-    eventstamp: "..."               // Clock synchronization
+    "~eventstamp": "..."            // Clock synchronization
   }
 }
 ```

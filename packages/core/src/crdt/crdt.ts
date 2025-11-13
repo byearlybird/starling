@@ -120,7 +120,7 @@ export class CRDT<T> {
 		return {
 			data: Array.from(this.#map.values()),
 			meta: {
-				eventstamp: this.#clock.latest(),
+				"~eventstamp": this.#clock.latest(),
 			},
 		};
 	}
@@ -133,7 +133,7 @@ export class CRDT<T> {
 		const currentCollection = this.snapshot();
 		const result = mergeCollections(currentCollection, collection);
 
-		this.#clock.forward(result.collection.meta.eventstamp);
+		this.#clock.forward(result.collection.meta["~eventstamp"]);
 		this.#map = new Map(
 			result.collection.data.map((doc) => [doc.id, doc]),
 		);
@@ -142,7 +142,7 @@ export class CRDT<T> {
 	static fromSnapshot<U>(collection: Collection): CRDT<U> {
 		return new CRDT<U>(
 			new Map(collection.data.map((doc) => [doc.id, doc])),
-			collection.meta.eventstamp,
+			collection.meta["~eventstamp"],
 		);
 	}
 }

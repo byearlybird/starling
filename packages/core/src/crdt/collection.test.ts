@@ -12,7 +12,7 @@ test("createCollection returns empty collection with given eventstamp", () => {
 	const collection = createCollection(eventstamp);
 
 	expect(collection.data).toEqual([]);
-	expect(collection.meta.eventstamp).toBe(eventstamp);
+	expect(collection.meta["~eventstamp"]).toBe(eventstamp);
 });
 
 test("mergeCollections with empty collections", () => {
@@ -22,7 +22,7 @@ test("mergeCollections with empty collections", () => {
 	const result = mergeCollections(into, from);
 
 	expect(result.collection.data).toEqual([]);
-	expect(result.collection.meta.eventstamp).toBe(
+	expect(result.collection.meta["~eventstamp"]).toBe(
 		"2025-01-01T00:05:00.000Z|0001|c3d4",
 	);
 	expect(result.changes.added.size).toBe(0);
@@ -36,7 +36,7 @@ test("mergeCollections forwards clock to newer eventstamp", () => {
 
 	const result = mergeCollections(into, from);
 
-	expect(result.collection.meta.eventstamp).toBe(
+	expect(result.collection.meta["~eventstamp"]).toBe(
 		"2025-01-01T00:10:00.000Z|0002|e5f6",
 	);
 });
@@ -47,7 +47,7 @@ test("mergeCollections keeps older eventstamp when into is newer", () => {
 
 	const result = mergeCollections(into, from);
 
-	expect(result.collection.meta.eventstamp).toBe(
+	expect(result.collection.meta["~eventstamp"]).toBe(
 		"2025-01-01T00:10:00.000Z|0002|e5f6",
 	);
 });
@@ -62,7 +62,7 @@ test("mergeCollections adds new document from source", () => {
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -84,13 +84,13 @@ test("mergeCollections updates existing document", () => {
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 	const from: Collection = {
 		data: [
 			encodeDoc("doc-1", { age: 31 }, "2025-01-01T00:05:00.000Z|0001|c3d4"),
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -111,7 +111,7 @@ test("mergeCollections marks document as deleted", () => {
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const deletedDoc = encodeDoc(
@@ -123,7 +123,7 @@ test("mergeCollections marks document as deleted", () => {
 
 	const from: Collection = {
 		data: [deletedDoc],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -148,7 +148,7 @@ test("mergeCollections keeps deleted document deleted on update", () => {
 
 	const into: Collection = {
 		data: [deletedDoc],
-		meta: { eventstamp: "2025-01-01T00:02:00.000Z|0001|b2c3" },
+		meta: { "~eventstamp": "2025-01-01T00:02:00.000Z|0001|b2c3" },
 	};
 
 	const from: Collection = {
@@ -159,7 +159,7 @@ test("mergeCollections keeps deleted document deleted on update", () => {
 				"2025-01-01T00:05:00.000Z|0002|c3d4",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0002|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0002|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -186,7 +186,7 @@ test("mergeCollections does not track deleted documents as added", () => {
 
 	const from: Collection = {
 		data: [deletedDoc],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -211,7 +211,7 @@ test("mergeCollections merges multiple documents with mixed operations", () => {
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const deletedDoc = encodeDoc(
@@ -231,7 +231,7 @@ test("mergeCollections merges multiple documents with mixed operations", () => {
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			), // add
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -255,7 +255,7 @@ test("mergeCollections preserves documents only in base collection", () => {
 			),
 			encodeDoc("doc-2", { name: "Bob" }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 	const from: Collection = {
 		data: [
@@ -265,7 +265,7 @@ test("mergeCollections preserves documents only in base collection", () => {
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -286,11 +286,11 @@ test("mergeCollections does not mark unchanged documents as updated", () => {
 
 	const into: Collection = {
 		data: [doc],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 	const from: Collection = {
 		data: [doc],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -310,7 +310,7 @@ test("mergeCollections field-level LWW for nested objects", () => {
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const from: Collection = {
@@ -321,7 +321,7 @@ test("mergeCollections field-level LWW for nested objects", () => {
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			),
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);
@@ -341,7 +341,7 @@ test("mergeCollections with primitive values", () => {
 				meta: { "~deletedAt": null },
 			},
 		],
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const from: Collection = {
@@ -353,7 +353,7 @@ test("mergeCollections with primitive values", () => {
 				meta: { "~deletedAt": null },
 			},
 		],
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
 	};
 
 	const result = mergeCollections(into, from);

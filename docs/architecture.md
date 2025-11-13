@@ -126,7 +126,7 @@ The `Collection` type represents the complete persistent state of a store, follo
 export type Collection = {
   data: ResourceObject[];
   meta: {
-    eventstamp: string;
+    "~eventstamp": string;
   };
 };
 ```
@@ -134,7 +134,7 @@ export type Collection = {
 **Design notes:**
 
 - **`data`**: Array of resource objects (encoded documents), including soft-deleted items (those with `meta.deletedAt` set). This ensures deletion events propagate during sync.
-- **`meta.eventstamp`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
+- **`meta["~eventstamp"]`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
 
 Example collection:
 
@@ -154,7 +154,7 @@ Example collection:
     }
   ],
   meta: {
-    eventstamp: "2025-10-26T10:00:00.000Z|0001|a7f2"
+    "~eventstamp": "2025-10-26T10:00:00.000Z|0001|a7f2"
   }
 }
 ```

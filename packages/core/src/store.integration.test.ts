@@ -119,12 +119,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Verify clock is forwarded to at least the highest eventstamp
 		// (eventstamps are ISO8601 strings, so lexicographic comparison works)
 		const stamps = [
-			collectionA.meta.eventstamp,
-			collectionB.meta.eventstamp,
-			collectionC.meta.eventstamp,
+			collectionA.meta["~eventstamp"],
+			collectionB.meta["~eventstamp"],
+			collectionC.meta["~eventstamp"],
 		];
 		const maxRemoteStamp = stamps.sort().pop() || "";
-		expect(consolidated.collection().meta.eventstamp >= maxRemoteStamp).toBe(true);
+		expect(consolidated.collection().meta["~eventstamp"] >= maxRemoteStamp).toBe(true);
 	});
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
@@ -314,7 +314,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 	test("should merge empty snapshots gracefully", async () => {
 		const emptyCollection: Collection = {
 			data: [],
-			meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|0000" },
+			meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000" },
 		};
 
 		const consolidated = await mergeStoreCollections<TestUser>([
@@ -417,13 +417,13 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const isoString = new Date(futureMs).toISOString();
 		const futureTimestamp = `${isoString}|ffffffff|0000`;
 
-		const clockBeforeFwd = storeB.collection().meta.eventstamp;
+		const clockBeforeFwd = storeB.collection().meta["~eventstamp"];
 		// Forward the clock by merging a snapshot with the future timestamp
 		storeB.merge({
 			data: [],
-			meta: { eventstamp: futureTimestamp },
+			meta: { "~eventstamp": futureTimestamp },
 		});
-		const clockAfterFwd = storeB.collection().meta.eventstamp;
+		const clockAfterFwd = storeB.collection().meta["~eventstamp"];
 
 		// Verify the clock was indeed forwarded (it should now reflect the future timestamp)
 		expect(clockAfterFwd > clockBeforeFwd).toBe(true);
@@ -450,9 +450,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[collectionA2.meta.eventstamp, collectionB2.meta.eventstamp].sort().pop() ||
+			[collectionA2.meta["~eventstamp"], collectionB2.meta["~eventstamp"]].sort().pop() ||
 			"";
-		const consolidatedClock = consolidated.collection().meta.eventstamp;
+		const consolidatedClock = consolidated.collection().meta["~eventstamp"];
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 
 		// Now continue working: make new writes on both the consolidated store
@@ -495,7 +495,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the final merged store's clock is well past the forwarded time
 		// (since we made writes after forwarding)
-		const finalClock = finalMerged.collection().meta.eventstamp;
+		const finalClock = finalMerged.collection().meta["~eventstamp"];
 		expect(finalClock).toBeDefined();
 		expect(finalClock.length > 0).toBe(true);
 	});
