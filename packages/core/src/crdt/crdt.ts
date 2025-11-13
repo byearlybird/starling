@@ -20,6 +20,8 @@ import {
  * interface using plain JavaScript objects, while internally managing encoded
  * documents for merge tracking.
  *
+ * Per JSON:API specification, documents must be objects (not primitives).
+ *
  * @example
  * ```typescript
  * const crdt = new CRDT(new Map());
@@ -27,7 +29,7 @@ import {
  * const doc = crdt.get("id1"); // { name: "Alice" }
  * ```
  */
-export class CRDT<T> {
+export class CRDT<T extends Record<string, unknown>> {
 	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 
@@ -146,7 +148,9 @@ export class CRDT<T> {
 		);
 	}
 
-	static fromSnapshot<U>(document: Document): CRDT<U> {
+	static fromSnapshot<U extends Record<string, unknown>>(
+		document: Document,
+	): CRDT<U> {
 		return new CRDT<U>(
 			new Map(document.data.map((resource) => [resource.id, resource])),
 			document.meta["~eventstamp"],

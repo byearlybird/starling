@@ -20,18 +20,20 @@ import {
  * This format is used consistently across disk storage, sync messages, network
  * transport, and export/import operations.
  *
+ * Per JSON:API specification, attributes must be an object (not a primitive).
+ *
  * @see https://jsonapi.org/format/#document-resource-objects
  */
 export type ResourceObject = {
 	/** Resource type identifier (collection name) */
 	type: string;
-	/** Unique identifier for this document */
+	/** Unique identifier for this resource */
 	id: string;
-	/** The document's CRDT data with eventstamps */
-	attributes: EncodedValue<unknown> | EncodedRecord;
+	/** The resource's CRDT data with eventstamps (must be an object per JSON:API spec) */
+	attributes: EncodedRecord;
 	/** System metadata and internal fields */
 	meta: {
-		/** Eventstamp when this document was soft-deleted, or null if not deleted */
+		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
 		"~deletedAt": string | null;
 	};
 };
@@ -39,26 +41,33 @@ export type ResourceObject = {
 /**
  * Encode a plain JavaScript object into a JSON:API resource object with CRDT metadata.
  *
+ * Per JSON:API specification, only objects are supported (not primitives).
+ *
  * @param id - Unique identifier for this resource
- * @param obj - Plain JavaScript object to encode
+ * @param obj - Plain JavaScript object to encode (must be an object, not a primitive)
  * @param eventstamp - Timestamp for this write operation
  * @param deletedAt - Optional deletion timestamp
  * @param type - Resource type identifier (defaults to "resource")
  * @returns Encoded resource object with CRDT data
+ * @throws Error if obj is not an object
  */
-export function encodeResource<T>(
+export function encodeResource<T extends Record<string, unknown>>(
 	id: string,
 	obj: T,
 	eventstamp: string,
 	deletedAt: string | null = null,
 	type = "resource",
 ): ResourceObject {
+	if (!isObject(obj)) {
+		throw new Error(
+			"Resource attributes must be an object per JSON:API specification",
+		);
+	}
+
 	return {
 		type,
 		id,
-		attributes: isObject(obj)
-			? encodeRecord(obj as Record<string, unknown>, eventstamp)
-			: encodeValue(obj, eventstamp),
+		attributes: encodeRecord(obj, eventstamp),
 		meta: {
 			"~deletedAt": deletedAt,
 		},
@@ -71,7 +80,9 @@ export function encodeResource<T>(
  * @param resource - Encoded resource object
  * @returns Decoded object with type, id, data, and metadata
  */
-export function decodeResource<T>(resource: ResourceObject): {
+export function decodeResource<T extends Record<string, unknown>>(
+	resource: ResourceObject,
+): {
 	type: string;
 	id: string;
 	data: T;
@@ -82,9 +93,7 @@ export function decodeResource<T>(resource: ResourceObject): {
 	return {
 		type: resource.type,
 		id: resource.id,
-		data: (isEncodedValue(resource.attributes)
-			? decodeValue(resource.attributes as EncodedValue<T>)
-			: decodeRecord(resource.attributes as EncodedRecord)) as T,
+		data: decodeRecord(resource.attributes) as T,
 		meta: {
 			"~deletedAt": resource.meta["~deletedAt"],
 		},
@@ -94,6 +103,9 @@ export function decodeResource<T>(resource: ResourceObject): {
 /**
  * Merge two JSON:API resource objects using field-level Last-Write-Wins.
  *
+ * Per JSON:API specification, attributes are always objects, so we merge them
+ * using field-level LWW semantics.
+ *
  * @param into - Base resource object
  * @param from - Source resource object to merge in
  * @returns Tuple of [merged resource object, greatest eventstamp]
@@ -102,24 +114,11 @@ export function mergeResources(
 	into: ResourceObject,
 	from: ResourceObject,
 ): [ResourceObject, string] {
-	const intoIsValue = isEncodedValue(into.attributes);
-	const fromIsValue = isEncodedValue(from.attributes);
-
-	// Type mismatch: cannot merge primitive with object
-	if (intoIsValue !== fromIsValue) {
-		throw new Error("Merge error: Incompatible types");
-	}
-
-	const [mergedData, dataEventstamp] =
-		intoIsValue && fromIsValue
-			? mergeValues(
-					into.attributes as EncodedValue<unknown>,
-					from.attributes as EncodedValue<unknown>,
-				)
-			: mergeRecords(
-					into.attributes as EncodedRecord,
-					from.attributes as EncodedRecord,
-				);
+	// Merge attributes using field-level LWW (both are EncodedRecord per JSON:API spec)
+	const [mergedData, dataEventstamp] = mergeRecords(
+		into.attributes,
+		from.attributes,
+	);
 
 	const mergedDeletedAt =
 		into.meta["~deletedAt"] && from.meta["~deletedAt"]
@@ -190,9 +189,8 @@ export function processResource(
 	resource: ResourceObject,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
 ): ResourceObject {
-	const processedData = isEncodedValue(resource.attributes)
-		? process(resource.attributes as EncodedValue<unknown>)
-		: processRecord(resource.attributes as EncodedRecord, process);
+	// Per JSON:API spec, attributes are always objects (EncodedRecord)
+	const processedData = processRecord(resource.attributes, process);
 
 	return {
 		type: resource.type,

@@ -73,11 +73,13 @@ The `unstorage` plugin persists both documents and the latest eventstamp so fres
 
 ### Data Type Support
 
-Starling works best with **Records** and **Primitives**:
+Per the [JSON:API specification](https://jsonapi.org/format/#document-resource-objects), Starling stores **objects only** (not primitives). Documents must be plain JavaScript objects with string keys:
 
 ```typescript
 ✅ Good: { name: "Alice", settings: { theme: "dark", notifications: true } }
 ✅ Good: { count: 42, active: true, tags: ["work", "urgent"] }
+❌ Invalid: 42 (primitives not supported - wrap in object: { value: 42 })
+❌ Invalid: "hello" (primitives not supported - wrap in object: { text: "hello" })
 ```
 
 **Arrays are treated atomically**: If two clients modify the same array field, Last-Write-Wins applies to the entire array—there's no element-level merging. For lists that need concurrent edits (e.g., todo items), use keyed records instead:

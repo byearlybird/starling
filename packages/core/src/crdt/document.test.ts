@@ -222,157 +222,46 @@ test("deleteResource with decodeResource shows document is deleted", () => {
 	expect(decoded.data).toEqual({ name: "Alice" });
 });
 
-// === Primitive Document Tests ===
+// === JSON:API Compliance Tests ===
 
-test("encodeResource primitive (string) creates valid ResourceObject", () => {
-	const result = encodeResource(
-		"msg-1",
-		"hello",
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-
-	expect(result.id).toBe("msg-1");
-	expect(result.meta["~deletedAt"]).toBe(null);
-	expect(result.attributes).toBeDefined();
+test("encodeResource throws error for primitive string (per JSON:API spec)", () => {
+	expect(() =>
+		encodeResource(
+			"msg-1",
+			"hello" as any,
+			"2025-01-01T00:00:00.000Z|0000|a1b2",
+		),
+	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
-test("encodeResource/decodeResource primitive (string) round-trip", () => {
-	const original = "hello world";
-	const encoded = encodeResource(
-		"key-1",
-		original,
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const decoded = decodeResource<string>(encoded);
-
-	expect(decoded.id).toBe("key-1");
-	expect(decoded.data).toBe(original);
-	expect(decoded.meta["~deletedAt"]).toBe(null);
+test("encodeResource throws error for primitive number (per JSON:API spec)", () => {
+	expect(() =>
+		encodeResource(
+			"count-1",
+			42 as any,
+			"2025-01-01T00:00:00.000Z|0000|a1b2",
+		),
+	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
-test("encodeResource/decodeResource primitive (number) round-trip", () => {
-	const original = 42;
-	const encoded = encodeResource(
-		"count-1",
-		original,
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const decoded = decodeResource<number>(encoded);
-
-	expect(decoded.id).toBe("count-1");
-	expect(decoded.data).toBe(original);
+test("encodeResource throws error for primitive boolean (per JSON:API spec)", () => {
+	expect(() =>
+		encodeResource(
+			"flag-1",
+			true as any,
+			"2025-01-01T00:00:00.000Z|0000|a1b2",
+		),
+	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
-test("encodeResource/decodeResource primitive (boolean) round-trip", () => {
-	const original = true;
-	const encoded = encodeResource(
-		"flag-1",
-		original,
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const decoded = decodeResource<boolean>(encoded);
-
-	expect(decoded.id).toBe("flag-1");
-	expect(decoded.data).toBe(original);
-});
-
-test("mergeResources primitives - newer eventstamp wins", () => {
-	const doc1 = encodeResource(
-		"count-1",
-		100,
-		"2025-01-01T00:00:00.000Z|0000|a1b2", // older
-	);
-	const doc2 = encodeResource(
-		"count-1",
-		200,
-		"2025-01-02T00:00:00.000Z|0000|c3d4", // newer
-	);
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-	const decoded = decodeResource<number>(merged);
-
-	// Newer value (200) should win
-	expect(decoded.data).toBe(200);
-	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-});
-
-test("mergeResources primitives - newer eventstamp wins (reverse order)", () => {
-	const doc1 = encodeResource(
-		"msg-1",
-		"new message",
-		"2025-01-02T00:00:00.000Z|0000|c3d4", // newer
-	);
-	const doc2 = encodeResource(
-		"msg-1",
-		"old message",
-		"2025-01-01T00:00:00.000Z|0000|a1b2", // older
-	);
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-	const decoded = decodeResource<string>(merged);
-
-	// Newer value ("new message") should win
-	expect(decoded.data).toBe("new message");
-	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-});
-
-test("mergeResources primitives with equal eventstamps uses from value", () => {
-	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const doc1 = encodeResource("key-1", "first", eventstamp);
-	const doc2 = encodeResource("key-1", "second", eventstamp);
-
-	const [merged, returnedEventstamp] = mergeResources(doc1, doc2);
-	const decoded = decodeResource<string>(merged);
-
-	// With equal timestamps, from value (second parameter) is used
-	expect(decoded.data).toBe("second");
-	expect(returnedEventstamp).toBe(eventstamp);
-});
-
-test("deleteResource primitive document works correctly", () => {
-	const doc = encodeResource("count-1", 42, "2025-01-01T00:00:00.000Z|0000|a1b2");
-	const deleted = deleteResource(doc, "2025-01-02T00:00:00.000Z|1");
-
-	expect(deleted.meta["~deletedAt"]).toBe("2025-01-02T00:00:00.000Z|1");
-	expect(deleted.id).toBe("count-1");
-
-	const decoded = decodeResource<number>(deleted);
-	expect(decoded.data).toBe(42);
-	expect(decoded.meta["~deletedAt"]).not.toBeNull();
-});
-
-test("mergeResources throws error when merging primitive with object", () => {
-	const primitiveDoc = encodeResource(
-		"key-1",
-		"hello",
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const objectDoc = encodeResource(
-		"key-1",
-		{ name: "Alice" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-
-	expect(() => mergeResources(primitiveDoc, objectDoc)).toThrow(
-		"Merge error: Incompatible types",
-	);
-});
-
-test("mergeResources throws error when merging object with primitive", () => {
-	const objectDoc = encodeResource(
-		"key-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const primitiveDoc = encodeResource(
-		"key-1",
-		"hello",
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-
-	expect(() => mergeResources(objectDoc, primitiveDoc)).toThrow(
-		"Merge error: Incompatible types",
-	);
+test("encodeResource throws error for null (per JSON:API spec)", () => {
+	expect(() =>
+		encodeResource(
+			"null-1",
+			null as any,
+			"2025-01-01T00:00:00.000Z|0000|a1b2",
+		),
+	).toThrow("Resource attributes must be an object per JSON:API specification");
 });
 
 test("mergeResources bubbles newest eventstamp from nested object fields", () => {

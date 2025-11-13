@@ -58,6 +58,8 @@ export type StoreSetTransaction<T> = {
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
  *
+ * @template T - The type of documents stored (must be a record/object type)
+ *
  * @example
  * ```ts
  * const loggingPlugin: Plugin<Todo> = {
@@ -67,7 +69,7 @@ export type StoreSetTransaction<T> = {
  * };
  * ```
  */
-export type Plugin<T> = {
+export type Plugin<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
 	onInit: (store: Store<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -131,7 +133,9 @@ type QueryInternal<T, U> = {
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * @template T - The type of documents stored in this collection
+ * Per JSON:API specification, documents must be objects (not primitives).
+ *
+ * @template T - The type of documents stored (must be a record/object type)
  *
  * @example
  * ```ts
@@ -149,7 +153,7 @@ type QueryInternal<T, U> = {
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export class Store<T> {
+export class Store<T extends Record<string, unknown>> {
 	#crdt = new CRDT<T>();
 	#getId: () => string;
 

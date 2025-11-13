@@ -95,7 +95,7 @@ State-based replication keeps the implementation focused and efficient:
 
 ### Merge Behavior
 
-**Primitives and objects**: Merge recursively at the field level. Each nested field carries its own eventstamp, enabling fine-grained conflict resolution:
+**Objects**: Per JSON:API specification, documents must be objects (not primitives). Starling merges objects recursively at the field level. Each nested field carries its own eventstamp, enabling fine-grained conflict resolution:
 
 ```typescript
 // Both clients edit different fields simultaneously
@@ -244,9 +244,9 @@ Each module handles a distinct responsibility in the state-based replication mod
 | --- | --- |
 | [`clock.ts`](../packages/core/src/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, generates random nonces for tie-breaking, and forwards itself when observing newer remote stamps |
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
-| [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitives with eventstamps and merges values by comparing stamps |
+| [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps primitive field values (string, number, boolean, null) with eventstamps and merges them by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`) and soft-deletion |
+| [`document.ts`](../packages/core/src/crdt/document.ts) | JSON:API resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`); enforces object-only documents per JSON:API spec |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
 | [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
