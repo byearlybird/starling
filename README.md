@@ -73,7 +73,7 @@ The `unstorage` plugin persists both documents and the latest eventstamp so fres
 
 ### Data Type Support
 
-Per the [JSON:API specification](https://jsonapi.org/format/#document-resource-objects), Starling stores **objects only** (not primitives). Documents must be plain JavaScript objects with string keys:
+Starling stores **objects only** (not primitives). Documents must be plain JavaScript objects with string keys:
 
 ```typescript
 ✅ Good: { name: "Alice", settings: { theme: "dark", notifications: true } }
@@ -88,6 +88,8 @@ Per the [JSON:API specification](https://jsonapi.org/format/#document-resource-o
 ❌ Avoid: { todos: [{ text: "..." }, { text: "..." }] }
 ✅ Better: { todos: { "id1": { text: "..." }, "id2": { text: "..." } } }
 ```
+
+**Serialization**: The store exports and imports fully JSON-serializable documents. The format follows [JSON:API](https://jsonapi.org/format/) for straightforward interoperability with cloud storage and existing tools.
 
 ### When to Use Something Else
 

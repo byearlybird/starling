@@ -229,34 +229,34 @@ test("deleteResource with decodeResource shows document is deleted", () => {
 	expect(decoded.data).toEqual({ name: "Alice" });
 });
 
-// === JSON:API Compliance Tests ===
+// === Object-Only Validation Tests ===
 
-test("encodeResource throws error for primitive string (per JSON:API spec)", () => {
+test("encodeResource throws error for primitive string", () => {
 	expect(() =>
 		encodeResource(
 			"msg-1",
 			"hello" as any,
 			"2025-01-01T00:00:00.000Z|0000|a1b2",
 		),
-	).toThrow("Resource attributes must be an object per JSON:API specification");
+	).toThrow("Resource attributes must be an object (not a primitive)");
 });
 
-test("encodeResource throws error for primitive number (per JSON:API spec)", () => {
+test("encodeResource throws error for primitive number", () => {
 	expect(() =>
 		encodeResource("count-1", 42 as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object per JSON:API specification");
+	).toThrow("Resource attributes must be an object (not a primitive)");
 });
 
-test("encodeResource throws error for primitive boolean (per JSON:API spec)", () => {
+test("encodeResource throws error for primitive boolean", () => {
 	expect(() =>
 		encodeResource("flag-1", true as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object per JSON:API specification");
+	).toThrow("Resource attributes must be an object (not a primitive)");
 });
 
-test("encodeResource throws error for null (per JSON:API spec)", () => {
+test("encodeResource throws error for null", () => {
 	expect(() =>
 		encodeResource("null-1", null as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object per JSON:API specification");
+	).toThrow("Resource attributes must be an object (not a primitive)");
 });
 
 test("mergeResources bubbles newest eventstamp from nested object fields", () => {

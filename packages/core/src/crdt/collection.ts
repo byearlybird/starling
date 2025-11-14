@@ -1,7 +1,7 @@
 import { mergeResources, type ResourceObject } from "./document";
 
 /**
- * A JSON:API document representing the complete state of a store.
+ * A document representing the complete state of a store.
  *
  * This is the canonical format used across disk storage, sync messages,
  * network transport, and export/import operations.

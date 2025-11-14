@@ -9,13 +9,13 @@ import { isObject } from "./utils";
 import type { EncodedValue } from "./value";
 
 /**
- * JSON:API resource object representing a document with versioned data.
+ * Resource object representing a document with versioned data.
  *
  * Resource objects are the primary unit of storage and synchronization in Starling.
  * This format is used consistently across disk storage, sync messages, network
  * transport, and export/import operations.
  *
- * Per JSON:API specification, attributes must be an object (not a primitive).
+ * Attributes must be an object (not a primitive).
  *
  * @see https://jsonapi.org/format/#document-resource-objects
  */
@@ -24,7 +24,7 @@ export type ResourceObject = {
 	type: string;
 	/** Unique identifier for this resource */
 	id: string;
-	/** The resource's data with eventstamps (must be an object per JSON:API spec) */
+	/** The resource's data with eventstamps (must be an object) */
 	attributes: EncodedRecord;
 	/** System metadata and internal fields */
 	meta: {
@@ -34,9 +34,9 @@ export type ResourceObject = {
 };
 
 /**
- * Encode a plain JavaScript object into a JSON:API resource object with versioned metadata.
+ * Encode a plain JavaScript object into a resource object with versioned metadata.
  *
- * Per JSON:API specification, only objects are supported (not primitives).
+ * Only objects are supported (not primitives).
  *
  * @param id - Unique identifier for this resource
  * @param obj - Plain JavaScript object to encode (must be an object, not a primitive)
@@ -54,9 +54,7 @@ export function encodeResource<T extends Record<string, unknown>>(
 	type = "resource",
 ): ResourceObject {
 	if (!isObject(obj)) {
-		throw new Error(
-			"Resource attributes must be an object per JSON:API specification",
-		);
+		throw new Error("Resource attributes must be an object (not a primitive)");
 	}
 
 	return {

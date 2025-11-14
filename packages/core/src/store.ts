@@ -133,7 +133,7 @@ type QueryInternal<T, U> = {
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * Per JSON:API specification, documents must be objects (not primitives).
+ * Documents must be objects (not primitives).
  *
  * @template T - The type of documents stored (must be a record/object type)
  *
@@ -196,7 +196,7 @@ export class Store<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Get the complete store state as a JSON:API document for persistence or sync.
+	 * Get the complete store state as a document for persistence or sync.
 	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
 	document(): Document {
@@ -204,7 +204,7 @@ export class Store<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Merge a JSON:API document from storage or another replica using field-level LWW.
+	 * Merge a document from storage or another replica using field-level LWW.
 	 * @param document - Document from storage or another store instance
 	 */
 	merge(document: Document): void {

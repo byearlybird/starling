@@ -20,7 +20,7 @@ import {
  * interface using plain JavaScript objects, while internally managing encoded
  * resource objects for merge tracking.
  *
- * Per JSON:API specification, documents must be objects (not primitives).
+ * Documents must be objects (not primitives).
  *
  * @example
  * ```typescript
@@ -124,8 +124,8 @@ export class RecordMap<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Export the current state as a JSON:API document.
-	 * @returns JSON:API document containing all resource objects and metadata
+	 * Export the current state as a document.
+	 * @returns Document containing all resource objects and metadata
 	 */
 	document(): Document {
 		return {
@@ -137,8 +137,8 @@ export class RecordMap<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Merge another JSON:API document into this map using field-level Last-Write-Wins.
-	 * @param document - JSON:API document from another replica or storage
+	 * Merge another document into this map using field-level Last-Write-Wins.
+	 * @param document - Document from another replica or storage
 	 */
 	merge(document: Document): void {
 		const currentDocument = this.document();
@@ -151,8 +151,8 @@ export class RecordMap<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Create a RecordMap instance from a JSON:API document.
-	 * @param document - JSON:API document to hydrate from
+	 * Create a RecordMap instance from a document.
+	 * @param document - Document to hydrate from
 	 * @returns New RecordMap instance initialized with the document's data
 	 */
 	static fromDocument<U extends Record<string, unknown>>(
