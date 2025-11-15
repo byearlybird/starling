@@ -1,4 +1,4 @@
-import { mergeAttributes } from "./record";
+import { mergeAttributes } from "./merge";
 import { isObject } from "./utils";
 
 /**
@@ -51,7 +51,11 @@ export function addEventstamps(
 	const attributes: Record<string, unknown> = {};
 	const eventstamps: Record<string, unknown> = {};
 
-	const step = (input: Record<string, unknown>, attrs: Record<string, unknown>, events: Record<string, unknown>) => {
+	const step = (
+		input: Record<string, unknown>,
+		attrs: Record<string, unknown>,
+		events: Record<string, unknown>,
+	) => {
 		for (const key in input) {
 			if (!Object.hasOwn(input, key)) continue;
 
@@ -60,7 +64,11 @@ export function addEventstamps(
 			if (isObject(val)) {
 				attrs[key] = {};
 				events[key] = {};
-				step(val as Record<string, unknown>, attrs[key] as Record<string, unknown>, events[key] as Record<string, unknown>);
+				step(
+					val as Record<string, unknown>,
+					attrs[key] as Record<string, unknown>,
+					events[key] as Record<string, unknown>,
+				);
 			} else {
 				attrs[key] = val;
 				events[key] = eventstamp;
@@ -90,7 +98,10 @@ export function decodeResource<T extends Record<string, unknown>>(
 } {
 	const data: Record<string, unknown> = {};
 
-	const step = (attrs: Record<string, unknown>, output: Record<string, unknown>) => {
+	const step = (
+		attrs: Record<string, unknown>,
+		output: Record<string, unknown>,
+	) => {
 		for (const key in attrs) {
 			if (!Object.hasOwn(attrs, key)) continue;
 
@@ -98,7 +109,10 @@ export function decodeResource<T extends Record<string, unknown>>(
 
 			if (isObject(val)) {
 				output[key] = {};
-				step(val as Record<string, unknown>, output[key] as Record<string, unknown>);
+				step(
+					val as Record<string, unknown>,
+					output[key] as Record<string, unknown>,
+				);
 			} else {
 				output[key] = val;
 			}
