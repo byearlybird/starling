@@ -28,32 +28,46 @@ Key-based serialization makes data self-documenting:
 
 ---
 
-## Decision 002 — Tilde Prefix for System Keys
+## Decision 002 — Serialization Format
 
 **Context**
 
-Internal metadata fields (IDs, timestamps, deletion markers) need to be:
-1. Clearly distinguishable from user-defined data
-2. Compact (don't bloat JSON payloads)
-3. Consistent across the codebase
+Starling needs a serialization format for disk storage, sync messages, and cloud infrastructure that is:
+1. Fully JSON-serializable (works with any storage backend)
+2. Separates user data from system metadata
+3. Compatible with standard tooling and existing systems
 
 **Decision**
 
-Prefix all system-reserved keys with a tilde (`~`): `~id`, `~deletedAt`, `~createdAt`.
+Use [JSON:API](https://jsonapi.org/) format for all serialized documents.
+
+Document structure:
+```typescript
+{
+  data: [
+    {
+      type: "resource",
+      id: "doc-1",
+      attributes: { /* user data with eventstamps */ },
+      meta: { "~deletedAt": null }
+    }
+  ],
+  meta: { "~eventstamp": "..." }
+}
+```
 
 **Rationale**
 
-The tilde prefix provides visual and functional separation:
-
-- **IDE ergonomics**: Tilde-prefixed keys sort to the bottom of IntelliSense suggestions, keeping user fields prominent
-- **Visual distinction**: The tilde is rarely used in user identifiers, making system keys immediately recognizable
-- **Compact**: Single-character prefix minimizes payload overhead
+Pragmatic choice:
+- Don't want to design a custom serialization spec
+- Provides straightforward interoperability with cloud storage and HTTP APIs
+- Clear separation of concerns: `id` for identity, `attributes` for data, `meta` for system fields
+- Existing validators and libraries work out-of-the-box
 
 **Alternatives Considered**
 
-- **Double underscore (`__id`)** — Common, but blends with user-defined private fields
-- **Dollar sign (`$id`)** — Reserved in some query languages (MongoDB) and can confuse developers familiar with those conventions
-- **Namespace object (`{ _meta: { id, deletedAt } }`)** — Cleaner separation but adds nesting depth and complicates field-level merging
+- **Custom format** — Avoided reinventing wheels; better to use existing standards where they fit
+- **GraphQL** — Focused on query language rather than simple data serialization
 
 ---
 
@@ -76,7 +90,7 @@ This approach balances simplicity and correctness:
 
 - **Simple mental model**: "Newest write wins" is easy to explain and reason about
 - **State-based, not operation-based**: Syncing sends document state, not edit histories. This eliminates the need to track, store, and replay operation logs
-- **Works with primitives**: No special data types required—just add an eventstamp to each field
+- **Works with plain objects**: Documents must be objects (not primitives). Field values can be any JSON type with eventstamps tracked per field
 - **Handles clock stalls**: The hex counter increments when the wall clock doesn't advance, and a random nonce provides a final tie-breaker, effectively eliminating the risk of ties
 - **Embeddable**: Minimal overhead (~34 bytes per field for the eventstamp)
 

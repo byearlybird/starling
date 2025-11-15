@@ -1,5 +1,5 @@
-import type { Collection, EncodedDocument } from "./crdt";
-import { CRDT, decodeDoc, mergeCollections } from "./crdt";
+import type { Document, ResourceObject } from "./crdt";
+import { decodeResource, mergeDocuments, ResourceMap } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -19,6 +19,8 @@ export type StoreAddOptions = {
  * Configuration options for creating a Store instance.
  */
 export type StoreConfig = {
+	/** JSON:API resource type for documents stored in this instance */
+	resourceType: string;
 	/** Custom ID generator. Defaults to crypto.randomUUID() */
 	getId?: () => string;
 };
@@ -58,6 +60,8 @@ export type StoreSetTransaction<T> = {
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
  *
+ * @template T - The type of documents stored (must be a record/object type)
+ *
  * @example
  * ```ts
  * const loggingPlugin: Plugin<Todo> = {
@@ -67,7 +71,7 @@ export type StoreSetTransaction<T> = {
  * };
  * ```
  */
-export type Plugin<T> = {
+export type Plugin<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
 	onInit: (store: Store<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -131,11 +135,15 @@ type QueryInternal<T, U> = {
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * @template T - The type of documents stored in this collection
+ * Documents must be objects (not primitives).
+ *
+ * @template T - The type of documents stored (must be a record/object type)
  *
  * @example
  * ```ts
- * const store = await new Store<{ text: string; completed: boolean }>()
+ * const store = await new Store<{ text: string; completed: boolean }>({
+ *   resourceType: "todos"
+ * })
  *   .use(unstoragePlugin('todos', storage))
  *   .init();
  *
@@ -149,8 +157,9 @@ type QueryInternal<T, U> = {
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export class Store<T> {
-	#crdt = new CRDT<T>();
+export class Store<T extends Record<string, unknown>> {
+	#ResourceMap: ResourceMap<T>;
+	#resourceType: string;
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -161,7 +170,12 @@ export class Store<T> {
 
 	#queries = new Set<QueryInternal<T, any>>();
 
-	constructor(config: StoreConfig = {}) {
+	constructor(config: StoreConfig) {
+		if (!config?.resourceType) {
+			throw new Error("Store resourceType is required");
+		}
+		this.#resourceType = config.resourceType;
+		this.#ResourceMap = new ResourceMap<T>(this.#resourceType);
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
 
@@ -172,7 +186,7 @@ export class Store<T> {
 	 * @returns True if document exists, false otherwise
 	 */
 	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
-		return this.#crdt.has(key, opts);
+		return this.#ResourceMap.has(key, opts);
 	}
 
 	/**
@@ -180,7 +194,7 @@ export class Store<T> {
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
-		const current = this.#crdt.get(key);
+		const current = this.#ResourceMap.get(key);
 		return current ?? null;
 	}
 
@@ -188,33 +202,36 @@ export class Store<T> {
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		return this.#crdt.entries();
+		return this.#ResourceMap.entries();
 	}
 
 	/**
-	 * Get the complete store state as a Collection for persistence or sync.
-	 * @returns Collection containing all documents and the latest eventstamp
+	 * Get the complete store state as a document for persistence or sync.
+	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
-	collection(): Collection {
-		return this.#crdt.snapshot();
+	document(): Document {
+		return this.#ResourceMap.document();
 	}
 
 	/**
-	 * Merge a collection from storage or another replica using field-level LWW.
-	 * @param collection - Collection from storage or another store instance
+	 * Merge a document from storage or another replica using field-level LWW.
+	 * @param document - Document from storage or another store instance
 	 */
-	merge(collection: Collection): void {
-		const currentCollection = this.collection();
-		const result = mergeCollections(currentCollection, collection);
+	merge(document: Document): void {
+		const currentDocument = this.document();
+		const result = mergeDocuments(currentDocument, document);
 
-		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
+		// Replace the ResourceMap with the merged state
+		this.#ResourceMap = ResourceMap.fromDocument<T>(
+			this.#resourceType,
+			result.document,
+		);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -253,8 +270,11 @@ export class Store<T> {
 		const updateEntries: Array<readonly [string, T]> = [];
 		const deleteKeys: Array<string> = [];
 
-		// Create a staging CRDT by cloning the current state
-		const staging = CRDT.fromSnapshot<T>(this.#crdt.snapshot());
+		// Create a staging ResourceMap by cloning the current state
+		const staging = ResourceMap.fromDocument<T>(
+			this.#resourceType,
+			this.#ResourceMap.document(),
+		);
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
@@ -288,7 +308,7 @@ export class Store<T> {
 		const result = callback(tx);
 
 		if (!rolledBack) {
-			this.#crdt = staging;
+			this.#ResourceMap = staging;
 			if (!silent) {
 				this.#emitMutations(addEntries, updateEntries, deleteKeys);
 			}
@@ -429,9 +449,9 @@ export class Store<T> {
 		};
 	}
 
-	#decodeActive(doc: EncodedDocument | null): T | null {
-		if (!doc || doc["~deletedAt"]) return null;
-		return decodeDoc<T>(doc)["~data"];
+	#decodeActive(resource: ResourceObject | null): T | null {
+		if (!resource || resource.meta["~deletedAt"]) return null;
+		return decodeResource<T>(resource).data;
 	}
 
 	#emitMutations(

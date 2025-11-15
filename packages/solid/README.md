@@ -15,7 +15,7 @@ import { Store } from "@byearlybird/starling";
 import { createStoreHooks } from "@byearlybird/starling-solid";
 
 // Create your store
-const todoStore = await new Store<Todo>().init();
+const todoStore = await new Store<Todo>({ resourceType: "todos" }).init();
 
 // Create typed hooks from your store - do this once at module level
 export const { StoreProvider, useStore, useQuery } = createStoreHooks(todoStore);

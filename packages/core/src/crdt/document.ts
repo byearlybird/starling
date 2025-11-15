@@ -1,149 +1,189 @@
-import {
-	decodeRecord,
-	type EncodedRecord,
-	encodeRecord,
-	mergeRecords,
-	processRecord,
-} from "./record";
-import { isEncodedValue, isObject } from "./utils";
-import {
-	decodeValue,
-	type EncodedValue,
-	encodeValue,
-	mergeValues,
-} from "./value";
+import { mergeResources, type ResourceObject } from "./resource";
 
 /**
- * Top-level document structure with system metadata for tracking identity,
- * data, and deletion state. Documents are the primary unit of storage and
- * synchronization in Starling.
+ * A document representing the complete state of a store.
  *
- * The tilde prefix (~) distinguishes system metadata from user-defined data.
+ * This is the canonical format used across disk storage, sync messages,
+ * network transport, and export/import operations.
+ *
+ * Documents contain:
+ * - An array of resource objects (including soft-deleted ones)
+ * - Metadata including the highest eventstamp for clock synchronization
+ *
+ * Documents are the unit of synchronization between store replicas.
+ *
+ * @see https://jsonapi.org/format/#document-structure
  */
-export type EncodedDocument = {
-	/** Unique identifier for this document */
-	"~id": string;
-	/** The document's data, either a primitive value or nested object structure */
-	"~data": EncodedValue<unknown> | EncodedRecord;
-	/** Eventstamp when this document was soft-deleted, or null if not deleted */
-	"~deletedAt": string | null;
+export type Document = {
+	/** Array of resource objects with versioned data and metadata */
+	data: ResourceObject[];
+
+	/** Document-level metadata */
+	meta: {
+		/** Latest eventstamp observed by this document for clock synchronization */
+		"~eventstamp": string;
+	};
 };
 
-export function encodeDoc<T>(
-	id: string,
-	obj: T,
-	eventstamp: string,
-	deletedAt: string | null = null,
-): EncodedDocument {
-	return {
-		"~id": id,
-		"~data": isObject(obj)
-			? encodeRecord(obj as Record<string, unknown>, eventstamp)
-			: encodeValue(obj, eventstamp),
-		"~deletedAt": deletedAt,
-	};
-}
+/**
+ * Change tracking information returned by mergeDocuments.
+ * Categorizes resource objects by mutation type for hook notifications.
+ */
+export type DocumentChanges = {
+	/** Resource objects that were newly added (didn't exist before or were previously deleted) */
+	added: Map<string, ResourceObject>;
 
-export function decodeDoc<T>(doc: EncodedDocument): {
-	"~id": string;
-	"~data": T;
-	"~deletedAt": string | null;
-} {
-	return {
-		"~id": doc["~id"],
-		"~data": (isEncodedValue(doc["~data"])
-			? decodeValue(doc["~data"] as EncodedValue<T>)
-			: decodeRecord(doc["~data"] as EncodedRecord)) as T,
-		"~deletedAt": doc["~deletedAt"],
-	};
-}
+	/** Resource objects that were modified (existed before and changed) */
+	updated: Map<string, ResourceObject>;
 
-export function mergeDocs(
-	into: EncodedDocument,
-	from: EncodedDocument,
-): [EncodedDocument, string] {
-	const intoIsValue = isEncodedValue(into["~data"]);
-	const fromIsValue = isEncodedValue(from["~data"]);
+	/** Resource objects that were deleted (newly marked with ~deletedAt) */
+	deleted: Set<string>;
+};
 
-	// Type mismatch: cannot merge primitive with object
-	if (intoIsValue !== fromIsValue) {
-		throw new Error("Merge error: Incompatible types");
+/**
+ * Result of merging two JSON:API documents.
+ */
+export type MergeDocumentsResult = {
+	/** The merged document with updated resource objects and forwarded clock */
+	document: Document;
+
+	/** Change tracking for plugin hook notifications */
+	changes: DocumentChanges;
+};
+
+/**
+ * Merges two JSON:API documents using field-level Last-Write-Wins semantics.
+ *
+ * The merge operation:
+ * 1. Forwards the clock to the newest eventstamp from either document
+ * 2. Merges each resource object pair using field-level LWW (via mergeResources)
+ * 3. Tracks what changed for hook notifications (added/updated/deleted)
+ *
+ * Deletion is final: once a resource object is deleted, updates to it are merged
+ * into its data but don't restore visibility. Only new resource objects or
+ * transitions into the deleted state are tracked.
+ *
+ * @param into - The base document to merge into
+ * @param from - The source document to merge from
+ * @returns Merged document and categorized changes
+ *
+ * @example
+ * ```typescript
+ * const into = {
+ *   data: [{ type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }],
+ *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
+ * };
+ *
+ * const from = {
+ *   data: [
+ *     { type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }, // updated
+ *     { type: "todos", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }  // new
+ *   ],
+ *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
+ * };
+ *
+ * const result = mergeDocuments(into, from);
+ * // result.document.meta["~eventstamp"] === "2025-01-01T00:05:00.000Z|0001|c3d4"
+ * // result.changes.added has "doc2"
+ * // result.changes.updated has "doc1"
+ * ```
+ */
+export function mergeDocuments(
+	into: Document,
+	from: Document,
+): MergeDocumentsResult {
+	// Build index of base resource objects by ID for efficient lookup
+	const intoResourcesById = new Map<string, ResourceObject>();
+	for (const resource of into.data) {
+		intoResourcesById.set(resource.id, resource);
 	}
 
-	const [mergedData, dataEventstamp] =
-		intoIsValue && fromIsValue
-			? mergeValues(
-					into["~data"] as EncodedValue<unknown>,
-					from["~data"] as EncodedValue<unknown>,
-				)
-			: mergeRecords(
-					into["~data"] as EncodedRecord,
-					from["~data"] as EncodedRecord,
-				);
+	// Track changes for hook notifications
+	const added = new Map<string, ResourceObject>();
+	const updated = new Map<string, ResourceObject>();
+	const deleted = new Set<string>();
 
-	const mergedDeletedAt =
-		into["~deletedAt"] && from["~deletedAt"]
-			? into["~deletedAt"] > from["~deletedAt"]
-				? into["~deletedAt"]
-				: from["~deletedAt"]
-			: into["~deletedAt"] || from["~deletedAt"] || null;
+	// Start with base resource objects, will update/add as we process source
+	const mergedResourcesById = new Map<string, ResourceObject>(
+		intoResourcesById,
+	);
 
-	// Bubble up the greatest eventstamp from both data and deletion timestamp
-	let greatestEventstamp: string = dataEventstamp;
-	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
-		greatestEventstamp = mergedDeletedAt;
+	// Process each source resource object
+	for (const fromResource of from.data) {
+		const id = fromResource.id;
+		const intoResource = intoResourcesById.get(id);
+
+		if (!intoResource) {
+			// New resource object from source - store it and track if not deleted
+			mergedResourcesById.set(id, fromResource);
+			if (!fromResource.meta["~deletedAt"]) {
+				added.set(id, fromResource);
+			}
+		} else {
+			// Skip merge if resource objects are identical (same reference)
+			if (intoResource === fromResource) {
+				continue;
+			}
+
+			// Merge existing resource object using field-level LWW
+			const [mergedResource] = mergeResources(intoResource, fromResource);
+			mergedResourcesById.set(id, mergedResource);
+
+			// Track state transitions for hook notifications
+			const wasDeleted = intoResource.meta["~deletedAt"] !== null;
+			const isDeleted = mergedResource.meta["~deletedAt"] !== null;
+
+			// Only track transitions: new deletion or non-deleted update
+			if (!wasDeleted && isDeleted) {
+				// Transitioned to deleted
+				deleted.add(id);
+			} else if (!isDeleted) {
+				// Not deleted, so this is an update
+				// (including updates that occur while resource is deleted, which merge silently)
+				updated.set(id, mergedResource);
+			}
+			// If wasDeleted && isDeleted, resource stays deleted - no change tracking
+		}
 	}
 
-	return [
-		{
-			"~id": into["~id"],
-			"~data": mergedData,
-			"~deletedAt": mergedDeletedAt,
+	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
+	const newestEventstamp =
+		into.meta["~eventstamp"] >= from.meta["~eventstamp"]
+			? into.meta["~eventstamp"]
+			: from.meta["~eventstamp"];
+
+	return {
+		document: {
+			data: Array.from(mergedResourcesById.values()),
+			meta: {
+				"~eventstamp": newestEventstamp,
+			},
 		},
-		greatestEventstamp,
-	];
-}
-
-export function deleteDoc(
-	doc: EncodedDocument,
-	eventstamp: string,
-): EncodedDocument {
-	return {
-		"~id": doc["~id"],
-		"~data": doc["~data"],
-		"~deletedAt": eventstamp,
+		changes: {
+			added,
+			updated,
+			deleted,
+		},
 	};
 }
 
 /**
- * Transform all values in a document using a provided function.
+ * Creates an empty JSON:API document with the given eventstamp.
+ * Useful for initializing new stores or testing.
  *
- * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
- *
- * @param doc - Document to transform
- * @param process - Function to apply to each leaf value
- * @returns New document with transformed values
+ * @param eventstamp - Initial clock value for this document
+ * @returns Empty document
  *
  * @example
- * ```ts
- * // Encrypt all values before persisting
- * const encrypted = processDocument(doc, (value) => ({
- *   ...value,
- *   "~value": encrypt(value["~value"])
- * }));
+ * ```typescript
+ * const empty = createDocument("2025-01-01T00:00:00.000Z|0000|0000");
  * ```
  */
-export function processDocument(
-	doc: EncodedDocument,
-	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): EncodedDocument {
-	const processedData = isEncodedValue(doc["~data"])
-		? process(doc["~data"] as EncodedValue<unknown>)
-		: processRecord(doc["~data"] as EncodedRecord, process);
-
+export function createDocument(eventstamp: string): Document {
 	return {
-		"~id": doc["~id"],
-		"~data": processedData,
-		"~deletedAt": doc["~deletedAt"],
+		data: [],
+		meta: {
+			"~eventstamp": eventstamp,
+		},
 	};
 }

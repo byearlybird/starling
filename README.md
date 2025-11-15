@@ -30,7 +30,9 @@ bun add unstorage
 import { Store } from "@byearlybird/starling";
 
 // Create a store with built-in reactive queries
-const todoStore = await new Store<{ text: string; completed: boolean }>().init();
+const todoStore = await new Store<{ text: string; completed: boolean }>({
+  resourceType: "todos",
+}).init();
 
 // Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
@@ -73,11 +75,13 @@ The `unstorage` plugin persists both documents and the latest eventstamp so fres
 
 ### Data Type Support
 
-Starling works best with **Records** and **Primitives**:
+Starling stores **objects only** (not primitives). Documents must be plain JavaScript objects with string keys:
 
 ```typescript
 ✅ Good: { name: "Alice", settings: { theme: "dark", notifications: true } }
 ✅ Good: { count: 42, active: true, tags: ["work", "urgent"] }
+❌ Invalid: 42 (primitives not supported - wrap in object: { value: 42 })
+❌ Invalid: "hello" (primitives not supported - wrap in object: { text: "hello" })
 ```
 
 **Arrays are treated atomically**: If two clients modify the same array field, Last-Write-Wins applies to the entire array—there's no element-level merging. For lists that need concurrent edits (e.g., todo items), use keyed records instead:
@@ -86,6 +90,8 @@ Starling works best with **Records** and **Primitives**:
 ❌ Avoid: { todos: [{ text: "..." }, { text: "..." }] }
 ✅ Better: { todos: { "id1": { text: "..." }, "id2": { text: "..." } } }
 ```
+
+**Serialization**: The store exports and imports fully JSON-serializable documents. The format follows [JSON:API](https://jsonapi.org/format/) for straightforward interoperability with cloud storage and existing tools.
 
 ### When to Use Something Else
 
@@ -109,10 +115,11 @@ Starling provides a simple API for mutations, queries, and sync. Hover over meth
 import { Store } from "@byearlybird/starling";
 
 // Create a basic store
-const store = new Store<YourType>();
+const store = new Store<YourType>({ resourceType: "your-type" });
 
 // Optionally provide a custom ID generator
 const deterministicStore = new Store<YourType>({
+  resourceType: "your-type",
   getId: () => crypto.randomUUID(),
 });
 
@@ -201,7 +208,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): Plugin<T> => ({
 });
 
 // Use the plugin
-const store = await new Store<{ name: string }>()
+const store = await new Store<{ name: string }>({ resourceType: "contacts" })
   .use(loggingPlugin())
   .init();
 ```
@@ -230,7 +237,7 @@ import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
 
 // Register multiple storage backends - they work together automatically
-const store = await new Store<Todo>()
+const store = await new Store<Todo>({ resourceType: "todos" })
   .use(
     unstoragePlugin(
       "todos",
