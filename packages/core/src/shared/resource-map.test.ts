@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { MIN_EVENTSTAMP } from "../crdt/eventstamp";
 import {
-	TEST_RESOURCE_TYPE,
 	buildResource,
 	makeDocument,
 	mapFromResources,
+	TEST_RESOURCE_TYPE,
 } from "../crdt/test-utils";
 import { ResourceMap } from "./resource-map";
 
@@ -214,9 +214,9 @@ describe("ResourceMap", () => {
 			};
 			const document = makeDocument([otherResource], MIN_EVENTSTAMP);
 
-			expect(() => ResourceMap.fromDocument(TEST_RESOURCE_TYPE, document)).toThrow(
-				/Resource type mismatch/,
-			);
+			expect(() =>
+				ResourceMap.fromDocument(TEST_RESOURCE_TYPE, document),
+			).toThrow(/Resource type mismatch/);
 		});
 	});
 

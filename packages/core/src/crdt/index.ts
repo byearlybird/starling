@@ -5,10 +5,10 @@ export * from "./merge";
 export {
 	addEventstamps,
 	createResource,
+	type DecodedResource,
 	decodeResource,
 	deleteResource,
 	mergeResources,
-	type DecodedResource,
 	type ResourceObject,
 } from "./resource";
 export * from "./utils";

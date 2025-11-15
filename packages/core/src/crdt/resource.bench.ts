@@ -76,7 +76,12 @@ function createPairedResources(
 	const resources2: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
 		resources1.push(
-			createResource("resource", `doc-${i}`, generateTestData(i), generateEventstamp(i)),
+			createResource(
+				"resource",
+				`doc-${i}`,
+				generateTestData(i),
+				generateEventstamp(i),
+			),
 		);
 		resources2.push(
 			createResource(

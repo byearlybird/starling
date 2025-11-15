@@ -1,4 +1,4 @@
-import type { Document, ResourceObject } from "../crdt";
+import type { Document } from "../crdt";
 import type { StandardSchemaV1 } from "./standard-schema";
 
 /**

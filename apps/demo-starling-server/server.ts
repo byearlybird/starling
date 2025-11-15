@@ -1,6 +1,6 @@
 import type { Document } from "@byearlybird/starling/crdt";
-import { Store } from "@byearlybird/starling/store";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
+import { Store } from "@byearlybird/starling/store";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
 

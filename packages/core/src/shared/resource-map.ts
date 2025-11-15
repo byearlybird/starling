@@ -1,4 +1,3 @@
-import { Clock } from "./clock";
 import type { Document } from "../crdt/document";
 import { mergeDocuments } from "../crdt/document";
 import type { DecodedResource, ResourceObject } from "../crdt/resource";
@@ -8,6 +7,7 @@ import {
 	deleteResource,
 	mergeResources,
 } from "../crdt/resource";
+import { Clock } from "./clock";
 
 /**
  * An Observed-Remove Map (OR-Map) with Last-Write-Wins semantics for

@@ -20,7 +20,10 @@ test("mergeDocuments with empty documents", () => {
 });
 
 test("mergeDocuments selects max eventstamp", () => {
-	const result1 = mergeDocuments(createDocument(EARLIER), createDocument(LATER));
+	const result1 = mergeDocuments(
+		createDocument(EARLIER),
+		createDocument(LATER),
+	);
 	expect(result1.document.meta["~eventstamp"]).toBe(LATER);
 
 	const result2 = mergeDocuments(
@@ -91,7 +94,9 @@ test("mergeDocuments tracks deletions", () => {
 test("mergeDocuments does not restore deleted resources", () => {
 	const deletionTimestamp = "2025-01-01T00:00:30.000Z|0000|x1y2";
 	const into: Document = {
-		data: [buildResource("doc1", { name: "Alice" }, EARLIER, deletionTimestamp)],
+		data: [
+			buildResource("doc1", { name: "Alice" }, EARLIER, deletionTimestamp),
+		],
 		meta: { "~eventstamp": deletionTimestamp },
 	};
 

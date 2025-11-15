@@ -181,7 +181,8 @@ describe("Store - Queries", () => {
 	it.each([
 		{
 			desc: "when predicate fails",
-			action: (tx: ReturnType<typeof store.begin>) => tx.update("user1", { active: false }),
+			action: (tx: ReturnType<typeof store.begin>) =>
+				tx.update("user1", { active: false }),
 		},
 		{
 			desc: "when they are deleted",

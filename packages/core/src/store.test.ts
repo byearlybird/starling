@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 import {
 	ALICE_DATA,
 	BOB_DATA,
-	CHARLIE_DATA,
 	TEST_RESOURCE_TYPE,
 	type TestUser,
 } from "./crdt/test-utils";
