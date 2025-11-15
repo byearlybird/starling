@@ -93,7 +93,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 
 	const user1 = resourceById(mergedDoc, "user1");
 	expect(user1).toBeDefined();
-	const user1Attrs = user1!.attributes as Record<string, unknown>;
+	const user1Attrs = user1?.attributes as Record<string, unknown>;
 	const user1Profile = user1Attrs.profile as Record<string, unknown>;
 	expect(user1Profile.bio).toBe("Bonjour tout le monde"); // Newer replica value
 	expect(user1Profile.location).toBe("San Francisco"); // Preserved from base
@@ -102,11 +102,11 @@ test("CRDT integration merges updates, creations, and deletions without resource
 
 	const user2 = resourceById(mergedDoc, "user2");
 	expect(user2).toBeDefined();
-	expect(user2!.meta["~deletedAt"]).toBeNull();
+	expect(user2?.meta["~deletedAt"]).toBeNull();
 
 	const user3 = resourceById(mergedDoc, "user3");
 	expect(user3).toBeDefined();
-	expect(user3!.meta["~deletedAt"]).toBe("2025-01-01T00:05:00.000Z|0001|del3");
+	expect(user3?.meta["~deletedAt"]).toBe("2025-01-01T00:05:00.000Z|0001|del3");
 
 	expect(result.changes.added.size).toBe(1);
 	expect(result.changes.added.has("user2")).toBe(true);

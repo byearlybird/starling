@@ -87,11 +87,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Merge all documents into a consolidated store
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
-			[
-				documentA,
-				documentB,
-				documentC,
-			],
+			[documentA, documentB, documentC],
 		);
 
 		// Verify all 6 documents are present in the consolidated store
@@ -177,11 +173,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// Verify the consolidated document has all three fields
 		// (field-level LWW merge means all fields should be present)
@@ -238,11 +233,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// The final value should be whichever was merged last
 		// (since they're applied in order, the last one to be processed wins LWW)
@@ -300,11 +294,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Merge in order: A → B → C
 		// This ensures the deletion (highest eventstamp) is merged last
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// The document should be deleted (not appear in active entries)
 		expect(consolidated.get("user-1")).toBeNull();
@@ -325,7 +318,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 			meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000" },
 		};
 
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [emptyDocument]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[emptyDocument],
+		);
 
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
@@ -369,11 +365,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// Verify all 4 users are present
 		expect(consolidated.get("user-1")).toBeDefined();
@@ -444,10 +439,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentB2 = storeB.document();
 
 		// Merge both snapshots into a consolidated store
-		const consolidated = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentA2,
-			documentB2,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA2, documentB2],
+		);
 
 		// Verify the consolidated store has all 3 users
 		expect(consolidated.get("user-1")).toBeDefined();
@@ -481,10 +476,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge the post-forwarding writes
-		const finalMerged = await mergeStoreDocuments<TestUser>(TEST_RESOURCE_TYPE, [
-			documentConsolidated,
-			documentC,
-		]);
+		const finalMerged = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentConsolidated, documentC],
+		);
 
 		// Verify all 5 users are present in the final merged store
 		expect(finalMerged.get("user-1")).toEqual({ id: "user-1", name: "Alice" });

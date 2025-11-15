@@ -31,14 +31,14 @@ test("addEventstamps handles nested objects", () => {
 	expect(attrs).toEqual({
 		user: { name: "Bob", email: "bob@example.com" },
 	});
-	expect((events.user as Record<string, unknown>)).toEqual({
+	expect(events.user as Record<string, unknown>).toEqual({
 		name: "2025-01-01T00:00:00.000Z|0000|a1b2",
 		email: "2025-01-01T00:00:00.000Z|0000|a1b2",
 	});
 });
 
 test("addEventstamps handles deeply nested objects", () => {
-	const [attrs, events] = addEventstamps(
+	const [_attrs, events] = addEventstamps(
 		{ a: { b: { c: "value" } } },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
@@ -49,15 +49,15 @@ test("addEventstamps handles deeply nested objects", () => {
 });
 
 test("addEventstamps throws error for non-object values", () => {
-	expect(() => addEventstamps("not an object", "2025-01-01T00:00:00.000Z|0000|a1b2")).toThrow(
-		/must be an object/,
-	);
-	expect(() => addEventstamps(42, "2025-01-01T00:00:00.000Z|0000|a1b2")).toThrow(
-		/must be an object/,
-	);
-	expect(() => addEventstamps(null, "2025-01-01T00:00:00.000Z|0000|a1b2")).toThrow(
-		/must be an object/,
-	);
+	expect(() =>
+		addEventstamps("not an object", "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
+	expect(() =>
+		addEventstamps(42, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
+	expect(() =>
+		addEventstamps(null, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
 });
 
 test("addEventstamps preserves arrays as leaf values", () => {
@@ -198,7 +198,10 @@ test("mergeResources handles deletion timestamps", () => {
 		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrsB,
-		meta: { "~eventstamps": eventsB, "~deletedAt": "2025-01-01T00:00:01.000Z|0000|c3d4" },
+		meta: {
+			"~eventstamps": eventsB,
+			"~deletedAt": "2025-01-01T00:00:01.000Z|0000|c3d4",
+		},
 	};
 
 	const [merged, maxEventstamp] = mergeResources(resourceA, resourceB);
@@ -219,7 +222,10 @@ test("deleteResource marks a resource as deleted", () => {
 		meta: { "~eventstamps": events, "~deletedAt": null },
 	};
 
-	const deleted = deleteResource(resource, "2025-01-01T00:00:05.000Z|0000|e5f6");
+	const deleted = deleteResource(
+		resource,
+		"2025-01-01T00:00:05.000Z|0000|e5f6",
+	);
 
 	expect(deleted.meta["~deletedAt"]).toBe("2025-01-01T00:00:05.000Z|0000|e5f6");
 	expect(deleted.attributes).toEqual(resource.attributes);
