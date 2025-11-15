@@ -3,9 +3,9 @@ import type { Document } from "./document";
 import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
 import {
+	addEventstamps,
 	decodeResource,
 	deleteResource,
-	encodeResource,
 	mergeResources,
 } from "./resource";
 
@@ -87,8 +87,15 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeResource(id, object, this.#clock.now());
-		this.#map.set(id, encoded);
+		const eventstamp = this.#clock.now();
+		const [attrs, events] = addEventstamps(object, eventstamp);
+		const resource: ResourceObject = {
+			type: "resource",
+			id,
+			attributes: attrs,
+			meta: { "~eventstamps": events, "~deletedAt": null },
+		};
+		this.#map.set(id, resource);
 	}
 
 	/**
@@ -98,13 +105,20 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeResource(id, object, this.#clock.now());
+		const eventstamp = this.#clock.now();
+		const [attrs, events] = addEventstamps(object, eventstamp);
+		const resource: ResourceObject = {
+			type: "resource",
+			id,
+			attributes: attrs,
+			meta: { "~eventstamps": events, "~deletedAt": null },
+		};
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeResources(current, encoded);
+			const [merged] = mergeResources(current, resource);
 			this.#map.set(id, merged);
 		} else {
-			this.#map.set(id, encoded);
+			this.#map.set(id, resource);
 		}
 	}
 

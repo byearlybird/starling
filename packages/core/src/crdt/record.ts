@@ -1,166 +1,111 @@
-import { MIN_EVENTSTAMP } from "./eventstamp";
-import { isEncodedValue, isObject } from "./utils";
-import {
-	decodeValue,
-	type EncodedValue,
-	encodeValue,
-	mergeValues,
-} from "./value";
+import { isObject } from "./utils";
 
 /**
- * A nested object structure where each field is either an EncodedValue (leaf)
- * or another EncodedRecord (nested object). This enables field-level
- * Last-Write-Wins merging for complex data structures.
+ * Merge two attribute objects with their corresponding eventstamps using
+ * field-level Last-Write-Wins semantics.
  *
- * Each field maintains its own eventstamp, allowing concurrent updates to
- * different fields to be preserved during merge operations.
+ * Validates that the structure of attributes mirrors the structure of eventstamps
+ * at each recursion level. Throws immediately on mismatch with full path info.
+ *
+ * @param attrsA - Base attributes object
+ * @param eventsA - Eventstamps for base attributes (mirrors structure)
+ * @param attrsB - Source attributes object to merge in
+ * @param eventsB - Eventstamps for source attributes (mirrors structure)
+ * @param path - Current path for error messages (used internally)
+ * @returns Tuple of [merged attributes, merged eventstamps]
+ * @throws Error if attributes and eventstamps structures don't match
  */
-export type EncodedRecord = {
-	[key: string]: EncodedValue<unknown> | EncodedRecord;
-};
+export function mergeAttributes(
+	attrsA: Record<string, unknown>,
+	eventsA: Record<string, unknown>,
+	attrsB: Record<string, unknown>,
+	eventsB: Record<string, unknown>,
+	path = "",
+): [Record<string, unknown>, Record<string, unknown>] {
+	const merged: Record<string, unknown> = {};
+	const mergedEvents: Record<string, unknown> = {};
 
-export function processRecord(
-	source: EncodedRecord,
-	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
-): EncodedRecord {
-	const result: EncodedRecord = {};
+	// Process all keys from attrsA
+	for (const key in attrsA) {
+		if (!Object.hasOwn(attrsA, key)) continue;
 
-	const step = (input: EncodedRecord, output: EncodedRecord) => {
-		for (const key in input) {
-			if (!Object.hasOwn(input, key)) continue;
+		const currentPath = path ? `${path}.${key}` : key;
+		const valA = attrsA[key];
+		const eventA = eventsA[key];
+		const valB = attrsB[key];
+		const eventB = eventsB[key];
 
-			const value = input[key];
+		// Validate structure parity for attrsA
+		const isObjA = isObject(valA);
+		const isObjEventA = isObject(eventA);
+		if (isObjA !== isObjEventA) {
+			throw new Error(
+				`Structure mismatch at "${currentPath}": ` +
+					`attributes is ${isObjA ? "object" : "leaf"}, ` +
+					`eventstamps is ${isObjEventA ? "object" : "leaf"}`,
+			);
+		}
 
-			if (isEncodedValue(value)) {
-				output[key] = process(value as EncodedValue<unknown>);
-			} else if (isObject(value)) {
-				output[key] = {};
-				step(value as EncodedRecord, output[key] as EncodedRecord);
+		// Validate structure parity for attrsB if present
+		if (valB !== undefined) {
+			const isObjB = isObject(valB);
+			const isObjEventB = isObject(eventB);
+			if (isObjB !== isObjEventB) {
+				throw new Error(
+					`Structure mismatch at "${currentPath}": ` +
+						`attributes is ${isObjB ? "object" : "leaf"}, ` +
+						`eventstamps is ${isObjEventB ? "object" : "leaf"}`,
+				);
 			}
 		}
-	};
 
-	step(source, result);
-	return result;
-}
+		let isObjB = false;
+		if (valB !== undefined) {
+			isObjB = isObject(valB);
+			if (isObjA !== isObjB) {
+				throw new Error(
+					`Type mismatch at "${currentPath}": cannot change from ${isObjA ? "object" : "leaf"} to ${isObjB ? "object" : "leaf"}`,
+				);
+			}
+		}
 
-export function encodeRecord<T extends Record<string, unknown>>(
-	obj: T,
-	eventstamp: string,
-): EncodedRecord {
-	const result: EncodedRecord = {};
+		// Merge logic
+		if (isObjA && isObjB) {
+			// Both are nested objects - recurse
+			const [mergedNested, mergedNestedEvents] = mergeAttributes(
+				valA as Record<string, unknown>,
+				eventA as Record<string, unknown>,
+				valB as Record<string, unknown>,
+				eventB as Record<string, unknown>,
+				currentPath,
+			);
+			merged[key] = mergedNested;
+			mergedEvents[key] = mergedNestedEvents;
+		} else if (!isObjA && !isObjB) {
+			// Both are leaves - compare eventstamps
+			const eventAStr = eventA as string;
+			const eventBStr = (eventB ?? "") as string;
 
-	const step = (input: Record<string, unknown>, output: EncodedRecord) => {
-		for (const key in input) {
-			if (!Object.hasOwn(input, key)) continue;
-
-			const value = input[key];
-
-			if (isObject(value)) {
-				output[key] = {};
-				step(value as Record<string, unknown>, output[key] as EncodedRecord);
+			if (eventAStr > eventBStr) {
+				merged[key] = valA;
+				mergedEvents[key] = eventAStr;
 			} else {
-				output[key] = encodeValue(value, eventstamp);
+				merged[key] = valB;
+				mergedEvents[key] = eventBStr;
 			}
 		}
-	};
+	}
 
-	step(obj, result);
-	return result;
-}
+	// Process keys only in attrsB
+	for (const key in attrsB) {
+		if (!Object.hasOwn(attrsB, key) || Object.hasOwn(merged, key)) continue;
 
-export function decodeRecord<T extends Record<string, unknown>>(
-	obj: EncodedRecord,
-): T {
-	const result: Record<string, unknown> = {};
-
-	const step = (input: EncodedRecord, output: Record<string, unknown>) => {
-		for (const key in input) {
-			if (!Object.hasOwn(input, key)) continue;
-
-			const value = input[key];
-
-			if (isEncodedValue(value)) {
-				output[key] = decodeValue(value as EncodedValue<unknown>);
-			} else if (isObject(value)) {
-				output[key] = {};
-				step(value as EncodedRecord, output[key] as Record<string, unknown>);
-			}
+		const valB = attrsB[key];
+		if (valB !== undefined) {
+			merged[key] = valB;
+			mergedEvents[key] = eventsB[key];
 		}
-	};
+	}
 
-	step(obj, result);
-	return result as T;
-}
-
-export function mergeRecords(
-	into: EncodedRecord,
-	from: EncodedRecord,
-): [EncodedRecord, string] {
-	const result: EncodedRecord = {};
-	let greatestEventstamp: string = MIN_EVENTSTAMP;
-
-	const step = (
-		v1: EncodedRecord,
-		v2: EncodedRecord,
-		output: EncodedRecord,
-	) => {
-		// Process all keys from v1
-		for (const key in v1) {
-			if (!Object.hasOwn(v1, key)) continue;
-			const value1 = v1[key];
-			const value2 = v2[key];
-
-			if (isEncodedValue(value1) && isEncodedValue(value2)) {
-				// Both are EncodedValues - merge using value merge
-				const [win, eventstamp] = mergeValues(
-					value1 as EncodedValue<unknown>,
-					value2 as EncodedValue<unknown>,
-				);
-				output[key] = win;
-
-				// keep the greatest eventstamp
-				if (eventstamp > greatestEventstamp) {
-					greatestEventstamp = eventstamp;
-				}
-			} else if (isEncodedValue(value1)) {
-				// Only v1 is encoded
-				output[key] = value1 as EncodedValue<unknown>;
-				const eventstamp = (value1 as EncodedValue<unknown>)["~eventstamp"];
-				if (eventstamp > greatestEventstamp) {
-					greatestEventstamp = eventstamp;
-				}
-			} else if (isObject(value1) && isObject(value2)) {
-				// Both are nested objects - recurse
-				output[key] = {};
-				step(
-					value1 as EncodedRecord,
-					value2 as EncodedRecord,
-					output[key] as EncodedRecord,
-				);
-			} else if (value1) {
-				// Use v1's value
-				output[key] = value1;
-			}
-		}
-
-		// Process keys only in v2
-		for (const key in v2) {
-			if (!Object.hasOwn(v2, key) || Object.hasOwn(output, key)) continue;
-			const value = v2[key];
-			if (value !== undefined) {
-				output[key] = value;
-				if (isEncodedValue(value)) {
-					const eventstamp = (value as EncodedValue<unknown>)["~eventstamp"];
-					if (eventstamp > greatestEventstamp) {
-						greatestEventstamp = eventstamp;
-					}
-				}
-			}
-		}
-	};
-
-	step(into, from, result);
-
-	return [result, greatestEventstamp];
+	return [merged, mergedEvents];
 }
