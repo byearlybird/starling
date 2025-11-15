@@ -1,23 +1,8 @@
 import { expect, test } from "bun:test";
 import { createDocument, type Document, mergeDocuments } from "./document";
-import { addEventstamps, type ResourceObject } from "./resource";
+import { createResource, type ResourceObject } from "./resource";
 
 const RESOURCE_TYPE = "users";
-
-function createResource(
-	id: string,
-	data: Record<string, unknown>,
-	eventstamp: string,
-	deletedAt: string | null = null,
-): ResourceObject {
-	const [attributes, eventstamps] = addEventstamps(data, eventstamp);
-	return {
-		type: RESOURCE_TYPE,
-		id,
-		attributes,
-		meta: { "~eventstamps": eventstamps, "~deletedAt": deletedAt },
-	};
-}
 
 function resourceById(
 	document: Document,
@@ -31,6 +16,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 		...createDocument("2025-01-01T00:02:00.000Z|0001|base"),
 		data: [
 			createResource(
+				RESOURCE_TYPE,
 				"user1",
 				{
 					status: "active",
@@ -42,6 +28,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				"2025-01-01T00:01:00.000Z|0001|user1",
 			),
 			createResource(
+				RESOURCE_TYPE,
 				"user3",
 				{
 					name: "Charlie",
@@ -54,6 +41,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 	const replicaDocument: Document = {
 		data: [
 			createResource(
+				RESOURCE_TYPE,
 				"user1",
 				{
 					status: "active",
@@ -65,6 +53,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				"2025-01-01T00:03:00.000Z|0001|user1b",
 			),
 			createResource(
+				RESOURCE_TYPE,
 				"user2",
 				{
 					name: "Bob",
@@ -73,6 +62,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				"2025-01-01T00:04:00.000Z|0001|user2",
 			),
 			createResource(
+				RESOURCE_TYPE,
 				"user3",
 				{
 					name: "Charlie",

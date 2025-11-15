@@ -238,3 +238,19 @@ export function deleteResource(
 		},
 	};
 }
+
+export function createResource(
+	type: string,
+	id: string,
+	data: Record<string, unknown>,
+	eventstamp: string,
+	deletedAt: string | null = null,
+): ResourceObject {
+	const [attributes, eventstamps] = addEventstamps(data, eventstamp);
+	return {
+		type,
+		id,
+		attributes,
+		meta: { "~eventstamps": eventstamps, "~deletedAt": deletedAt },
+	};
+}
