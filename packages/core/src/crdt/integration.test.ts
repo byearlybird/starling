@@ -4,6 +4,13 @@ import { createResource, type ResourceObject } from "./resource";
 
 const RESOURCE_TYPE = "users";
 
+const buildResource = (
+	id: string,
+	data: Record<string, unknown>,
+	eventstamp: string,
+	deletedAt: string | null = null,
+) => createResource(RESOURCE_TYPE, id, data, eventstamp, deletedAt);
+
 function resourceById(
 	document: Document,
 	id: string,
@@ -15,8 +22,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 	const baseDocument: Document = {
 		...createDocument("2025-01-01T00:02:00.000Z|0001|base"),
 		data: [
-			createResource(
-				RESOURCE_TYPE,
+			buildResource(
 				"user1",
 				{
 					status: "active",
@@ -27,8 +33,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				},
 				"2025-01-01T00:01:00.000Z|0001|user1",
 			),
-			createResource(
-				RESOURCE_TYPE,
+			buildResource(
 				"user3",
 				{
 					name: "Charlie",
@@ -40,8 +45,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 
 	const replicaDocument: Document = {
 		data: [
-			createResource(
-				RESOURCE_TYPE,
+			buildResource(
 				"user1",
 				{
 					status: "active",
@@ -52,8 +56,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				},
 				"2025-01-01T00:03:00.000Z|0001|user1b",
 			),
-			createResource(
-				RESOURCE_TYPE,
+			buildResource(
 				"user2",
 				{
 					name: "Bob",
@@ -61,8 +64,7 @@ test("CRDT integration merges updates, creations, and deletions without resource
 				},
 				"2025-01-01T00:04:00.000Z|0001|user2",
 			),
-			createResource(
-				RESOURCE_TYPE,
+			buildResource(
 				"user3",
 				{
 					name: "Charlie",
