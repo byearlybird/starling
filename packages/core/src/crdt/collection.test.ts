@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDocument, type Document, mergeDocuments } from "./collection";
-import { encodeResource } from "./document";
+import { encodeResource } from "./resource";
 import { encodeValue } from "./value";
 
 test("createDocument returns empty document with given eventstamp", () => {

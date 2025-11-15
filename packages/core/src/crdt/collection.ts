@@ -1,4 +1,4 @@
-import { mergeResources, type ResourceObject } from "./document";
+import { mergeResources, type ResourceObject } from "./resource";
 
 /**
  * A document representing the complete state of a store.

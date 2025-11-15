@@ -191,7 +191,7 @@ group("mergeResources - 100 items", () => {
 	bench("mergeResources x100", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 100; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
@@ -203,7 +203,7 @@ group("mergeResources - 5,000 items", () => {
 	bench("mergeResources x5000", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 5000; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
@@ -215,7 +215,7 @@ group("mergeResources - 100,000 items", () => {
 	bench("mergeResources x100000", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 100000; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });

@@ -1,5 +1,5 @@
 import type { Document, ResourceObject } from "./crdt";
-import { RecordMap, decodeResource, mergeDocuments } from "./crdt";
+import { decodeResource, mergeDocuments, ResourceMap } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -154,7 +154,7 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T extends Record<string, unknown>> {
-	#recordMap = new RecordMap<T>();
+	#ResourceMap = new ResourceMap<T>();
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -176,7 +176,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns True if document exists, false otherwise
 	 */
 	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
-		return this.#recordMap.has(key, opts);
+		return this.#ResourceMap.has(key, opts);
 	}
 
 	/**
@@ -184,7 +184,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
-		const current = this.#recordMap.get(key);
+		const current = this.#ResourceMap.get(key);
 		return current ?? null;
 	}
 
@@ -192,7 +192,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		return this.#recordMap.entries();
+		return this.#ResourceMap.entries();
 	}
 
 	/**
@@ -200,7 +200,7 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns Document containing all resource objects and the latest eventstamp
 	 */
 	document(): Document {
-		return this.#recordMap.document();
+		return this.#ResourceMap.document();
 	}
 
 	/**
@@ -211,8 +211,8 @@ export class Store<T extends Record<string, unknown>> {
 		const currentDocument = this.document();
 		const result = mergeDocuments(currentDocument, document);
 
-		// Replace the RecordMap with the merged state
-		this.#recordMap = RecordMap.fromDocument<T>(result.document);
+		// Replace the ResourceMap with the merged state
+		this.#ResourceMap = ResourceMap.fromDocument<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
@@ -257,8 +257,8 @@ export class Store<T extends Record<string, unknown>> {
 		const updateEntries: Array<readonly [string, T]> = [];
 		const deleteKeys: Array<string> = [];
 
-		// Create a staging RecordMap by cloning the current state
-		const staging = RecordMap.fromDocument<T>(this.#recordMap.document());
+		// Create a staging ResourceMap by cloning the current state
+		const staging = ResourceMap.fromDocument<T>(this.#ResourceMap.document());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
@@ -292,7 +292,7 @@ export class Store<T extends Record<string, unknown>> {
 		const result = callback(tx);
 
 		if (!rolledBack) {
-			this.#recordMap = staging;
+			this.#ResourceMap = staging;
 			if (!silent) {
 				this.#emitMutations(addEntries, updateEntries, deleteKeys);
 			}

@@ -1,13 +1,13 @@
 import { Clock } from "../clock";
 import type { Document } from "./collection";
 import { mergeDocuments } from "./collection";
-import type { ResourceObject } from "./document";
+import type { ResourceObject } from "./resource";
 import {
 	decodeResource,
 	deleteResource,
 	encodeResource,
 	mergeResources,
-} from "./document";
+} from "./resource";
 
 /**
  * An Observed-Remove Map (OR-Map) with Last-Write-Wins semantics for
@@ -16,7 +16,7 @@ import {
  * This class provides state-based replication with automatic convergence.
  * Multiple replicas applying the same operations will converge to the same state.
  *
- * The RecordMap handles merge logic and I/O operations with a clean public
+ * The ResourceMap handles merge logic and I/O operations with a clean public
  * interface using plain JavaScript objects, while internally managing encoded
  * resource objects for merge tracking.
  *
@@ -24,12 +24,12 @@ import {
  *
  * @example
  * ```typescript
- * const map = new RecordMap();
+ * const map = new ResourceMap();
  * map.add("id1", { name: "Alice" });
  * const doc = map.get("id1"); // { name: "Alice" }
  * ```
  */
-export class RecordMap<T extends Record<string, unknown>> {
+export class ResourceMap<T extends Record<string, unknown>> {
 	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 
@@ -151,14 +151,14 @@ export class RecordMap<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Create a RecordMap instance from a document.
+	 * Create a ResourceMap instance from a document.
 	 * @param document - Document to hydrate from
-	 * @returns New RecordMap instance initialized with the document's data
+	 * @returns New ResourceMap instance initialized with the document's data
 	 */
 	static fromDocument<U extends Record<string, unknown>>(
 		document: Document,
-	): RecordMap<U> {
-		return new RecordMap<U>(
+	): ResourceMap<U> {
+		return new ResourceMap<U>(
 			new Map(document.data.map((resource) => [resource.id, resource])),
 			document.meta["~eventstamp"],
 		);

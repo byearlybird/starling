@@ -249,7 +249,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`document.ts`](../packages/core/src/crdt/document.ts) | Resource object structure with metadata (`type`, `id`, `attributes`, `meta["~deletedAt"]`); enforces object-only documents |
 | [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
 | [`record-map.ts`](../packages/core/src/crdt/record-map.ts) | Observed-Remove Map implementing state-based replication with LWW semantics; provides add/update/delete operations and document-level merge |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal RecordMap storage with transactional staging |
+| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal ResourceMap storage with transactional staging |
 
 ### Data Flow
 
@@ -268,7 +268,7 @@ store.merge(document) → mergeDocuments(into, from) → Resource merge (mergeRe
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
-                      Update RecordMap             Track changes (add/update/delete)
+                      Update ResourceMap             Track changes (add/update/delete)
                               ↓
                         Plugin hooks (with tracked changes)
 ```
