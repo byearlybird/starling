@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-	decodeEventstamp,
-	encodeEventstamp,
-	generateNonce,
-} from "../crdt/eventstamp";
 import { Clock } from "./clock";
+import { decodeEventstamp, encodeEventstamp, generateNonce } from "./crdt";
 
 test("now() returns ISO string with counter and nonce suffix", () => {
 	const clock = new Clock();
@@ -98,24 +94,38 @@ test("latest() returns last recorded eventstamp", () => {
 	);
 });
 
-test.each([
-	{ offset: 1000, desc: "newer", shouldUpdate: true },
-	{ offset: -100, desc: "older", shouldUpdate: false },
-])("forward() with $desc eventstamp", ({ offset, shouldUpdate }) => {
+test("forward() updates lastMs when eventstamp is greater", () => {
 	const clock = new Clock();
 
-	clock.now();
 	const initialStamp = clock.latest();
 	const { timestampMs } = decodeEventstamp(initialStamp);
-	const testEventstamp = encodeEventstamp(
-		timestampMs + offset,
+	const newEventstamp = encodeEventstamp(
+		timestampMs + 1000,
 		0,
 		generateNonce(),
 	);
 
-	clock.forward(testEventstamp);
+	clock.forward(newEventstamp);
 
-	expect(clock.latest()).toBe(shouldUpdate ? testEventstamp : initialStamp);
+	expect(clock.latest()).toBe(newEventstamp);
+});
+
+test("forward() does not update lastMs when eventstamp is not greater", () => {
+	const clock = new Clock();
+
+	clock.now();
+	const currentStamp = clock.latest();
+
+	const { timestampMs } = decodeEventstamp(currentStamp);
+	const olderEventstamp = encodeEventstamp(
+		timestampMs - 100,
+		0,
+		generateNonce(),
+	);
+
+	clock.forward(olderEventstamp);
+
+	expect(clock.latest()).toBe(currentStamp);
 });
 
 test("forward() updates lastMs to allow counter reset when real time catches up", () => {
@@ -162,25 +172,33 @@ test("eventstamp format is consistent with padding", () => {
 	}
 });
 
-test("forward() ignores invalid eventstamp formats but accepts valid", () => {
+test("forward() ignores invalid eventstamp format", () => {
 	const clock = new Clock();
+
 	const initialStamp = clock.latest();
 
-	const invalidFormats = [
-		"invalid",
-		"2025-01-01",
-		"2025-01-01T00:00:00.000Z",
-		"2025-01-01T00:00:00.000Z|invalid|abcd",
-		"2025-01-01T00:00:00.000Z|0001|xyz",
-		"",
-	];
+	// Try to forward with various invalid formats
+	clock.forward("invalid");
+	clock.forward("2025-01-01");
+	clock.forward("2025-01-01T00:00:00.000Z");
+	clock.forward("2025-01-01T00:00:00.000Z|invalid|abcd");
+	clock.forward("2025-01-01T00:00:00.000Z|0001|xyz");
+	clock.forward("");
 
-	for (const invalid of invalidFormats) {
-		clock.forward(invalid);
-	}
+	// Clock should remain unchanged
+	expect(clock.latest()).toBe(initialStamp);
+});
 
+test("forward() accepts valid eventstamp after rejecting invalid", () => {
+	const clock = new Clock();
+
+	const initialStamp = clock.latest();
+
+	// Try invalid
+	clock.forward("invalid");
 	expect(clock.latest()).toBe(initialStamp);
 
+	// Now forward with valid eventstamp
 	const { timestampMs } = decodeEventstamp(initialStamp);
 	const validEventstamp = encodeEventstamp(
 		timestampMs + 1000,
@@ -189,5 +207,6 @@ test("forward() ignores invalid eventstamp formats but accepts valid", () => {
 	);
 	clock.forward(validEventstamp);
 
+	// Clock should now be forwarded
 	expect(clock.latest()).toBe(validEventstamp);
 });

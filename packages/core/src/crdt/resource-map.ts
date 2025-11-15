@@ -1,13 +1,13 @@
-import { Clock } from "./clock";
-import type { Document } from "../crdt/document";
-import { mergeDocuments } from "../crdt/document";
-import type { DecodedResource, ResourceObject } from "../crdt/resource";
+import { Clock } from "../clock";
+import type { Document } from "./document";
+import { mergeDocuments } from "./document";
+import type { ResourceObject } from "./resource";
 import {
 	addEventstamps,
 	decodeResource,
 	deleteResource,
 	mergeResources,
-} from "../crdt/resource";
+} from "./resource";
 
 /**
  * An Observed-Remove Map (OR-Map) with Last-Write-Wins semantics for
@@ -51,31 +51,37 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Check if a document exists by ID (deleted resources remain addressable).
+	 * Check if a document exists by ID.
 	 * @param id - Document ID
+	 * @param opts - Options object with includeDeleted flag
 	 */
-	has(id: string): boolean {
-		return this.#map.has(id);
+	has(id: string, opts: { includeDeleted?: boolean } = {}): boolean {
+		const raw = this.#map.get(id);
+		if (!raw) return false;
+		return opts.includeDeleted || !raw.meta["~deletedAt"];
 	}
 
 	/**
 	 * Get a document by ID.
-	 * @returns The decoded resource with metadata, or undefined if not found
+	 * @returns The decoded plain object, or undefined if not found or deleted
 	 */
-	get(id: string): DecodedResource<T> | undefined {
+	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return decodeResource<T>(raw);
+		return raw.meta["~deletedAt"] ? undefined : (decodeResource(raw).data as T);
 	}
 
 	/**
-	 * Iterate over all documents as [id, decoded resource] tuples.
+	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
-	entries(): IterableIterator<readonly [string, DecodedResource<T>]> {
+	entries(): IterableIterator<readonly [string, T]> {
 		const self = this;
 		function* iterator() {
 			for (const [key, resource] of self.#map.entries()) {
-				yield [key, decodeResource<T>(resource)] as const;
+				if (!resource.meta["~deletedAt"]) {
+					const decoded = decodeResource<T>(resource).data;
+					yield [key, decoded] as const;
+				}
 			}
 		}
 		return iterator();
@@ -93,11 +99,7 @@ export class ResourceMap<T extends Record<string, unknown>> {
 			type: this.#type,
 			id,
 			attributes: attrs,
-			meta: {
-				"~eventstamps": events,
-				"~deletedAt": null,
-				"~eventstamp": eventstamp,
-			},
+			meta: { "~eventstamps": events, "~deletedAt": null },
 		};
 		this.#map.set(id, resource);
 	}
@@ -115,15 +117,11 @@ export class ResourceMap<T extends Record<string, unknown>> {
 			type: this.#type,
 			id,
 			attributes: attrs,
-			meta: {
-				"~eventstamps": events,
-				"~deletedAt": null,
-				"~eventstamp": eventstamp,
-			},
+			meta: { "~eventstamps": events, "~deletedAt": null },
 		};
 		const current = this.#map.get(id);
 		if (current) {
-			const merged = mergeResources(current, resource);
+			const [merged] = mergeResources(current, resource);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, resource);

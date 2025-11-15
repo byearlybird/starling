@@ -3,7 +3,7 @@ import {
 	encodeEventstamp,
 	generateNonce,
 	isValidEventstamp,
-} from "../crdt/eventstamp";
+} from "./crdt/eventstamp";
 
 /**
  * A Hybrid Logical Clock that generates monotonically increasing eventstamps.

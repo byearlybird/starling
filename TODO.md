@@ -1,8 +1,0 @@
-- [ ] Review CRDT tests
-- [ ] Review DB tests
-- [ ] Review CRDT code
-- [ ] Review DB code
-- [ ] Implement transactions
-- [ ] Spike on persisting schemas
-- [ ] Implement Migrations
-- [ ] Spike on ACID compliance 

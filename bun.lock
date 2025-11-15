@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@byearlybird/starling-repo",
@@ -10,7 +11,6 @@
         "tsdown": "^0.15.9",
         "typescript": "^5",
         "unstorage": "^1.17.1",
-        "zod": "^4.1.12",
       },
     },
     "apps/demo-starling-react": {
@@ -67,7 +67,7 @@
     },
     "packages/core": {
       "name": "@byearlybird/starling",
-      "version": "0.9.3",
+      "version": "0.8.1",
       "peerDependencies": {
         "unstorage": "^1.17.1",
       },

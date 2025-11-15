@@ -32,7 +32,6 @@
 		"mitata": "^1.0.34",
 		"tsdown": "^0.15.9",
 		"typescript": "^5",
-		"unstorage": "^1.17.1",
-		"zod": "^4.1.12"
+		"unstorage": "^1.17.1"
 	}
 }

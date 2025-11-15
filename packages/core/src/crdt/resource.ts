@@ -6,9 +6,7 @@ import { isObject } from "./utils";
  *
  * Resource objects are the primary unit of storage and synchronization in Starling.
  * Attributes contain plain data, while meta.~eventstamps mirrors the structure
- * of attributes to track when each field was last written. meta.~eventstamp
- * caches the max eventstamp so replicas can forward clocks without re-walking
- * the event tree on every merge.
+ * of attributes to track when each field was last written.
  *
  * This format is used consistently across disk storage, sync messages,
  * network transport, and export/import operations.
@@ -29,17 +27,6 @@ export type ResourceObject = {
 		/** Eventstamps for each field, mirroring attributes structure */
 		"~eventstamps": Record<string, unknown>;
 		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
-		"~deletedAt": string | null;
-		/** Highest eventstamp observed for this resource (attributes or deletion) */
-		"~eventstamp": string;
-	};
-};
-
-export type DecodedResource<T extends Record<string, unknown>> = {
-	type: string;
-	id: string;
-	data: T;
-	meta: {
 		"~deletedAt": string | null;
 	};
 };
@@ -101,7 +88,14 @@ export function addEventstamps(
  */
 export function decodeResource<T extends Record<string, unknown>>(
 	resource: ResourceObject,
-): DecodedResource<T> {
+): {
+	type: string;
+	id: string;
+	data: T;
+	meta: {
+		"~deletedAt": string | null;
+	};
+} {
 	const data: Record<string, unknown> = {};
 
 	const step = (
@@ -146,13 +140,13 @@ export function decodeResource<T extends Record<string, unknown>>(
  *
  * @param into - Base resource object
  * @param from - Source resource object to merge in
- * @returns Merged resource object with updated metadata
+ * @returns Tuple of [merged resource object, greatest eventstamp]
  * @throws Error if structure of attributes and eventstamps doesn't match
  */
 export function mergeResources(
 	into: ResourceObject,
 	from: ResourceObject,
-): ResourceObject {
+): [ResourceObject, string] {
 	// Merge attributes and eventstamps together
 	const [mergedAttrs, mergedEvents] = mergeAttributes(
 		into.attributes,
@@ -209,16 +203,18 @@ export function mergeResources(
 		greatestEventstamp = deletedEventstamp;
 	}
 
-	return {
-		type: into.type,
-		id: into.id,
-		attributes: mergedAttrs,
-		meta: {
-			"~eventstamps": mergedEvents,
-			"~deletedAt": mergedDeletedAt,
-			"~eventstamp": greatestEventstamp,
+	return [
+		{
+			type: into.type,
+			id: into.id,
+			attributes: mergedAttrs,
+			meta: {
+				"~eventstamps": mergedEvents,
+				"~deletedAt": mergedDeletedAt,
+			},
 		},
-	};
+		greatestEventstamp,
+	];
 }
 
 /**
@@ -239,7 +235,6 @@ export function deleteResource(
 		meta: {
 			"~eventstamps": resource.meta["~eventstamps"],
 			"~deletedAt": eventstamp,
-			"~eventstamp": eventstamp,
 		},
 	};
 }
@@ -256,10 +251,6 @@ export function createResource(
 		type,
 		id,
 		attributes,
-		meta: {
-			"~eventstamps": eventstamps,
-			"~deletedAt": deletedAt,
-			"~eventstamp": eventstamp,
-		},
+		meta: { "~eventstamps": eventstamps, "~deletedAt": deletedAt },
 	};
 }

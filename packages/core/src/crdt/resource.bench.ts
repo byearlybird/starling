@@ -1,7 +1,7 @@
 import { bench, group, run } from "mitata";
 import {
-	createResource,
 	decodeResource,
+	encodeResource,
 	generateNonce,
 	mergeResources,
 	type ResourceObject,
@@ -58,7 +58,7 @@ function generateEventstamp(counter: number): string {
 function createEncodedResources(count: number): ResourceObject[] {
 	const resources: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
-		const resource = createResource(
+		const resource = encodeResource(
 			`doc-${i}`,
 			generateTestData(i),
 			generateEventstamp(i),
@@ -76,11 +76,10 @@ function createPairedResources(
 	const resources2: ResourceObject[] = [];
 	for (let i = 0; i < count; i++) {
 		resources1.push(
-			createResource("resource", `doc-${i}`, generateTestData(i), generateEventstamp(i)),
+			encodeResource(`doc-${i}`, generateTestData(i), generateEventstamp(i)),
 		);
 		resources2.push(
-			createResource(
-				"resource",
+			encodeResource(
 				`doc-${i}`,
 				generateTestData(i + count),
 				generateEventstamp(i + count),
@@ -103,9 +102,9 @@ group("encodeResource/decodeResource - 100 items", () => {
 	}));
 	const encodedResources = createEncodedResources(100);
 
-	bench("createResource x100", () => {
+	bench("encodeResource x100", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			createResource("resource", id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
@@ -117,7 +116,7 @@ group("encodeResource/decodeResource - 100 items", () => {
 
 	bench("round-trip (encode + decode) x100", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = createResource("resource", id, data, eventstamp);
+			const encoded = encodeResource(id, data, eventstamp);
 			decodeResource(encoded);
 		});
 	});
@@ -132,9 +131,9 @@ group("encodeResource/decodeResource - 5,000 items", () => {
 	}));
 	const encodedResources = createEncodedResources(5000);
 
-	bench("createResource x5000", () => {
+	bench("encodeResource x5000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			createResource("resource", id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
@@ -146,7 +145,7 @@ group("encodeResource/decodeResource - 5,000 items", () => {
 
 	bench("round-trip (encode + decode) x5000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = createResource("resource", id, data, eventstamp);
+			const encoded = encodeResource(id, data, eventstamp);
 			decodeResource(encoded);
 		});
 	});
@@ -161,9 +160,9 @@ group("encodeResource/decodeResource - 100,000 items", () => {
 	}));
 	const encodedResources = createEncodedResources(100000);
 
-	bench("createResource x100000", () => {
+	bench("encodeResource x100000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			createResource("resource", id, data, eventstamp);
+			encodeResource(id, data, eventstamp);
 		});
 	});
 
@@ -175,7 +174,7 @@ group("encodeResource/decodeResource - 100,000 items", () => {
 
 	bench("round-trip (encode + decode) x100000", () => {
 		items.forEach(({ id, data, eventstamp }) => {
-			const encoded = createResource("resource", id, data, eventstamp);
+			const encoded = encodeResource(id, data, eventstamp);
 			decodeResource(encoded);
 		});
 	});
@@ -192,7 +191,7 @@ group("mergeResources - 100 items", () => {
 	bench("mergeResources x100", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 100; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
@@ -204,7 +203,7 @@ group("mergeResources - 5,000 items", () => {
 	bench("mergeResources x5000", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 5000; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });
@@ -216,7 +215,7 @@ group("mergeResources - 100,000 items", () => {
 	bench("mergeResources x100000", () => {
 		let result = encodedResources1[0];
 		for (let i = 1; i < 100000; i++) {
-			result = mergeResources(result!, encodedResources2[i]!);
+			[result] = mergeResources(result!, encodedResources2[i]!);
 		}
 	});
 });

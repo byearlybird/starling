@@ -8,11 +8,6 @@ type User = {
 
 const makeStore = () => new Store<User>({ resourceType: "users" }).init();
 
-const ACTIVE_ALICE = { name: "Alice", active: true };
-const INACTIVE_ALICE = { name: "Alice", active: false };
-const ACTIVE_BOB = { name: "Bob", active: true };
-const INACTIVE_BOB = { name: "Bob", active: false };
-
 describe("Store - Queries", () => {
 	let store: Awaited<ReturnType<typeof makeStore>>;
 
@@ -24,20 +19,23 @@ describe("Store - Queries", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(INACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		const results = activeUsers.results();
 		expect(results.length).toBe(1);
-		expect(results.find(([id]) => id === "user1")?.[1]).toEqual(ACTIVE_ALICE);
+		expect(results.find(([id]) => id === "user1")?.[1]).toEqual({
+			name: "Alice",
+			active: true,
+		});
 	});
 
 	it("updates query results when items are patched", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.begin((tx) => {
-			tx.add(INACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: false }, { withId: "user1" });
 		});
 
 		expect(activeUsers.results().length).toBe(0);
@@ -53,7 +51,7 @@ describe("Store - Queries", () => {
 		const activeUsers = store.query({ where: (user) => user.active });
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUsers.results().length).toBe(1);
@@ -74,7 +72,7 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
@@ -85,8 +83,8 @@ describe("Store - Queries", () => {
 		const inactiveUsers = store.query({ where: (user) => !user.active });
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(INACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		expect(activeUsers.results().length).toBe(1);
@@ -102,7 +100,7 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
@@ -110,7 +108,7 @@ describe("Store - Queries", () => {
 		activeUsers.dispose();
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		expect(callCount).toBe(1);
@@ -125,7 +123,7 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(callCount).toBe(1);
@@ -133,7 +131,7 @@ describe("Store - Queries", () => {
 		unsubscribe();
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		expect(callCount).toBe(1);
@@ -146,8 +144,8 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(INACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 		});
 
 		const results = activeUserNames.results();
@@ -162,7 +160,7 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUserNames.results().find(([id]) => id === "user1")?.[1]).toBe(
@@ -178,28 +176,40 @@ describe("Store - Queries", () => {
 		);
 	});
 
-	it.each([
-		{
-			desc: "when predicate fails",
-			action: (tx: ReturnType<typeof store.begin>) => tx.update("user1", { active: false }),
-		},
-		{
-			desc: "when they are deleted",
-			action: (tx: ReturnType<typeof store.begin>) => tx.del("user1"),
-		},
-	])("select removes items $desc", ({ action }) => {
+	it("select removes items when predicate fails", () => {
 		const activeUserNames = store.query({
 			where: (user) => user.active,
 			select: (user) => user.name,
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 		});
 
 		expect(activeUserNames.results().length).toBe(1);
 
-		store.begin((tx) => action(tx));
+		store.begin((tx) => {
+			tx.update("user1", { active: false });
+		});
+
+		expect(activeUserNames.results().length).toBe(0);
+	});
+
+	it("select removes items when they are deleted", () => {
+		const activeUserNames = store.query({
+			where: (user) => user.active,
+			select: (user) => user.name,
+		});
+
+		store.begin((tx) => {
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+		});
+
+		expect(activeUserNames.results().length).toBe(1);
+
+		store.begin((tx) => {
+			tx.del("user1");
+		});
 
 		expect(activeUserNames.results().length).toBe(0);
 	});
@@ -212,8 +222,8 @@ describe("Store - Queries", () => {
 
 		store.begin((tx) => {
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		const results = users.results().map(([, user]) => user);
@@ -231,9 +241,9 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		const results = users.results().map(([, user]) => user);
@@ -253,8 +263,8 @@ describe("Store - Queries", () => {
 
 		store.begin((tx) => {
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		const results = userNames.results().map(([, name]) => name);
@@ -270,8 +280,8 @@ describe("Store - Queries", () => {
 
 		store.begin((tx) => {
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		store.begin((tx) => {
@@ -291,8 +301,8 @@ describe("Store - Queries", () => {
 
 		store.begin((tx) => {
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
-			tx.add(INACTIVE_ALICE, { withId: "user1" });
-			tx.add(ACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: false }, { withId: "user1" });
+			tx.add({ name: "Bob", active: true }, { withId: "user2" });
 		});
 
 		const results = activeUserNames.results().map(([, name]) => name);
@@ -307,8 +317,8 @@ describe("Store - Queries", () => {
 		});
 
 		store.begin((tx) => {
-			tx.add(ACTIVE_ALICE, { withId: "user1" });
-			tx.add(INACTIVE_BOB, { withId: "user2" });
+			tx.add({ name: "Alice", active: true }, { withId: "user1" });
+			tx.add({ name: "Bob", active: false }, { withId: "user2" });
 			tx.add({ name: "Charlie", active: true }, { withId: "user3" });
 		});
 

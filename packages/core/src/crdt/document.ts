@@ -70,14 +70,14 @@ export type MergeDocumentsResult = {
  * @example
  * ```typescript
  * const into = {
- *   data: [{ type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null, "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" } }],
+ *   data: [{ type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }],
  *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
  * };
  *
  * const from = {
  *   data: [
- *     { type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null, "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" } }, // updated
- *     { type: "todos", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null, "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" } }  // new
+ *     { type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }, // updated
+ *     { type: "todos", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }  // new
  *   ],
  *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
  * };
@@ -126,7 +126,7 @@ export function mergeDocuments(
 			}
 
 			// Merge existing resource object using field-level LWW
-			const mergedResource = mergeResources(intoResource, fromResource);
+			const [mergedResource] = mergeResources(intoResource, fromResource);
 			mergedResourcesById.set(id, mergedResource);
 
 			// Track state transitions for hook notifications
