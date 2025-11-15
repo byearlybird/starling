@@ -1,6 +1,6 @@
-import { Store } from "@byearlybird/starling";
-import { processDocument } from "@byearlybird/starling/crdt";
+import type { Document, ResourceObject } from "@byearlybird/starling/crdt";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
+import { Store } from "@byearlybird/starling/store";
 import { createStoreHooks } from "@byearlybird/starling-react";
 import { createStorage } from "unstorage";
 import httpDriver from "unstorage/drivers/http";
@@ -40,6 +40,22 @@ const pseudoDecrypt = (encrypted: unknown): unknown => {
 	return JSON.parse(jsonString);
 };
 
+/**
+ * Transform document attributes by applying a transformation function to each resource
+ */
+const transformDocument = (
+	data: Document,
+	transform: (attributes: Record<string, unknown>) => Record<string, unknown>,
+): Document => ({
+	...data,
+	data: data.data.map(
+		(resource: ResourceObject): ResourceObject => ({
+			...resource,
+			attributes: transform(resource.attributes),
+		}),
+	),
+});
+
 const localStorage = unstoragePlugin<Task>(
 	"tasks",
 	createStorage({
@@ -55,24 +71,19 @@ const remoteStorage = unstoragePlugin<Task>(
 	{
 		skip: () => !navigator.onLine,
 		pollIntervalMs: 1000, // set to 1 second for demo purposes
-		onBeforeSet: (data) => ({
-			...data,
-			"~docs": data["~docs"].map((doc) =>
-				processDocument(doc, (value) => ({
-					...value,
-					"~value": pseudoEncrypt(value["~value"]),
-				})),
-			),
-		}),
-		onAfterGet: (data) => ({
-			...data,
-			"~docs": data["~docs"].map((doc) =>
-				processDocument(doc, (value) => ({
-					...value,
-					"~value": pseudoDecrypt(value["~value"]),
-				})),
-			),
-		}),
+		onBeforeSet: (data: Document) =>
+			transformDocument(data, (attrs) => ({
+				...attrs,
+				encrypted: pseudoEncrypt(attrs),
+			})),
+		onAfterGet: (data: Document) =>
+			transformDocument(data, (attrs) => {
+				// Decrypt if the encrypted field exists, otherwise return as-is
+				if ("encrypted" in attrs && typeof attrs.encrypted === "string") {
+					return pseudoDecrypt(attrs.encrypted) as Record<string, unknown>;
+				}
+				return attrs;
+			}),
 	},
 );
 

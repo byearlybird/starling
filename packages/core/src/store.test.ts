@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	ALICE_DATA,
+	BOB_DATA,
+	CHARLIE_DATA,
+	TEST_RESOURCE_TYPE,
+	type TestUser,
+} from "./crdt/test-utils";
 import { Store } from "./store";
 
-type TestUser = {
-	name: string;
-	email?: string;
-	age?: number;
-	profile?: {
-		bio?: string;
-		avatar?: string;
-	};
-};
-
 const createTestStore = () =>
-	new Store<TestUser>({ resourceType: "test-users" });
+	new Store<TestUser>({ resourceType: TEST_RESOURCE_TYPE });
 
 describe("Store - Convenience Methods", () => {
 	test("add should persist values and return provided id", () => {
@@ -110,20 +107,14 @@ describe("Store - Get/Has Operations", () => {
 	beforeEach(() => {
 		store = createTestStore();
 		store.begin((tx) => {
-			tx.add(
-				{ name: "Alice", email: "alice@example.com" },
-				{ withId: "user-1" },
-			);
-			tx.add({ name: "Bob" }, { withId: "user-2" });
+			tx.add(ALICE_DATA, { withId: "user-1" });
+			tx.add(BOB_DATA, { withId: "user-2" });
 		});
 	});
 
 	test("should retrieve item by ID", () => {
-		expect(store.get("user-1")).toEqual({
-			name: "Alice",
-			email: "alice@example.com",
-		});
-		expect(store.get("user-2")).toEqual({ name: "Bob" });
+		expect(store.get("user-1")).toEqual(ALICE_DATA);
+		expect(store.get("user-2")).toEqual(BOB_DATA);
 	});
 
 	test("should return null for non-existent ID", () => {
@@ -158,17 +149,6 @@ describe("Store - Patch Operations", () => {
 	});
 
 	test("should update item with partial data", () => {
-		store.begin((tx) => {
-			tx.add(
-				{
-					name: "Alice",
-					email: "alice@example.com",
-					profile: { bio: "Software developer", avatar: "avatar1.png" },
-				},
-				{ withId: "user-1" },
-			);
-		});
-
 		store.begin((tx) => {
 			tx.update("user-1", { age: 31 });
 		});
@@ -361,12 +341,10 @@ describe("Store - Transaction Behavior - Transaction Isolation", () => {
 		try {
 			store.begin((tx) => {
 				tx.add({ name: "Alice" }, { withId: "user-1" });
-				hasUserDuringTx = store.get("user-1") !== null; // Check from outside tx
+				hasUserDuringTx = store.get("user-1") !== null;
 				throw new Error("Cancel transaction");
 			});
-		} catch {
-			// Expected error
-		}
+		} catch {}
 
 		expect(hasUserDuringTx).toBe(false);
 		expect(store.get("user-1")).toBe(null);

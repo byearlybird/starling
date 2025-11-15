@@ -7,11 +7,6 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js",
-			"default": "./dist/index.js"
-		},
 		"./plugin-unstorage": {
 			"types": "./dist/plugins/unstorage/plugin.d.ts",
 			"import": "./dist/plugins/unstorage/plugin.js",
@@ -21,6 +16,16 @@
 			"types": "./dist/crdt/index.d.ts",
 			"import": "./dist/crdt/index.js",
 			"default": "./dist/crdt/index.js"
+		},
+		"./store": {
+			"types": "./dist/store/bundle.d.ts",
+			"import": "./dist/store/bundle.js",
+			"default": "./dist/store/bundle.js"
+		},
+		"./db": {
+			"types": "./dist/db/bundle.d.ts",
+			"import": "./dist/db/bundle.js",
+			"default": "./dist/db/bundle.js"
 		}
 	},
 	"files": [
