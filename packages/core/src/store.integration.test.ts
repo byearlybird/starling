@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Document } from "./crdt";
+import { delay } from "./crdt/test-utils";
 import { Store } from "./store";
 
 /**
@@ -17,22 +18,6 @@ const TEST_RESOURCE_TYPE = "test-users";
 const createTestStore = () =>
 	new Store<TestUser>({ resourceType: TEST_RESOURCE_TYPE });
 
-/**
- * Merges multiple store documents into a single consolidated store.
- *
- * This utility demonstrates how stores from different sources
- * (different clients, regions, or sync points) can be combined
- * into a single consistent state using CRDT-like merging.
- *
- * The merge process:
- * 1. Creates a new empty store
- * 2. Forwards the store's clock to the highest eventstamp across all documents
- * 3. Replays each document from every document via store.merge()
- * 4. Returns the consolidated store
- *
- * @param documents - Array of store documents to merge
- * @returns A new store containing the merged state
- */
 async function mergeStoreDocuments<T extends Record<string, unknown>>(
 	resourceType: string,
 	documents: Document[],
@@ -44,26 +29,43 @@ async function mergeStoreDocuments<T extends Record<string, unknown>>(
 		return consolidated;
 	}
 
-	// Merge all documents from all documents
-	// The merge() method automatically forwards the clock to the highest eventstamp
 	for (const document of documents) {
 		consolidated.merge(document);
 	}
 
-	// Initialize any plugins (though this example doesn't use them)
 	await consolidated.init();
-
 	return consolidated;
+}
+
+function expectUsersInStore<T extends Record<string, unknown>>(
+	store: Store<T>,
+	expectedUsers: Record<string, Partial<T>>,
+) {
+	for (const [id, expected] of Object.entries(expectedUsers)) {
+		expect(store.get(id)).toEqual(expected);
+	}
+	expect(Array.from(store.entries())).toHaveLength(
+		Object.keys(expectedUsers).length,
+	);
+}
+
+function expectClockForwarded<T extends Record<string, unknown>>(
+	consolidated: Store<T>,
+	...documents: Document[]
+) {
+	const stamps = documents.map((d) => d.meta["~eventstamp"]);
+	const maxRemoteStamp = stamps.sort().pop() || "";
+	expect(consolidated.document().meta["~eventstamp"] >= maxRemoteStamp).toBe(
+		true,
+	);
 }
 
 describe("Store Integration - Multi-Store Merging", () => {
 	test("should merge independent writes with no conflicts", async () => {
-		// Create 3 independent stores
 		const storeA = createTestStore();
 		const storeB = createTestStore();
 		const storeC = createTestStore();
 
-		// Each store gets its own unique writes
 		storeA.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
@@ -79,67 +81,32 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-6", name: "Frank" }, { withId: "user-6" });
 		});
 
-		// Capture documents from all 3 stores
 		const documentA = storeA.document();
 		const documentB = storeB.document();
 		const documentC = storeC.document();
 
-		// Merge all documents into a consolidated store
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentA, documentB, documentC],
 		);
 
-		// Verify all 6 documents are present in the consolidated store
-		expect(consolidated.get("user-1")).toEqual({
-			id: "user-1",
-			name: "Alice",
-		});
-		expect(consolidated.get("user-2")).toEqual({
-			id: "user-2",
-			name: "Bob",
-		});
-		expect(consolidated.get("user-3")).toEqual({
-			id: "user-3",
-			name: "Charlie",
-		});
-		expect(consolidated.get("user-4")).toEqual({
-			id: "user-4",
-			name: "Diana",
-		});
-		expect(consolidated.get("user-5")).toEqual({
-			id: "user-5",
-			name: "Eve",
-		});
-		expect(consolidated.get("user-6")).toEqual({
-			id: "user-6",
-			name: "Frank",
+		expectUsersInStore(consolidated, {
+			"user-1": { id: "user-1", name: "Alice" },
+			"user-2": { id: "user-2", name: "Bob" },
+			"user-3": { id: "user-3", name: "Charlie" },
+			"user-4": { id: "user-4", name: "Diana" },
+			"user-5": { id: "user-5", name: "Eve" },
+			"user-6": { id: "user-6", name: "Frank" },
 		});
 
-		// Verify the consolidated store has exactly 6 entries
-		const entries = Array.from(consolidated.entries());
-		expect(entries).toHaveLength(6);
-
-		// Verify clock is forwarded to at least the highest eventstamp
-		// (eventstamps are ISO8601 strings, so lexicographic comparison works)
-		const stamps = [
-			documentA.meta["~eventstamp"],
-			documentB.meta["~eventstamp"],
-			documentC.meta["~eventstamp"],
-		];
-		const maxRemoteStamp = stamps.sort().pop() || "";
-		expect(consolidated.document().meta["~eventstamp"] >= maxRemoteStamp).toBe(
-			true,
-		);
+		expectClockForwarded(consolidated, documentA, documentB, documentC);
 	});
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
-		// Create 3 stores, each updating different fields of the same document
 		const storeA = createTestStore();
 		const storeB = createTestStore();
 		const storeC = createTestStore();
 
-		// All stores start with the same document (simulating an initial state)
 		const initialUser = { id: "user-1", name: "Initial" };
 
 		storeA.begin((tx) => {
@@ -154,7 +121,6 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add(initialUser, { withId: "user-1" });
 		});
 
-		// Each store updates different fields
 		storeA.begin((tx) => {
 			tx.update("user-1", { name: "Alice" });
 		});
@@ -167,19 +133,15 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.update("user-1", { age: 30 });
 		});
 
-		// Capture documents
 		const documentA = storeA.document();
 		const documentB = storeB.document();
 		const documentC = storeC.document();
 
-		// Merge all documents
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentA, documentB, documentC],
 		);
 
-		// Verify the consolidated document has all three fields
-		// (field-level LWW merge means all fields should be present)
 		const user = consolidated.get("user-1");
 		expect(user).toBeDefined();
 		expect(user?.name).toBeDefined();
@@ -187,18 +149,15 @@ describe("Store Integration - Multi-Store Merging", () => {
 		expect(user?.age).toBeDefined();
 		expect(user?.id).toBe("user-1");
 
-		// Verify there's exactly 1 entry (no duplicates)
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(1);
 	});
 
 	test("should resolve same-field conflicts using LWW (highest eventstamp wins)", async () => {
-		// Create 3 stores where all update the same field with different values
 		const storeA = createTestStore();
 		const storeB = createTestStore();
 		const storeC = createTestStore();
 
-		// Initialize the same document in all stores
 		const initialUser = { id: "user-1", name: "Initial" };
 
 		storeA.begin((tx) => {
@@ -213,8 +172,6 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add(initialUser, { withId: "user-1" });
 		});
 
-		// All stores update the same field with different values
-		// Since each store has its own clock, the eventstamps will differ
 		storeA.begin((tx) => {
 			tx.update("user-1", { name: "Alice" });
 		});
@@ -227,45 +184,36 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.update("user-1", { name: "Charlie" });
 		});
 
-		// Capture documents
 		const documentA = storeA.document();
 		const documentB = storeB.document();
 		const documentC = storeC.document();
 
-		// Merge all documents
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentA, documentB, documentC],
 		);
 
-		// The final value should be whichever was merged last
-		// (since they're applied in order, the last one to be processed wins LWW)
 		const user = consolidated.get("user-1");
 		expect(user).toBeDefined();
 		expect(user?.name).toBeDefined();
 
-		// The name should be one of the three values (whichever has the highest eventstamp)
 		if (user?.name) {
 			expect(["Alice", "Bob", "Charlie"]).toContain(user.name);
 		}
 
-		// Verify there's exactly 1 entry
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(1);
 	});
 
 	test("should handle deletions where deletion eventstamp is highest", async () => {
-		// Create 3 stores with different mutation sequences
 		const storeA = createTestStore();
 		const storeB = createTestStore();
 		const storeC = createTestStore();
 
-		// Store A: Add a document
 		storeA.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 		});
 
-		// Store B: Update the document
 		storeB.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 		});
@@ -274,7 +222,6 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.update("user-1", { email: "alice@example.com" });
 		});
 
-		// Store C: Delete the document (after receiving prior updates)
 		storeC.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 		});
@@ -292,22 +239,17 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentB = storeB.document();
 		const documentC = storeC.document();
 
-		// Merge in order: A → B → C
-		// This ensures the deletion (highest eventstamp) is merged last
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentA, documentB, documentC],
 		);
 
-		// The document should be deleted (not appear in active entries)
 		expect(consolidated.get("user-1")).toBeNull();
 
-		// The document should show the document as deleted (with meta.~deletedAt timestamp)
 		const document = consolidated.document();
 		const deletedDoc = document.data.find((doc) => doc.id === "user-1");
 		expect(deletedDoc?.meta["~deletedAt"]).toBeDefined();
 
-		// The consolidated store should have 0 active entries
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
 	});
@@ -328,22 +270,16 @@ describe("Store Integration - Multi-Store Merging", () => {
 	});
 
 	test("should maintain consistency when merging stores with overlapping and unique data", async () => {
-		// Create 3 stores with partial overlaps
 		const storeA = createTestStore();
 		const storeB = createTestStore();
 		const storeC = createTestStore();
 
-		// All stores have user-1
-		// A and B have user-2
-		// B and C have user-3
-		// Only C has user-4
 		storeA.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
 		});
 
-		// Delay to ensure storeB operations have later eventstamps (testing LWW order)
-		await new Promise((resolve) => setTimeout(resolve, 5));
+		await delay(5);
 
 		storeB.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice" }, { withId: "user-1" });
@@ -351,8 +287,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-3", name: "Charlie" }, { withId: "user-3" });
 		});
 
-		// Delay to ensure storeC operations have even later eventstamps
-		await new Promise((resolve) => setTimeout(resolve, 5));
+		await delay(5);
 		storeC.begin((tx) => {
 			tx.add({ id: "user-1", name: "Alice-Updated" }, { withId: "user-1" });
 			tx.add({ id: "user-3", name: "Charlie-Updated" }, { withId: "user-3" });
@@ -370,31 +305,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 			[documentA, documentB, documentC],
 		);
 
-		// Verify all 4 users are present
-		expect(consolidated.get("user-1")).toBeDefined();
-		expect(consolidated.get("user-2")).toBeDefined();
-		expect(consolidated.get("user-3")).toBeDefined();
-		expect(consolidated.get("user-4")).toBeDefined();
-
-		// Verify the consolidated store has exactly 4 entries
-		const entries = Array.from(consolidated.entries());
-		expect(entries).toHaveLength(4);
-
-		// user-2 should have the version from storeB (later eventstamp)
-		const user2 = consolidated.get("user-2");
-		expect(user2?.name).toBe("Bob-Updated");
-
-		// user-1 should have the version from storeC (latest update)
-		const user1 = consolidated.get("user-1");
-		expect(user1?.name).toBe("Alice-Updated");
-
-		// user-3 should have the version from storeC (latest update)
-		const user3 = consolidated.get("user-3");
-		expect(user3?.name).toBe("Charlie-Updated");
-
-		// user-4 should be from storeC
-		const user4 = consolidated.get("user-4");
-		expect(user4?.name).toBe("Diana");
+		expectUsersInStore(consolidated, {
+			"user-1": { id: "user-1", name: "Alice-Updated" },
+			"user-2": { id: "user-2", name: "Bob-Updated" },
+			"user-3": { id: "user-3", name: "Charlie-Updated" },
+			"user-4": { id: "user-4", name: "Diana" },
+		});
 	});
 
 	test("should forward clock during sync and continue working correctly", async () => {
@@ -411,92 +327,63 @@ describe("Store Integration - Multi-Store Merging", () => {
 			tx.add({ id: "user-2", name: "Bob" }, { withId: "user-2" });
 		});
 
-		// Manually forward store B's clock to simulate receiving updates from the future
-		// (e.g., from a remote client that's far ahead in time)
-		// Create a timestamp 60 seconds in the future with max hex counter
 		const futureMs = Date.now() + 60000;
 		const isoString = new Date(futureMs).toISOString();
 		const futureTimestamp = `${isoString}|ffffffff|0000`;
 
 		const clockBeforeFwd = storeB.document().meta["~eventstamp"];
-		// Forward the clock by merging a snapshot with the future timestamp
 		storeB.merge({
 			data: [],
 			meta: { "~eventstamp": futureTimestamp },
 		});
 		const clockAfterFwd = storeB.document().meta["~eventstamp"];
 
-		// Verify the clock was indeed forwarded (it should now reflect the future timestamp)
 		expect(clockAfterFwd > clockBeforeFwd).toBe(true);
 
-		// Make a write to Store B after clock forwarding to verify it uses the forwarded clock
 		storeB.begin((tx) => {
 			tx.add({ id: "user-3", name: "Charlie" }, { withId: "user-3" });
 		});
 
-		// Get snapshots after clock forwarding and continued writes
 		const documentA2 = storeA.document();
 		const documentB2 = storeB.document();
 
-		// Merge both snapshots into a consolidated store
 		const consolidated = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentA2, documentB2],
 		);
 
-		// Verify the consolidated store has all 3 users
 		expect(consolidated.get("user-1")).toBeDefined();
 		expect(consolidated.get("user-2")).toBeDefined();
 		expect(consolidated.get("user-3")).toBeDefined();
 
-		// Verify the consolidated store's clock is synchronized to the highest
-		const maxSnapshotClock =
-			[documentA2.meta["~eventstamp"], documentB2.meta["~eventstamp"]]
-				.sort()
-				.pop() || "";
-		const consolidatedClock = consolidated.document().meta["~eventstamp"];
-		expect(consolidatedClock).toEqual(maxSnapshotClock);
+		expectClockForwarded(consolidated, documentA2, documentB2);
 
-		// Now continue working: make new writes on both the consolidated store
-		// and create new independent stores to verify the system still works
 		const storeC = createTestStore();
 
-		// Add a new user to the consolidated store
 		consolidated.begin((tx) => {
 			tx.add({ id: "user-4", name: "Diana" }, { withId: "user-4" });
 		});
 
-		// Add a new user to store C (independent)
 		storeC.begin((tx) => {
 			tx.add({ id: "user-5", name: "Eve" }, { withId: "user-5" });
 		});
 
-		// Get snapshots after continued writes
 		const documentConsolidated = consolidated.document();
 		const documentC = storeC.document();
 
-		// Merge the post-forwarding writes
 		const finalMerged = await mergeStoreDocuments<TestUser>(
 			TEST_RESOURCE_TYPE,
 			[documentConsolidated, documentC],
 		);
 
-		// Verify all 5 users are present in the final merged store
-		expect(finalMerged.get("user-1")).toEqual({ id: "user-1", name: "Alice" });
-		expect(finalMerged.get("user-2")).toEqual({ id: "user-2", name: "Bob" });
-		expect(finalMerged.get("user-3")).toEqual({
-			id: "user-3",
-			name: "Charlie",
+		expectUsersInStore(finalMerged, {
+			"user-1": { id: "user-1", name: "Alice" },
+			"user-2": { id: "user-2", name: "Bob" },
+			"user-3": { id: "user-3", name: "Charlie" },
+			"user-4": { id: "user-4", name: "Diana" },
+			"user-5": { id: "user-5", name: "Eve" },
 		});
-		expect(finalMerged.get("user-4")).toEqual({ id: "user-4", name: "Diana" });
-		expect(finalMerged.get("user-5")).toEqual({ id: "user-5", name: "Eve" });
 
-		// Verify there are exactly 5 entries
-		const entries = Array.from(finalMerged.entries());
-		expect(entries).toHaveLength(5);
-
-		// Verify the final merged store's clock is well past the forwarded time
-		// (since we made writes after forwarding)
 		const finalClock = finalMerged.document().meta["~eventstamp"];
 		expect(finalClock).toBeDefined();
 		expect(finalClock.length > 0).toBe(true);

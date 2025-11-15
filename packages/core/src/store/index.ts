@@ -1,5 +1,5 @@
-import type { Document, ResourceObject } from "./crdt";
-import { decodeResource, mergeDocuments, ResourceMap } from "./crdt";
+import type { Document, ResourceObject } from "../crdt";
+import { decodeResource, mergeDocuments, ResourceMap } from "../crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -186,7 +186,9 @@ export class Store<T extends Record<string, unknown>> {
 	 * @returns True if document exists, false otherwise
 	 */
 	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
-		return this.#ResourceMap.has(key, opts);
+		const resource = this.#ResourceMap.get(key);
+		if (!resource) return false;
+		return opts.includeDeleted || !resource.meta["~deletedAt"];
 	}
 
 	/**
@@ -195,14 +197,25 @@ export class Store<T extends Record<string, unknown>> {
 	 */
 	get(key: string): T | null {
 		const current = this.#ResourceMap.get(key);
-		return current ?? null;
+		if (!current || current.meta["~deletedAt"]) {
+			return null;
+		}
+		return current.data;
 	}
 
 	/**
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		return this.#ResourceMap.entries();
+		const iterator = this.#ResourceMap.entries();
+		function* generator() {
+			for (const [key, resource] of iterator) {
+				if (!resource.meta["~deletedAt"]) {
+					yield [key, resource.data] as const;
+				}
+			}
+		}
+		return generator();
 	}
 
 	/**
@@ -287,12 +300,13 @@ export class Store<T extends Record<string, unknown>> {
 			update: (key, value) => {
 				staging.update(key, value as Partial<T>);
 				const merged = staging.get(key);
-				if (merged !== undefined) {
-					updateEntries.push([key, merged] as const);
+				if (merged && !merged.meta["~deletedAt"]) {
+					updateEntries.push([key, merged.data] as const);
 				}
 			},
 			del: (key) => {
-				if (!staging.has(key)) return;
+				const existing = staging.get(key);
+				if (!existing || existing.meta["~deletedAt"]) return;
 				staging.delete(key);
 				deleteKeys.push(key);
 			},

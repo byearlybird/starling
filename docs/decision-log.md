@@ -49,7 +49,7 @@ Document structure:
       type: "resource",
       id: "doc-1",
       attributes: { /* user data with eventstamps */ },
-      meta: { "~deletedAt": null }
+      meta: { "~eventstamps": { /* ... */ }, "~deletedAt": null, "~eventstamp": "..." }
     }
   ],
   meta: { "~eventstamp": "..." }

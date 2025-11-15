@@ -1,18 +1,13 @@
 import { expect, test } from "bun:test";
 import { mergeAttributes } from ".";
+import { EARLIER, LATER, LATEST } from "./test-utils";
 
-test("mergeAttributes merges plain attributes with separate eventstamps", () => {
-	const attrsA = { name: "Alice", age: 30 };
-	const eventsA = {
-		name: "2025-10-25T12:00:00.000Z|0001|a1b2",
-		age: "2025-10-25T12:00:00.000Z|0001|a1b2",
-	};
+test("mergeAttributes uses field-level Last-Write-Wins", () => {
+	const attrsA = { name: "Alice", age: 30, status: "active" };
+	const eventsA = { name: EARLIER, age: EARLIER, status: LATEST };
 
-	const attrsB = { name: "Bob", age: 25 };
-	const eventsB = {
-		name: "2025-10-25T12:00:01.000Z|0001|c3d4",
-		age: "2025-10-25T12:00:01.000Z|0001|c3d4",
-	};
+	const attrsB = { name: "Bob", age: 25, status: "inactive" };
+	const eventsB = { name: LATER, age: LATER, status: EARLIER };
 
 	const [merged, mergedEvents] = mergeAttributes(
 		attrsA,
@@ -22,32 +17,19 @@ test("mergeAttributes merges plain attributes with separate eventstamps", () => 
 	);
 
 	expect(merged.name).toBe("Bob");
-	expect(merged.age).toBe(25); // B's age has newer eventstamp
-	expect(mergedEvents.name).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
-	expect(mergedEvents.age).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
-});
-
-test("mergeAttributes preserves values from A when A has newer eventstamp", () => {
-	const attrsA = { status: "active" };
-	const eventsA = { status: "2025-10-25T12:00:05.000Z|0001|e5f6" };
-
-	const attrsB = { status: "inactive" };
-	const eventsB = { status: "2025-10-25T12:00:01.000Z|0001|c3d4" };
-
-	const [merged] = mergeAttributes(attrsA, eventsA, attrsB, eventsB);
-
+	expect(merged.age).toBe(25);
 	expect(merged.status).toBe("active");
+	expect(mergedEvents.name).toBe(LATER);
+	expect(mergedEvents.age).toBe(LATER);
+	expect(mergedEvents.status).toBe(LATEST);
 });
 
 test("mergeAttributes combines keys from both objects", () => {
 	const attrsA = { name: "Alice", age: 30 };
-	const eventsA = {
-		name: "2025-10-25T12:00:00.000Z|0001|a1b2",
-		age: "2025-10-25T12:00:00.000Z|0001|a1b2",
-	};
+	const eventsA = { name: EARLIER, age: EARLIER };
 
 	const attrsB = { email: "alice@example.com" };
-	const eventsB = { email: "2025-10-25T12:00:01.000Z|0001|c3d4" };
+	const eventsB = { email: LATER };
 
 	const [merged, mergedEvents] = mergeAttributes(
 		attrsA,
@@ -61,181 +43,107 @@ test("mergeAttributes combines keys from both objects", () => {
 		age: 30,
 		email: "alice@example.com",
 	});
-	expect(mergedEvents.email).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
+	expect(mergedEvents.email).toBe(LATER);
 });
 
 test("mergeAttributes handles nested objects", () => {
-	const attrsA = { user: { name: "Alice", age: 30 } };
+	const attrsA = { user: { name: "Alice", age: 30 }, nested: { a: { b: 1 } } };
 	const eventsA = {
-		user: {
-			name: "2025-10-25T12:00:00.000Z|0001|a1b2",
-			age: "2025-10-25T12:00:00.000Z|0001|a1b2",
-		},
+		user: { name: EARLIER, age: EARLIER },
+		nested: { a: { b: EARLIER } },
 	};
 
-	const attrsB = { user: { name: "Bob", email: "bob@example.com" } };
+	const attrsB = {
+		user: { name: "Bob", email: "bob@example.com" },
+		nested: { a: { b: 2, c: 3 } },
+	};
 	const eventsB = {
-		user: {
-			name: "2025-10-25T12:00:01.000Z|0001|c3d4",
-			email: "2025-10-25T12:00:01.000Z|0001|c3d4",
-		},
+		user: { name: LATER, email: LATER },
+		nested: { a: { b: LATER, c: LATER } },
 	};
-
-	const [merged, _mergedEvents] = mergeAttributes(
-		attrsA,
-		eventsA,
-		attrsB,
-		eventsB,
-	);
-
-	expect((merged.user as Record<string, unknown>).name).toBe("Bob");
-	expect((merged.user as Record<string, unknown>).age).toBe(30);
-	expect((merged.user as Record<string, unknown>).email).toBe(
-		"bob@example.com",
-	);
-});
-
-test("mergeAttributes preserves deeply nested structures", () => {
-	const attrsA = { a: { b: { c: "v1", d: "from-a" } } };
-	const eventsA = {
-		a: {
-			b: {
-				c: "2025-10-25T12:00:00.000Z|0001|a1b2",
-				d: "2025-10-25T12:00:00.000Z|0001|a1b2",
-			},
-		},
-	};
-
-	const attrsB = { a: { b: { c: "v2" } } };
-	const eventsB = { a: { b: { c: "2025-10-25T12:00:01.000Z|0001|c3d4" } } };
 
 	const [merged] = mergeAttributes(attrsA, eventsA, attrsB, eventsB);
 
-	const a = merged.a as Record<string, unknown>;
-	const b = a.b as Record<string, unknown>;
-	expect(b.c).toBe("v2");
-	expect(b.d).toBe("from-a");
+	const user = merged.user as Record<string, unknown>;
+	expect(user.name).toBe("Bob");
+	expect(user.age).toBe(30);
+	expect(user.email).toBe("bob@example.com");
+
+	const nested = merged.nested as Record<string, unknown>;
+	const a = nested.a as Record<string, unknown>;
+	expect(a.b).toBe(2);
+	expect(a.c).toBe(3);
 });
 
-test("mergeAttributes throws error if attributes is object but eventstamps is leaf", () => {
-	const attrsA = { user: { name: "Alice" } };
-	const eventsA = { user: "2025-10-25T12:00:00.000Z|0001|a1b2" }; // Wrong: should mirror structure
-
-	const attrsB = { user: {} };
-	const eventsB = { user: {} };
-
-	expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
+test.each([
+	[
+		"structure mismatch: object attrs vs leaf eventstamps",
+		{ user: { name: "Alice" } },
+		{ user: EARLIER },
+		{ user: {} },
+		{ user: {} },
 		/Structure mismatch at "user"/,
-	);
-});
-
-test("mergeAttributes throws error if attributes is leaf but eventstamps is object", () => {
-	const attrsA = { field: "value" };
-	const eventsA = { field: { nested: "object" } }; // Wrong: should be a string
-
-	const attrsB = { field: "other" };
-	const eventsB = { field: "2025-10-25T12:00:00.000Z|0001|a1b2" };
-
-	expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
+	],
+	[
+		"structure mismatch: leaf attrs vs object eventstamps",
+		{ field: "value" },
+		{ field: { nested: "object" } },
+		{ field: "other" },
+		{ field: EARLIER },
 		/Structure mismatch at "field"/,
-	);
-});
-
-test("mergeAttributes throws error if source changes field from object to leaf", () => {
-	const attrsA = { profile: { name: "Alice" } };
-	const eventsA = { profile: { name: "2025-10-25T12:00:00.000Z|0001|a1b2" } };
-
-	const attrsB = { profile: "alice" };
-	const eventsB = { profile: "2025-10-25T12:00:01.000Z|0001|c3d4" };
-
-	expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
+	],
+	[
+		"type mismatch: object to leaf",
+		{ profile: { name: "Alice" } },
+		{ profile: { name: EARLIER } },
+		{ profile: "alice" },
+		{ profile: LATER },
 		/Type mismatch at "profile"/,
-	);
-});
-
-test("mergeAttributes throws error if source changes field from leaf to object", () => {
-	const attrsA = { profile: "alice" };
-	const eventsA = { profile: "2025-10-25T12:00:00.000Z|0001|a1b2" };
-
-	const attrsB = { profile: { name: "Alice" } };
-	const eventsB = { profile: { name: "2025-10-25T12:00:01.000Z|0001|c3d4" } };
-
-	expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
+	],
+	[
+		"type mismatch: leaf to object",
+		{ profile: "alice" },
+		{ profile: EARLIER },
+		{ profile: { name: "Alice" } },
+		{ profile: { name: LATER } },
 		/Type mismatch at "profile"/,
-	);
-});
-
-test("mergeAttributes throws error with full path for deeply nested mismatch", () => {
-	const attrsA = { level1: { level2: { level3: { value: "data" } } } };
-	const eventsA = {
-		level1: { level2: { level3: "2025-10-25T12:00:00.000Z|0001|a1b2" } },
-	}; // Wrong at level3
-
-	const attrsB = { level1: { level2: { level3: { value: "other" } } } };
-	const eventsB = {
-		level1: {
-			level2: { level3: { value: "2025-10-25T12:00:00.000Z|0001|a1b2" } },
-		},
-	};
-
-	expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
-		/Structure mismatch at "level1.level2.level3"/,
-	);
-});
+	],
+])(
+	"mergeAttributes throws error for %s",
+	(_desc, attrsA, eventsA, attrsB, eventsB, errorPattern) => {
+		expect(() => mergeAttributes(attrsA, eventsA, attrsB, eventsB)).toThrow(
+			errorPattern,
+		);
+	},
+);
 
 test("mergeAttributes handles empty objects", () => {
-	const attrsA = {};
-	const eventsA = {};
-
-	const attrsB = {};
-	const eventsB = {};
-
-	const [merged, mergedEvents] = mergeAttributes(
-		attrsA,
-		eventsA,
-		attrsB,
-		eventsB,
-	);
+	const [merged, mergedEvents] = mergeAttributes({}, {}, {}, {});
 
 	expect(merged).toEqual({});
 	expect(mergedEvents).toEqual({});
 });
 
-test("mergeAttributes handles objects with empty nested objects", () => {
-	const attrsA = { nested: {} };
-	const eventsA = { nested: {} };
-
-	const attrsB = { nested: {} };
-	const eventsB = { nested: {} };
-
-	const [merged] = mergeAttributes(attrsA, eventsA, attrsB, eventsB);
-
-	expect(merged.nested as Record<string, unknown>).toEqual({});
-});
-
-test("mergeAttributes preserves array values as leaf values", () => {
-	const attrsA = { name: "Alice", tags: ["admin", "user"] };
-	const eventsA = {
-		name: "2025-10-25T12:00:00.000Z|0001|a1b2",
-		tags: "2025-10-25T12:00:00.000Z|0001|a1b2",
-	};
+test("mergeAttributes treats arrays as atomic values", () => {
+	const attrsA = { tags: ["admin", "user"] };
+	const eventsA = { tags: EARLIER };
 
 	const attrsB = { tags: ["moderator", "guest"] };
-	const eventsB = { tags: "2025-10-25T12:00:01.000Z|0001|c3d4" };
+	const eventsB = { tags: LATER };
 
 	const [merged] = mergeAttributes(attrsA, eventsA, attrsB, eventsB);
 
-	expect(merged.tags).toEqual(["moderator", "guest"]); // B wins due to newer eventstamp
+	expect(merged.tags).toEqual(["moderator", "guest"]);
 });
 
-test("mergeAttributes uses lexicographic comparison for eventstamps", () => {
+test("mergeAttributes uses lexicographic comparison", () => {
 	const attrsA = { value: "A" };
-	const eventsA = { value: "2025-10-25T11:59:00.000Z|9999|zzzz" }; // Technically "earlier" conceptually but lexicographically smaller
+	const eventsA = { value: "2025-10-25T11:59:00.000Z|9999|zzzz" };
 
 	const attrsB = { value: "B" };
-	const eventsB = { value: "2025-10-25T12:00:00.000Z|0000|0000" }; // Lexicographically larger
+	const eventsB = { value: "2025-10-25T12:00:00.000Z|0000|0000" };
 
 	const [merged] = mergeAttributes(attrsA, eventsA, attrsB, eventsB);
 
-	expect(merged.value).toBe("B"); // B wins because its eventstamp is lexicographically larger
+	expect(merged.value).toBe("B");
 });
