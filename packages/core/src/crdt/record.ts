@@ -59,14 +59,17 @@ export function mergeAttributes(
 			}
 		}
 
-		let isObjB = false;
-		if (valB !== undefined) {
-			isObjB = isObject(valB);
-			if (isObjA !== isObjB) {
-				throw new Error(
-					`Type mismatch at "${currentPath}": cannot change from ${isObjA ? "object" : "leaf"} to ${isObjB ? "object" : "leaf"}`,
-				);
-			}
+		if (valB === undefined) {
+			merged[key] = valA;
+			mergedEvents[key] = eventA;
+			continue;
+		}
+
+		const isObjB = isObject(valB);
+		if (isObjA !== isObjB) {
+			throw new Error(
+				`Type mismatch at "${currentPath}": cannot change from ${isObjA ? "object" : "leaf"} to ${isObjB ? "object" : "leaf"}`,
+			);
 		}
 
 		// Merge logic

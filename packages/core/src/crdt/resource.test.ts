@@ -7,6 +7,8 @@ import {
 	type ResourceObject,
 } from ".";
 
+const RESOURCE_TYPE = "users";
+
 test("addEventstamps creates parallel structure with eventstamps", () => {
 	const [attrs, events] = addEventstamps(
 		{ name: "Alice", age: 30 },
@@ -77,7 +79,7 @@ test("decodeResource extracts plain data from ResourceObject", () => {
 	);
 
 	const resource: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrs,
 		meta: {
@@ -88,7 +90,7 @@ test("decodeResource extracts plain data from ResourceObject", () => {
 
 	const decoded = decodeResource(resource);
 
-	expect(decoded.type).toBe("resource");
+	expect(decoded.type).toBe(RESOURCE_TYPE);
 	expect(decoded.id).toBe("user-1");
 	expect(decoded.data).toEqual({ name: "Alice", age: 30 });
 	expect(decoded.meta["~deletedAt"]).toBe(null);
@@ -101,7 +103,7 @@ test("decodeResource handles nested objects", () => {
 	);
 
 	const resource: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "res-1",
 		attributes: attrs,
 		meta: {
@@ -122,7 +124,7 @@ test("mergeResources uses field-level Last-Write-Wins", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 	const resourceA: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrsA,
 		meta: { "~eventstamps": eventsA, "~deletedAt": null },
@@ -133,7 +135,7 @@ test("mergeResources uses field-level Last-Write-Wins", () => {
 		"2025-01-01T00:00:01.000Z|0000|c3d4",
 	);
 	const resourceB: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrsB,
 		meta: { "~eventstamps": eventsB, "~deletedAt": null },
@@ -153,7 +155,7 @@ test("mergeResources preserves older value when it has newer eventstamp", () => 
 		"2025-01-01T00:00:05.000Z|0000|e5f6",
 	);
 	const resourceA: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "res-1",
 		attributes: attrsA,
 		meta: { "~eventstamps": eventsA, "~deletedAt": null },
@@ -164,7 +166,7 @@ test("mergeResources preserves older value when it has newer eventstamp", () => 
 		"2025-01-01T00:00:01.000Z|0000|c3d4",
 	);
 	const resourceB: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "res-1",
 		attributes: attrsB,
 		meta: { "~eventstamps": eventsB, "~deletedAt": null },
@@ -182,7 +184,7 @@ test("mergeResources handles deletion timestamps", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 	const resourceA: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrsA,
 		meta: { "~eventstamps": eventsA, "~deletedAt": null },
@@ -193,7 +195,7 @@ test("mergeResources handles deletion timestamps", () => {
 		"2025-01-01T00:00:01.000Z|0000|c3d4",
 	);
 	const resourceB: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrsB,
 		meta: { "~eventstamps": eventsB, "~deletedAt": "2025-01-01T00:00:01.000Z|0000|c3d4" },
@@ -211,7 +213,7 @@ test("deleteResource marks a resource as deleted", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 	const resource: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "user-1",
 		attributes: attrs,
 		meta: { "~eventstamps": events, "~deletedAt": null },
@@ -230,7 +232,7 @@ test("mergeResources handles nested objects", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 	const resourceA: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "res-1",
 		attributes: attrsA,
 		meta: { "~eventstamps": eventsA, "~deletedAt": null },
@@ -241,7 +243,7 @@ test("mergeResources handles nested objects", () => {
 		"2025-01-01T00:00:01.000Z|0000|c3d4",
 	);
 	const resourceB: ResourceObject = {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id: "res-1",
 		attributes: attrsB,
 		meta: { "~eventstamps": eventsB, "~deletedAt": null },

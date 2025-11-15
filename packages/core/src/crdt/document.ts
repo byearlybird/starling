@@ -70,14 +70,14 @@ export type MergeDocumentsResult = {
  * @example
  * ```typescript
  * const into = {
- *   data: [{ type: "resource", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }],
+ *   data: [{ type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }],
  *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
  * };
  *
  * const from = {
  *   data: [
- *     { type: "resource", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }, // updated
- *     { type: "resource", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }  // new
+ *     { type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }, // updated
+ *     { type: "todos", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }  // new
  *   ],
  *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
  * };

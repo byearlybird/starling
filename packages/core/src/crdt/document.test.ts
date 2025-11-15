@@ -2,11 +2,13 @@ import { expect, test } from "bun:test";
 import { createDocument, mergeDocuments, type Document } from "./document";
 import { addEventstamps, type ResourceObject } from "./resource";
 
+const RESOURCE_TYPE = "users";
+
 // Helper to create a resource for testing
 function createResource(id: string, data: Record<string, unknown>, eventstamp: string, deletedAt: string | null = null): ResourceObject {
 	const [attrs, events] = addEventstamps(data, eventstamp);
 	return {
-		type: "resource",
+		type: RESOURCE_TYPE,
 		id,
 		attributes: attrs,
 		meta: { "~eventstamps": events, "~deletedAt": deletedAt },

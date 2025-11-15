@@ -23,7 +23,7 @@ const storage = createStorage({
 	driver: localStorageDriver({ base: "app:" }),
 });
 
-const store = await new Store<{ text: string }>()
+const store = await new Store<{ text: string }>({ resourceType: "notes" })
 	.use(unstoragePlugin("todos", storage, { debounceMs: 300 }))
 	.init();
 
@@ -82,7 +82,7 @@ const httpStorage = createStorage({
   driver: httpDriver({ base: "https://api.example.com" }),
 });
 
-const store = await new Store<Todo>()
+const store = await new Store<Todo>({ resourceType: "todos" })
   .use(unstoragePlugin('todos', localStorage))
   .use(unstoragePlugin('todos', httpStorage, { pollIntervalMs: 5000 }))
   .init();
