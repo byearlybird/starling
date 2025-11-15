@@ -20,7 +20,7 @@ export type StoreAddOptions = {
  */
 export type StoreConfig = {
 	/** JSON:API resource type for documents stored in this instance */
-	resourceType: string;
+	resourceType?: string;
 	/** Custom ID generator. Defaults to crypto.randomUUID() */
 	getId?: () => string;
 };
@@ -171,10 +171,7 @@ export class Store<T extends Record<string, unknown>> {
 	#queries = new Set<QueryInternal<T, any>>();
 
 	constructor(config: StoreConfig) {
-		if (!config?.resourceType) {
-			throw new Error("Store resourceType is required");
-		}
-		this.#resourceType = config.resourceType;
+		this.#resourceType = config.resourceType ?? "resource";
 		this.#ResourceMap = new ResourceMap<T>(this.#resourceType);
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
