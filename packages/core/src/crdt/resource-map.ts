@@ -1,6 +1,6 @@
 import { Clock } from "../clock";
-import type { Document } from "./collection";
-import { mergeDocuments } from "./collection";
+import type { Document } from "./document";
+import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
 import {
 	decodeResource,

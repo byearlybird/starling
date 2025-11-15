@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Document } from "./collection";
+import type { Document } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
 import { decodeResource, encodeResource } from "./resource";
 import { ResourceMap } from "./resource-map";

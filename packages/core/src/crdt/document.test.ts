@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument, type Document, mergeDocuments } from "./collection";
+import { createDocument, type Document, mergeDocuments } from "./document";
 import { encodeResource } from "./resource";
 import { encodeValue } from "./value";
 
