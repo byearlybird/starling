@@ -19,6 +19,8 @@ export type StoreAddOptions = {
  * Configuration options for creating a Store instance.
  */
 export type StoreConfig = {
+	/** JSON:API resource type for documents stored in this instance */
+	resourceType: string;
 	/** Custom ID generator. Defaults to crypto.randomUUID() */
 	getId?: () => string;
 };
@@ -139,7 +141,9 @@ type QueryInternal<T, U> = {
  *
  * @example
  * ```ts
- * const store = await new Store<{ text: string; completed: boolean }>()
+ * const store = await new Store<{ text: string; completed: boolean }>({
+ *   resourceType: "todos"
+ * })
  *   .use(unstoragePlugin('todos', storage))
  *   .init();
  *
@@ -154,7 +158,8 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T extends Record<string, unknown>> {
-	#ResourceMap = new ResourceMap<T>();
+	#ResourceMap: ResourceMap<T>;
+	#resourceType: string;
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -165,7 +170,12 @@ export class Store<T extends Record<string, unknown>> {
 
 	#queries = new Set<QueryInternal<T, any>>();
 
-	constructor(config: StoreConfig = {}) {
+	constructor(config: StoreConfig) {
+		if (!config?.resourceType) {
+			throw new Error("Store resourceType is required");
+		}
+		this.#resourceType = config.resourceType;
+		this.#ResourceMap = new ResourceMap<T>(this.#resourceType);
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
 
@@ -212,7 +222,10 @@ export class Store<T extends Record<string, unknown>> {
 		const result = mergeDocuments(currentDocument, document);
 
 		// Replace the ResourceMap with the merged state
-		this.#ResourceMap = ResourceMap.fromDocument<T>(result.document);
+		this.#ResourceMap = ResourceMap.fromDocument<T>(
+			this.#resourceType,
+			result.document,
+		);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, resource]) => [key, decodeResource<T>(resource).data] as const,
@@ -258,7 +271,10 @@ export class Store<T extends Record<string, unknown>> {
 		const deleteKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = ResourceMap.fromDocument<T>(this.#ResourceMap.document());
+		const staging = ResourceMap.fromDocument<T>(
+			this.#resourceType,
+			this.#ResourceMap.document(),
+		);
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {

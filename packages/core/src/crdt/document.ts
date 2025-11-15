@@ -56,7 +56,7 @@ export type MergeDocumentsResult = {
  *
  * The merge operation:
  * 1. Forwards the clock to the newest eventstamp from either document
- * 2. Merges each resource object pair using field-level LWW (via mergeDocs)
+ * 2. Merges each resource object pair using field-level LWW (via mergeResources)
  * 3. Tracks what changed for hook notifications (added/updated/deleted)
  *
  * Deletion is final: once a resource object is deleted, updates to it are merged
@@ -70,14 +70,14 @@ export type MergeDocumentsResult = {
  * @example
  * ```typescript
  * const into = {
- *   data: [{ type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }],
+ *   data: [{ type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }],
  *   meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2" }
  * };
  *
  * const from = {
  *   data: [
- *     { type: "resource", id: "doc1", attributes: {...}, meta: { "~deletedAt": null } }, // updated
- *     { type: "resource", id: "doc2", attributes: {...}, meta: { "~deletedAt": null } }  // new
+ *     { type: "todos", id: "doc1", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }, // updated
+ *     { type: "todos", id: "doc2", attributes: {...}, meta: { "~eventstamps": {...}, "~deletedAt": null } }  // new
  *   ],
  *   meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" }
  * };

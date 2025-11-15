@@ -14,7 +14,9 @@ let store: Store<Todo>;
 
 beforeEach(async () => {
 	storage = createStorage<Document>();
-	store = await new Store<Todo>().use(unstoragePlugin("todos", storage)).init();
+	store = await new Store<Todo>({ resourceType: "todos" })
+		.use(unstoragePlugin("todos", storage))
+		.init();
 });
 
 test("initializes empty store when no data in storage", () => {
@@ -23,7 +25,7 @@ test("initializes empty store when no data in storage", () => {
 
 test("initializes store with persisted data", async () => {
 	// Create a store with data
-	const store1 = await new Store<Todo>()
+	const store1 = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
@@ -38,7 +40,7 @@ test("initializes store with persisted data", async () => {
 	await store1.dispose();
 
 	// Create a new store with same storage
-	const store2 = await new Store<Todo>()
+	const store2 = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
@@ -110,7 +112,7 @@ test("debounces storage writes when debounceMs is set", async () => {
 		return originalSet.call(debounceStorage, key, value);
 	};
 
-	const debounceStore = await new Store<Todo>()
+	const debounceStore = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 100 }))
 		.init();
 
@@ -134,7 +136,7 @@ test("debounces storage writes when debounceMs is set", async () => {
 
 test("forwards store clock to persisted eventstamp on load", async () => {
 	// Create a store and add data with a known eventstamp
-	const store1 = await new Store<Todo>()
+	const store1 = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
@@ -148,7 +150,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 	await store1.dispose();
 
 	// Create a new store that loads the data
-	const store2 = await new Store<Todo>()
+	const store2 = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", storage))
 		.init();
 
@@ -174,7 +176,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 
 test("disposes only after pending debounced writes complete", async () => {
 	const debounceStorage = createStorage<Document>();
-	const debouncedStore = await new Store<Todo>()
+	const debouncedStore = await new Store<Todo>({ resourceType: "todos" })
 		.use(unstoragePlugin("todos", debounceStorage, { debounceMs: 500 }))
 		.init();
 

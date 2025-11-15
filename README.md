@@ -30,7 +30,9 @@ bun add unstorage
 import { Store } from "@byearlybird/starling";
 
 // Create a store with built-in reactive queries
-const todoStore = await new Store<{ text: string; completed: boolean }>().init();
+const todoStore = await new Store<{ text: string; completed: boolean }>({
+  resourceType: "todos",
+}).init();
 
 // Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
@@ -113,10 +115,11 @@ Starling provides a simple API for mutations, queries, and sync. Hover over meth
 import { Store } from "@byearlybird/starling";
 
 // Create a basic store
-const store = new Store<YourType>();
+const store = new Store<YourType>({ resourceType: "your-type" });
 
 // Optionally provide a custom ID generator
 const deterministicStore = new Store<YourType>({
+  resourceType: "your-type",
   getId: () => crypto.randomUUID(),
 });
 
@@ -205,7 +208,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): Plugin<T> => ({
 });
 
 // Use the plugin
-const store = await new Store<{ name: string }>()
+const store = await new Store<{ name: string }>({ resourceType: "contacts" })
   .use(loggingPlugin())
   .init();
 ```
@@ -234,7 +237,7 @@ import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
 
 // Register multiple storage backends - they work together automatically
-const store = await new Store<Todo>()
+const store = await new Store<Todo>({ resourceType: "todos" })
   .use(
     unstoragePlugin(
       "todos",

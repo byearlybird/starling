@@ -13,6 +13,10 @@ type TestUser = {
 	age?: number;
 };
 
+const TEST_RESOURCE_TYPE = "test-users";
+const createTestStore = () =>
+	new Store<TestUser>({ resourceType: TEST_RESOURCE_TYPE });
+
 /**
  * Merges multiple store documents into a single consolidated store.
  *
@@ -30,9 +34,10 @@ type TestUser = {
  * @returns A new store containing the merged state
  */
 async function mergeStoreDocuments<T extends Record<string, unknown>>(
+	resourceType: string,
 	documents: Document[],
 ): Promise<Store<T>> {
-	const consolidated = new Store<T>();
+	const consolidated = new Store<T>({ resourceType });
 
 	if (documents.length === 0) {
 		await consolidated.init();
@@ -54,9 +59,9 @@ async function mergeStoreDocuments<T extends Record<string, unknown>>(
 describe("Store Integration - Multi-Store Merging", () => {
 	test("should merge independent writes with no conflicts", async () => {
 		// Create 3 independent stores
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
-		const storeC = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
+		const storeC = createTestStore();
 
 		// Each store gets its own unique writes
 		storeA.begin((tx) => {
@@ -80,11 +85,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents into a consolidated store
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// Verify all 6 documents are present in the consolidated store
 		expect(consolidated.get("user-1")).toEqual({
@@ -131,9 +135,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
 		// Create 3 stores, each updating different fields of the same document
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
-		const storeC = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
+		const storeC = createTestStore();
 
 		// All stores start with the same document (simulating an initial state)
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -169,11 +173,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// Verify the consolidated document has all three fields
 		// (field-level LWW merge means all fields should be present)
@@ -191,9 +194,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should resolve same-field conflicts using LWW (highest eventstamp wins)", async () => {
 		// Create 3 stores where all update the same field with different values
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
-		const storeC = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
+		const storeC = createTestStore();
 
 		// Initialize the same document in all stores
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -230,11 +233,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// The final value should be whichever was merged last
 		// (since they're applied in order, the last one to be processed wins LWW)
@@ -254,9 +256,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should handle deletions where deletion eventstamp is highest", async () => {
 		// Create 3 stores with different mutation sequences
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
-		const storeC = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
+		const storeC = createTestStore();
 
 		// Store A: Add a document
 		storeA.begin((tx) => {
@@ -292,11 +294,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Merge in order: A → B → C
 		// This ensures the deletion (highest eventstamp) is merged last
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// The document should be deleted (not appear in active entries)
 		expect(consolidated.get("user-1")).toBeNull();
@@ -317,7 +318,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 			meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000" },
 		};
 
-		const consolidated = await mergeStoreDocuments<TestUser>([emptyDocument]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[emptyDocument],
+		);
 
 		const entries = Array.from(consolidated.entries());
 		expect(entries).toHaveLength(0);
@@ -325,9 +329,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should maintain consistency when merging stores with overlapping and unique data", async () => {
 		// Create 3 stores with partial overlaps
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
-		const storeC = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
+		const storeC = createTestStore();
 
 		// All stores have user-1
 		// A and B have user-2
@@ -361,11 +365,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge all documents
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA,
-			documentB,
-			documentC,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA, documentB, documentC],
+		);
 
 		// Verify all 4 users are present
 		expect(consolidated.get("user-1")).toBeDefined();
@@ -396,8 +399,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should forward clock during sync and continue working correctly", async () => {
 		// Create 2 stores that will sync with clock forwarding
-		const storeA = new Store<TestUser>();
-		const storeB = new Store<TestUser>();
+		const storeA = createTestStore();
+		const storeB = createTestStore();
 
 		// Both stores make initial writes
 		storeA.begin((tx) => {
@@ -436,10 +439,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentB2 = storeB.document();
 
 		// Merge both snapshots into a consolidated store
-		const consolidated = await mergeStoreDocuments<TestUser>([
-			documentA2,
-			documentB2,
-		]);
+		const consolidated = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentA2, documentB2],
+		);
 
 		// Verify the consolidated store has all 3 users
 		expect(consolidated.get("user-1")).toBeDefined();
@@ -456,7 +459,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Now continue working: make new writes on both the consolidated store
 		// and create new independent stores to verify the system still works
-		const storeC = new Store<TestUser>();
+		const storeC = createTestStore();
 
 		// Add a new user to the consolidated store
 		consolidated.begin((tx) => {
@@ -473,10 +476,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const documentC = storeC.document();
 
 		// Merge the post-forwarding writes
-		const finalMerged = await mergeStoreDocuments<TestUser>([
-			documentConsolidated,
-			documentC,
-		]);
+		const finalMerged = await mergeStoreDocuments<TestUser>(
+			TEST_RESOURCE_TYPE,
+			[documentConsolidated, documentC],
+		);
 
 		// Verify all 5 users are present in the final merged store
 		expect(finalMerged.get("user-1")).toEqual({ id: "user-1", name: "Alice" });

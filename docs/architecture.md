@@ -225,7 +225,7 @@ Plugins interact with the store exclusively through lifecycle and mutation hooks
 Plugins stack cleanly—each operates independently:
 
 ```typescript
-const store = await new Store<Todo>()
+const store = await new Store<Todo>({ resourceType: "todos" })
   .use(unstoragePlugin("todos", localStorageBackend))
   .use(unstoragePlugin("todos", httpBackend, { pollIntervalMs: 5000 }))
   .init();

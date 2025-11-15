@@ -6,7 +6,7 @@ type User = {
 	active: boolean;
 };
 
-const makeStore = () => new Store<User>().init();
+const makeStore = () => new Store<User>({ resourceType: "users" }).init();
 
 describe("Store - Queries", () => {
 	let store: Awaited<ReturnType<typeof makeStore>>;

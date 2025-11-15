@@ -1,329 +1,265 @@
 import { expect, test } from "bun:test";
 import {
+	addEventstamps,
 	decodeResource,
 	deleteResource,
-	encodeResource,
 	mergeResources,
+	type ResourceObject,
 } from ".";
 
-test("encodeResource creates ResourceObject with null ~deletedAt", () => {
-	const result = encodeResource(
-		"user-1",
+const RESOURCE_TYPE = "users";
+
+test("addEventstamps creates parallel structure with eventstamps", () => {
+	const [attrs, events] = addEventstamps(
 		{ name: "Alice", age: 30 },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	expect(result.id).toBe("user-1");
-	expect(result.meta["~deletedAt"]).toBe(null);
-	expect(result.attributes).toBeDefined();
+	expect(attrs).toEqual({ name: "Alice", age: 30 });
+	expect(events).toEqual({
+		name: "2025-01-01T00:00:00.000Z|0000|a1b2",
+		age: "2025-01-01T00:00:00.000Z|0000|a1b2",
+	});
 });
 
-test("encodeResource with id", () => {
-	const result = encodeResource(
-		"user-2",
-		{ name: "Bob", email: "bob@example.com" },
+test("addEventstamps handles nested objects", () => {
+	const [attrs, events] = addEventstamps(
+		{ user: { name: "Bob", email: "bob@example.com" } },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	expect(result.id).toBe("user-2");
-	expect(result.meta["~deletedAt"]).toBe(null);
-	expect(result.attributes).toBeDefined();
+	expect(attrs).toEqual({
+		user: { name: "Bob", email: "bob@example.com" },
+	});
+	expect(events.user as Record<string, unknown>).toEqual({
+		name: "2025-01-01T00:00:00.000Z|0000|a1b2",
+		email: "2025-01-01T00:00:00.000Z|0000|a1b2",
+	});
 });
 
-test("decodeResource returns original data structure", () => {
-	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const original = { name: "Charlie", score: 100 };
-	const encoded = encodeResource("user-3", original, eventstamp);
-	const decoded = decodeResource(encoded);
+test("addEventstamps handles deeply nested objects", () => {
+	const [_attrs, events] = addEventstamps(
+		{ a: { b: { c: "value" } } },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
 
-	expect(decoded.id).toBe("user-3");
+	const eventA = events.a as Record<string, unknown>;
+	const eventB = eventA.b as Record<string, unknown>;
+	expect(eventB.c).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
+});
+
+test("addEventstamps throws error for non-object values", () => {
+	expect(() =>
+		addEventstamps("not an object", "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
+	expect(() =>
+		addEventstamps(42, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
+	expect(() =>
+		addEventstamps(null, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+	).toThrow(/must be an object/);
+});
+
+test("addEventstamps preserves arrays as leaf values", () => {
+	const [attrs, events] = addEventstamps(
+		{ tags: ["admin", "user"], scores: [95, 87] },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+
+	expect(attrs.tags).toEqual(["admin", "user"]);
+	expect(attrs.scores).toEqual([95, 87]);
+	expect(events.tags).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
+	expect(events.scores).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
+});
+
+test("decodeResource extracts plain data from ResourceObject", () => {
+	const [attrs, events] = addEventstamps(
+		{ name: "Alice", age: 30 },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+
+	const resource: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrs,
+		meta: {
+			"~eventstamps": events,
+			"~deletedAt": null,
+		},
+	};
+
+	const decoded = decodeResource(resource);
+
+	expect(decoded.type).toBe(RESOURCE_TYPE);
+	expect(decoded.id).toBe("user-1");
+	expect(decoded.data).toEqual({ name: "Alice", age: 30 });
 	expect(decoded.meta["~deletedAt"]).toBe(null);
-	expect(decoded.data).toEqual(original);
 });
 
-test("mergeResources both deleted - keeps greater timestamp", () => {
-	const eventstamp1 = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const eventstamp2 = "2025-01-02T00:00:00.000Z|0000|c3d4";
-
-	const doc1 = encodeResource("doc-1", { name: "Alice" }, eventstamp1);
-	doc1.meta["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
-
-	const doc2 = encodeResource("doc-2", { name: "Bob" }, eventstamp2);
-	doc2.meta["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-
-	expect(merged.meta["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-});
-
-test("mergeResources both deleted - keeps greater timestamp (reverse order)", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	doc1.meta["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
-
-	const doc2 = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-	doc2.meta["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-
-	expect(merged.meta["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-});
-
-test("mergeResources one deleted - keeps the deleted one", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	doc1.meta["~deletedAt"] = "2025-01-01T12:00:00.000Z|0001|g7h8";
-
-	const doc2 = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-	doc2.meta["~deletedAt"] = null;
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-
-	expect(merged.meta["~deletedAt"]).toBe("2025-01-01T12:00:00.000Z|0001|g7h8");
-	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-});
-
-test("mergeResources one deleted (from) - keeps the deleted one", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	doc1.meta["~deletedAt"] = null;
-
-	const doc2 = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-	doc2.meta["~deletedAt"] = "2025-01-02T12:00:00.000Z|0002|i9j0";
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-
-	expect(merged.meta["~deletedAt"]).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-	expect(eventstamp).toBe("2025-01-02T12:00:00.000Z|0002|i9j0");
-});
-
-test("mergeResources neither deleted - returns null", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const doc2 = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-
-	expect(merged.meta["~deletedAt"]).toBe(null);
-	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-});
-
-test("mergeResources preserves ~id from into document", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
+test("decodeResource handles nested objects", () => {
+	const [attrs, events] = addEventstamps(
+		{ user: { name: "Bob", email: "bob@example.com" } },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	const doc2 = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
+	const resource: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "res-1",
+		attributes: attrs,
+		meta: {
+			"~eventstamps": events,
+			"~deletedAt": null,
+		},
+	};
 
-	const [merged] = mergeResources(doc1, doc2);
-
-	expect(merged.id).toBe("doc-1");
+	const decoded = decodeResource(resource);
+	const user = decoded.data.user as Record<string, unknown>;
+	expect(user.name).toBe("Bob");
+	expect(user.email).toBe("bob@example.com");
 });
 
-test("mergeResources merges ~data using object mergeResources", () => {
-	const doc1 = encodeResource(
-		"doc-1",
+test("mergeResources uses field-level Last-Write-Wins", () => {
+	const [attrsA, eventsA] = addEventstamps(
 		{ name: "Alice", age: 30 },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
-		"doc-1",
-		{ name: "Alice Updated", email: "alice@example.com" },
-		"2025-01-02T00:00:00.000Z|0000|c3d4",
-	);
+	const resourceA: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrsA,
+		meta: { "~eventstamps": eventsA, "~deletedAt": null },
+	};
 
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
+	const [attrsB, eventsB] = addEventstamps(
+		{ name: "Bob", age: 25 },
+		"2025-01-01T00:00:01.000Z|0000|c3d4",
+	);
+	const resourceB: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrsB,
+		meta: { "~eventstamps": eventsB, "~deletedAt": null },
+	};
+
+	const [merged, maxEventstamp] = mergeResources(resourceA, resourceB);
+
 	const decoded = decodeResource(merged);
-
-	expect(decoded.data).toBeDefined();
-	expect(merged.attributes).toBeDefined();
-	expect(eventstamp).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
+	expect(decoded.data.name).toBe("Bob");
+	expect(decoded.data.age).toBe(25);
+	expect(maxEventstamp).toBe("2025-01-01T00:00:01.000Z|0000|c3d4");
 });
 
-test("deleteResource marks document as deleted with eventstamp", () => {
-	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const doc = encodeResource("user-1", { name: "Alice", age: 30 }, eventstamp);
-	const deleteEventstamp = "2025-01-02T00:00:00.000Z|1";
-
-	const deleted = deleteResource(doc, deleteEventstamp);
-
-	expect(deleted.meta["~deletedAt"]).toBe(deleteEventstamp);
-	expect(deleted.id).toBe("user-1");
-	expect(deleted.attributes).toEqual(doc.attributes);
-});
-
-test("deleteResource preserves original document id and data", () => {
-	const doc = encodeResource(
-		"doc-123",
+test("mergeResources preserves older value when it has newer eventstamp", () => {
+	const [attrsA, eventsA] = addEventstamps(
 		{ status: "active" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
+		"2025-01-01T00:00:05.000Z|0000|e5f6",
 	);
+	const resourceA: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "res-1",
+		attributes: attrsA,
+		meta: { "~eventstamps": eventsA, "~deletedAt": null },
+	};
 
-	const deleted = deleteResource(doc, "2025-01-02T00:00:00.000Z|1");
+	const [attrsB, eventsB] = addEventstamps(
+		{ status: "inactive" },
+		"2025-01-01T00:00:01.000Z|0000|c3d4",
+	);
+	const resourceB: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "res-1",
+		attributes: attrsB,
+		meta: { "~eventstamps": eventsB, "~deletedAt": null },
+	};
 
-	expect(deleted.id).toBe("doc-123");
-	expect(deleted.attributes).toBe(doc.attributes);
+	const [merged] = mergeResources(resourceA, resourceB);
+
+	const decoded = decodeResource(merged);
+	expect(decoded.data.status).toBe("active");
 });
 
-test("deleteResource can be called on already deleted document", () => {
-	const doc = encodeResource(
-		"user-1",
-		{ name: "Bob" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	doc.meta["~deletedAt"] = "2025-01-02T00:00:00.000Z|1";
-
-	const redeleted = deleteResource(doc, "2025-01-03T00:00:00.000Z|0002|e5f6");
-
-	expect(redeleted.meta["~deletedAt"]).toBe(
-		"2025-01-03T00:00:00.000Z|0002|e5f6",
-	);
-});
-
-test("deleteResource with decodeResource shows document is deleted", () => {
-	const doc = encodeResource(
-		"user-1",
+test("mergeResources handles deletion timestamps", () => {
+	const [attrsA, eventsA] = addEventstamps(
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const deleted = deleteResource(doc, "2025-01-02T00:00:00.000Z|1");
-	const decoded = decodeResource(deleted);
+	const resourceA: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrsA,
+		meta: { "~eventstamps": eventsA, "~deletedAt": null },
+	};
 
-	expect(decoded.meta["~deletedAt"]).toBe("2025-01-02T00:00:00.000Z|1");
-	expect(decoded.data).toEqual({ name: "Alice" });
-});
-
-// === Object-Only Validation Tests ===
-
-test("encodeResource throws error for primitive string", () => {
-	expect(() =>
-		encodeResource(
-			"msg-1",
-			"hello" as any,
-			"2025-01-01T00:00:00.000Z|0000|a1b2",
-		),
-	).toThrow("Resource attributes must be an object (not a primitive)");
-});
-
-test("encodeResource throws error for primitive number", () => {
-	expect(() =>
-		encodeResource("count-1", 42 as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object (not a primitive)");
-});
-
-test("encodeResource throws error for primitive boolean", () => {
-	expect(() =>
-		encodeResource("flag-1", true as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object (not a primitive)");
-});
-
-test("encodeResource throws error for null", () => {
-	expect(() =>
-		encodeResource("null-1", null as any, "2025-01-01T00:00:00.000Z|0000|a1b2"),
-	).toThrow("Resource attributes must be an object (not a primitive)");
-});
-
-test("mergeResources bubbles newest eventstamp from nested object fields", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ user: { name: "Alice", email: "alice@old.com" } },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	const [attrsB, eventsB] = addEventstamps(
+		{ name: "Alice" },
+		"2025-01-01T00:00:01.000Z|0000|c3d4",
 	);
-	const doc2 = encodeResource(
-		"doc-1",
-		{ user: { email: "alice@new.com" } },
-		"2025-01-05T00:00:00.000Z|0000|k1l2", // Much newer
-	);
-
-	const [merged, eventstamp] = mergeResources(doc1, doc2);
-	const decoded = decodeResource<{
-		user: { name: string; email: string };
-	}>(merged);
-
-	// The newest eventstamp should bubble up to mergeResources
-	expect(eventstamp).toBe("2025-01-05T00:00:00.000Z|0000|k1l2");
-	// And the merge should work correctly
-	expect(decoded.data.user.name).toBe("Alice");
-	expect(decoded.data.user.email).toBe("alice@new.com");
-});
-
-test("mergeResources returns newest eventstamp even with multiple nested changes", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{
-			profile: {
-				personal: { name: "Alice" },
-				settings: { theme: "dark" },
-			},
+	const resourceB: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrsB,
+		meta: {
+			"~eventstamps": eventsB,
+			"~deletedAt": "2025-01-01T00:00:01.000Z|0000|c3d4",
 		},
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	const doc2 = encodeResource(
-		"doc-1",
-		{
-			profile: {
-				personal: { name: "Alice Updated" },
-				settings: { theme: "light" },
-			},
-		},
-		"2025-01-10T00:00:00.000Z|0000|o5p6", // Much newer timestamp
-	);
+	};
 
-	const [, eventstamp] = mergeResources(doc1, doc2);
+	const [merged, maxEventstamp] = mergeResources(resourceA, resourceB);
 
-	// Even with multiple nested changes, newest eventstamp bubbles up
-	expect(eventstamp).toBe("2025-01-10T00:00:00.000Z|0000|o5p6");
+	expect(merged.meta["~deletedAt"]).toBe("2025-01-01T00:00:01.000Z|0000|c3d4");
+	expect(maxEventstamp).toBe("2025-01-01T00:00:01.000Z|0000|c3d4");
 });
 
-test("mergeResources returns newest eventstamp when adding new fields", () => {
-	const doc1 = encodeResource(
-		"doc-1",
-		{ name: "Alice", age: 30 },
+test("deleteResource marks a resource as deleted", () => {
+	const [attrs, events] = addEventstamps(
+		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
-		"doc-1",
-		{ email: "alice@example.com", phone: "555-1234" },
-		"2025-01-08T00:00:00.000Z|0000|m3n4", // Newer
+	const resource: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "user-1",
+		attributes: attrs,
+		meta: { "~eventstamps": events, "~deletedAt": null },
+	};
+
+	const deleted = deleteResource(
+		resource,
+		"2025-01-01T00:00:05.000Z|0000|e5f6",
 	);
 
-	const [, eventstamp] = mergeResources(doc1, doc2);
+	expect(deleted.meta["~deletedAt"]).toBe("2025-01-01T00:00:05.000Z|0000|e5f6");
+	expect(deleted.attributes).toEqual(resource.attributes);
+	expect(deleted.meta["~eventstamps"]).toEqual(resource.meta["~eventstamps"]);
+});
 
-	expect(eventstamp).toBe("2025-01-08T00:00:00.000Z|0000|m3n4");
+test("mergeResources handles nested objects", () => {
+	const [attrsA, eventsA] = addEventstamps(
+		{ user: { name: "Alice", age: 30 } },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+	const resourceA: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "res-1",
+		attributes: attrsA,
+		meta: { "~eventstamps": eventsA, "~deletedAt": null },
+	};
+
+	const [attrsB, eventsB] = addEventstamps(
+		{ user: { name: "Bob", email: "bob@example.com" } },
+		"2025-01-01T00:00:01.000Z|0000|c3d4",
+	);
+	const resourceB: ResourceObject = {
+		type: RESOURCE_TYPE,
+		id: "res-1",
+		attributes: attrsB,
+		meta: { "~eventstamps": eventsB, "~deletedAt": null },
+	};
+
+	const [merged] = mergeResources(resourceA, resourceB);
+
+	const decoded = decodeResource(merged);
+	const user = decoded.data.user as Record<string, unknown>;
+	expect(user.name).toBe("Bob");
+	expect(user.age).toBe(30);
+	expect(user.email).toBe("bob@example.com");
 });

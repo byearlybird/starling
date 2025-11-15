@@ -1,6 +1,5 @@
 export * from "./document";
 export * from "./eventstamp";
-export * from "./record";
+export * from "./merge";
 export * from "./resource";
 export * from "./resource-map";
-export * from "./value";

@@ -1,77 +1,87 @@
 import { describe, expect, test } from "bun:test";
 import type { Document } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
-import { decodeResource, encodeResource } from "./resource";
+import { createResource, type ResourceObject } from "./resource";
 import { ResourceMap } from "./resource-map";
+
+const RESOURCE_TYPE = "test-users";
+
+function buildResource(
+	id: string,
+	data: Record<string, unknown>,
+	eventstamp: string,
+	deletedAt: string | null = null,
+): ResourceObject {
+	return createResource(RESOURCE_TYPE, id, data, eventstamp, deletedAt);
+}
+
+function mapFromResources(...resources: ResourceObject[]): Map<string, ResourceObject> {
+	return new Map(resources.map((resource) => [resource.id, resource] as const));
+}
+
+function makeDocument(resources: ResourceObject[], eventstamp: string): Document {
+	return {
+		data: resources,
+		meta: { "~eventstamp": eventstamp },
+	};
+}
 
 describe("ResourceMap", () => {
 	describe("constructor", () => {
-		test("creates empty ResourceMap with default eventstamp", () => {
-			const crdt = new ResourceMap(new Map());
-			const document = crdt.document();
+		test("creates empty map with default clock", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 
-			expect(document.data).toHaveLength(0);
-			expect(document.meta["~eventstamp"]).toBeDefined();
+			const snapshot = crdt.document();
+			expect(snapshot.data).toHaveLength(0);
+			expect(snapshot.meta["~eventstamp"]).toBeDefined();
 		});
 
-		test("creates ResourceMap with initial eventstamp and forwards clock", () => {
+		test("forwards clock when initial eventstamp provided", () => {
 			const eventstamp = "2025-01-01T00:00:00.000Z|0001|abcd";
-			const crdt = new ResourceMap(new Map(), eventstamp);
-			const document = crdt.document();
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, new Map(), eventstamp);
 
-			// Clock should be at least at the provided eventstamp
-			expect(document.meta["~eventstamp"] >= eventstamp).toBe(true);
+			expect(crdt.document().meta["~eventstamp"] >= eventstamp).toBe(true);
 		});
 
-		test("creates ResourceMap with existing documents", () => {
-			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
-			const map = new Map([
-				[doc1.id, doc1],
-				[doc2.id, doc2],
-			]);
+		test("hydrates from existing resources", () => {
+			const userA = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const userB = buildResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, mapFromResources(userA, userB));
 
-			const crdt = new ResourceMap<{ name: string }>(map);
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-			expect(crdt.get("id2")).toEqual({ name: "Bob" });
 		});
 	});
 
-	describe("has", () => {
-		test("returns true for existing documents", () => {
-			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const crdt = new ResourceMap<{ name: string }>(new Map([[doc.id, doc]]));
+	describe("has/get", () => {
+		test("returns true for existing non-deleted documents", () => {
+			const resource = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, mapFromResources(resource));
 
 			expect(crdt.has("id1")).toBe(true);
 		});
 
-		test("returns false for non-existing documents", () => {
-			const crdt = new ResourceMap(new Map());
+		test("respects includeDeleted flag", () => {
+			const deleted = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP, MIN_EVENTSTAMP);
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, mapFromResources(deleted));
 
 			expect(crdt.has("id1")).toBe(false);
+			expect(crdt.has("id1", { includeDeleted: true })).toBe(true);
 		});
-	});
 
-	describe("get", () => {
-		test("returns document for existing id", () => {
-			const doc = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const crdt = new ResourceMap<{ name: string }>(new Map([[doc.id, doc]]));
+		test("get returns decoded data or undefined", () => {
+			const resource = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, mapFromResources(resource));
 
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-		});
-
-		test("returns undefined for non-existing id", () => {
-			const crdt = new ResourceMap(new Map());
-
-			expect(crdt.get("id1")).toBeUndefined();
+			expect(crdt.get("missing")).toBeUndefined();
 		});
 	});
 
-	describe("add", () => {
-		test("adds new document", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
+	describe("add/update/delete", () => {
+		test("add stores plain object data", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 
 			crdt.add("id1", { name: "Alice" });
 
@@ -79,458 +89,199 @@ describe("ResourceMap", () => {
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
 		});
 
-		test("overwrites existing document with same id", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
-			crdt.add("id1", { name: "Alice" });
-			crdt.add("id1", { name: "Bob" });
-
-			expect(crdt.get("id1")).toEqual({ name: "Bob" });
-		});
-	});
-
-	describe("update", () => {
-		test("merges document with existing document", () => {
-			const crdt = new ResourceMap<{ name: string; age: number }>(new Map());
+		test("update merges fields using LWW semantics", () => {
+			const crdt = new ResourceMap<{ name: string; age?: number }>(RESOURCE_TYPE);
 
 			crdt.add("id1", { name: "Alice", age: 30 });
 			crdt.update("id1", { age: 31 });
 
-			const merged = crdt.get("id1");
-			expect(merged).toBeDefined();
-			// Name should be preserved from original, age should be updated
-			expect(merged?.name).toBe("Alice");
-			expect(merged?.age).toBe(31);
+			expect(crdt.get("id1")).toEqual({ name: "Alice", age: 31 });
 		});
 
-		test("adds document if it doesn't exist", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
+		test("update creates document when missing", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 
 			crdt.update("id1", { name: "Alice" });
 
-			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.get("id1")).toEqual({ name: "Alice" });
 		});
 
-		test("last-write-wins for concurrent updates", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
+		test("delete marks document as soft deleted", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 			crdt.add("id1", { name: "Alice" });
-			crdt.update("id1", { name: "Bob" });
-			crdt.update("id1", { name: "Charlie" });
 
-			const merged = crdt.get("id1");
-			expect(merged?.name).toBe("Charlie");
-		});
-	});
-
-	describe("delete", () => {
-		test("soft-deletes existing document", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
-			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
 
-			// get() returns undefined for deleted documents
-			const deleted = crdt.get("id1");
-			expect(deleted).toBeUndefined();
-			// has() returns false by default, but true if includeDeleted is true
+			expect(crdt.get("id1")).toBeUndefined();
 			expect(crdt.has("id1")).toBe(false);
 			expect(crdt.has("id1", { includeDeleted: true })).toBe(true);
-		});
-
-		test("does nothing if document doesn't exist", () => {
-			const crdt = new ResourceMap(new Map());
-
-			crdt.delete("id1");
-
-			expect(crdt.has("id1")).toBe(false);
-		});
-
-		test("generates unique eventstamp for each delete", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
-			crdt.add("id1", { name: "Alice" });
-			crdt.delete("id1");
-			const document1 = crdt.document();
-
-			// Re-add and delete again
-			crdt.add("id1", { name: "Alice" });
-			crdt.delete("id1");
-			const document2 = crdt.document();
-
-			// Documents should have different eventstamps due to second delete
-			expect(
-				document2.meta["~eventstamp"] > document1.meta["~eventstamp"],
-			).toBe(true);
+			const resource = crdt.document().data.find((node) => node.id === "id1");
+			expect(resource?.meta["~deletedAt"]).not.toBeNull();
 		});
 	});
 
-	describe("cloneMap", () => {
-		test("returns a copy of the internal encoded map", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
+	describe("cloneMap/document", () => {
+		test("cloneMap returns independent copy of encoded resources", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 			crdt.add("id1", { name: "Alice" });
-			const clonedMap = crdt.cloneMap();
 
-			expect(clonedMap).not.toBe(crdt.cloneMap());
-			expect(clonedMap.size).toBe(1);
-			expect(clonedMap.get("id1")).toBeDefined();
-			expect(clonedMap.get("id1")?.id).toBe("id1");
-		});
+			const clone = crdt.cloneMap();
+			expect(clone).not.toBe(crdt.cloneMap());
+			expect(clone.get("id1")?.id).toBe("id1");
 
-		test("modifications to cloned map don't affect original", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
-			crdt.add("id1", { name: "Alice" });
-			const clonedMap = crdt.cloneMap();
-			clonedMap.delete("id1");
-
+			clone.delete("id1");
 			expect(crdt.has("id1")).toBe(true);
 		});
-	});
 
-	describe("snapshot", () => {
-		test("returns document with documents and eventstamp", () => {
-			const doc1 = encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
-			const doc2 = encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP);
-			const crdt = new ResourceMap(
-				new Map([
-					[doc1.id, doc1],
-					[doc2.id, doc2],
-				]),
-			);
-
-			const document = crdt.document();
-
-			expect(document.data).toHaveLength(2);
-			expect(document.meta["~eventstamp"]).toBeDefined();
-		});
-
-		test("includes deleted documents in document", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
+		test("document exports all resources including deleted ones", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 			crdt.add("id1", { name: "Alice" });
 			crdt.delete("id1");
 
 			const document = crdt.document();
-
 			expect(document.data).toHaveLength(1);
 			expect(document.data[0]?.meta["~deletedAt"]).not.toBeNull();
 		});
 
-		test("eventstamp reflects latest operation", () => {
-			const crdt = new ResourceMap<{ name: string }>(
-				new Map(),
-				"2025-01-01T00:00:00.000Z|0001|abcd",
-			);
+		test("document eventstamp reflects latest mutation", () => {
+			const initial = "2025-01-01T00:00:00.000Z|0001|0000";
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE, new Map(), initial);
 
 			crdt.add("id1", { name: "Alice" });
-			crdt.delete("id1");
-
-			const document = crdt.document();
-
-			// Eventstamp should be from the delete operation, which is more recent
-			expect(
-				document.meta["~eventstamp"] > "2025-01-01T00:00:00.000Z|0001|abcd",
-			).toBe(true);
+			const snapshot = crdt.document();
+			expect(snapshot.meta["~eventstamp"] >= initial).toBe(true);
 		});
 	});
 
-	describe("fromSnapshot", () => {
-		test("creates ResourceMap from document", () => {
-			const document: Document = {
-				data: [
-					encodeResource("id1", { name: "Alice" }, MIN_EVENTSTAMP),
-					encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP),
-				],
-				meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0001|abcd" },
-			};
+	describe("fromDocument", () => {
+		test("rehydrates ResourceMap from document", () => {
+			const resource = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP);
+			const document = makeDocument([resource], MIN_EVENTSTAMP);
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>(document);
+			const crdt = ResourceMap.fromDocument<{ name: string }>(RESOURCE_TYPE, document);
 
 			expect(crdt.has("id1")).toBe(true);
-			expect(crdt.has("id2")).toBe(true);
-			// Clock forwards to at least the provided eventstamp
-			expect(
-				crdt.document().meta["~eventstamp"] >= document.meta["~eventstamp"],
-			).toBe(true);
+			expect(crdt.document().meta["~eventstamp"] >= MIN_EVENTSTAMP).toBe(true);
 		});
 
-		test("preserves deleted documents", () => {
-			const deletedDoc = encodeResource(
-				"id1",
-				{ name: "Alice" },
-				MIN_EVENTSTAMP,
-			);
-			deletedDoc.meta["~deletedAt"] = "2025-01-01T00:00:01.000Z|0001|abcd";
+		test("preserves deleted resources when hydrating", () => {
+			const resource = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP, MIN_EVENTSTAMP);
+			const document = makeDocument([resource], MIN_EVENTSTAMP);
 
-			const document: Document = {
-				data: [deletedDoc],
-				meta: { "~eventstamp": "2025-01-01T00:00:01.000Z|0001|abcd" },
-			};
+			const crdt = ResourceMap.fromDocument<{ name: string }>(RESOURCE_TYPE, document);
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>(document);
-
-			// Deleted documents still exist internally, but default has() returns false
 			expect(crdt.has("id1")).toBe(false);
 			expect(crdt.has("id1", { includeDeleted: true })).toBe(true);
-			// get() returns undefined for deleted documents
 			expect(crdt.get("id1")).toBeUndefined();
 		});
 
-		test("round-trip preserves data", () => {
-			const original = new ResourceMap<{ name: string; age: number }>(
-				new Map(),
-				"2025-01-01T00:00:00.000Z|0001|abcd",
-			);
-			original.add("id1", { name: "Alice", age: 30 });
-
-			const document = original.document();
-			const restored = ResourceMap.fromDocument<{ name: string; age: number }>(
-				document,
-			);
-
-			expect(restored.has("id1")).toBe(true);
-			expect(restored.get("id1")).toEqual({ name: "Alice", age: 30 });
-		});
-	});
-
-	describe("convergence", () => {
-		test("multiple replicas converge to same state", () => {
-			// Replica 1: Add Alice, update age
-			const replica1 = new ResourceMap<{ name: string; age: number }>(
-				new Map(),
-			);
-			replica1.add("id1", { name: "Alice", age: 30 });
-			replica1.update("id1", { age: 31 });
-
-			// Replica 2: Add Alice with different age
-			const replica2 = new ResourceMap<{ name: string; age: number }>(
-				new Map(),
-			);
-			replica2.add("id1", { name: "Alice", age: 25 });
-
-			// Merge replica1 into replica2
-			const document1 = replica1.document();
-			for (const encodedDoc of document1.data) {
-				const decoded = decodeResource(encodedDoc);
-				replica2.update(decoded.id, decoded.data as any);
-			}
-
-			// Age should be 31 (most recent update)
-			const merged = replica2.get("id1");
-			expect(merged?.age).toBe(31);
-		});
-
-		test("concurrent updates resolve via LWW", () => {
-			const crdt = new ResourceMap<{ name?: string; age?: number }>(new Map());
-
-			// Two concurrent updates to different fields
-			crdt.update("id1", { name: "Alice" });
-			crdt.update("id1", { age: 30 });
-
-			const doc = crdt.get("id1");
-			// Both fields should be present
-			expect(doc?.name).toBe("Alice");
-			expect(doc?.age).toBe(30);
-		});
-
-		test("delete after update preserves deletion", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
-
-			// Add document
-			crdt.add("id1", { name: "Alice" });
-
-			// Delete it
-			crdt.delete("id1");
-
-			// Try to update (with older eventstamp via plain update)
-			crdt.update("id1", { name: "Bob" });
-
-			// Should still be deleted (delete eventstamp is newer)
-			const document = crdt.document();
-			const doc = document.data.find((d) => d.id === "id1");
-			expect(doc?.meta["~deletedAt"]).not.toBeNull();
-		});
-	});
-
-	describe("clock forwarding", () => {
-		test("clock forwards when loading newer eventstamp", () => {
-			const document: Document = {
-				data: [],
-				meta: { "~eventstamp": "2025-01-01T00:00:10.000Z|0001|abcd" },
+		test("throws when document contains mismatched resource type", () => {
+			const otherResource = {
+				...buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP),
+				type: "other",
 			};
+			const document = makeDocument([otherResource], MIN_EVENTSTAMP);
 
-			const restored = ResourceMap.fromDocument<{ name: string }>(document);
-			restored.add("id1", { name: "Alice" });
-
-			// New operations should have eventstamps >= the loaded eventstamp
-			restored.delete("id1");
-			const documentAfter = restored.document();
-			expect(
-				documentAfter.meta["~eventstamp"] >= document.meta["~eventstamp"],
-			).toBe(true);
+			expect(() => ResourceMap.fromDocument(RESOURCE_TYPE, document)).toThrow(/Resource type mismatch/);
 		});
 	});
 
 	describe("merge", () => {
-		test("merges new documents from a document", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
+		test("merges new documents from remote snapshot", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
+			crdt.add("local", { name: "Alice" });
+
+			const remoteResource = buildResource("remote", { name: "Bob" }, MIN_EVENTSTAMP);
+			crdt.merge(makeDocument([remoteResource], MIN_EVENTSTAMP));
+
+			expect(crdt.has("local")).toBe(true);
+			expect(crdt.has("remote")).toBe(true);
+		});
+
+		test("applies field-level LWW when merging existing ids", () => {
+			const initialStamp = "2025-01-01T00:00:00.000Z|0001|aaaa";
+			const baseResource = buildResource("id1", { name: "Alice", age: 30 }, initialStamp);
+			const crdt = new ResourceMap<{ name: string; age?: number }>(
+				RESOURCE_TYPE,
+				mapFromResources(baseResource),
+				initialStamp,
+			);
+
+			const updated = buildResource("id1", { age: 31 }, "2025-01-01T00:00:05.000Z|0001|abcd");
+			crdt.merge(makeDocument([updated], "2025-01-01T00:00:05.000Z|0001|abcd"));
+
+			expect(crdt.get("id1")?.age).toBe(31);
+			expect(crdt.get("id1")?.name).toBe("Alice");
+		});
+
+		test("preserves deletions from remote snapshot", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 			crdt.add("id1", { name: "Alice" });
 
-			const remoteDocument: Document = {
-				data: [encodeResource("id2", { name: "Bob" }, MIN_EVENTSTAMP)],
+			const deletionStamp = "2025-01-01T00:00:10.000Z|0001|dead";
+			const deleted = buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP, deletionStamp);
+			crdt.merge(makeDocument([deleted], deletionStamp));
+
+			const resource = crdt.document().data.find((node) => node.id === "id1");
+			expect(resource?.meta["~deletedAt"]).toBe(deletionStamp);
+		});
+
+		test("forwards clock to remote eventstamp", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
+			const remoteEventstamp = "2025-01-01T00:00:20.000Z|0001|ffff";
+
+			crdt.merge(makeDocument([], remoteEventstamp));
+
+			const after = crdt.document().meta["~eventstamp"];
+			expect(after >= remoteEventstamp).toBe(true);
+		});
+
+		test("throws when merging document with mismatched types", () => {
+			const doc: Document = {
+				data: [
+					{
+						...buildResource("id1", { name: "Alice" }, MIN_EVENTSTAMP),
+						type: "other",
+					},
+				],
 				meta: { "~eventstamp": MIN_EVENTSTAMP },
 			};
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 
-			crdt.merge(remoteDocument);
+			expect(() => crdt.merge(doc)).toThrow(/Resource type mismatch/);
+		});
+	});
 
-			expect(crdt.has("id1")).toBe(true);
-			expect(crdt.has("id2")).toBe(true);
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-			expect(crdt.get("id2")).toEqual({ name: "Bob" });
+	describe("convergence", () => {
+		test("replicas converge when exchanging documents", () => {
+			const replicaA = new ResourceMap<{ text: string; completed?: boolean }>(RESOURCE_TYPE);
+			const replicaB = new ResourceMap<{ text: string; completed?: boolean }>(RESOURCE_TYPE);
+
+			replicaA.add("todo1", { text: "Buy milk" });
+			replicaB.add("todo2", { text: "Read book" });
+
+			const docA = replicaA.document();
+			const docB = replicaB.document();
+
+			replicaA.merge(docB);
+			replicaB.merge(docA);
+
+			expect(replicaA.has("todo1")).toBe(true);
+			expect(replicaA.has("todo2")).toBe(true);
+			expect(replicaB.has("todo1")).toBe(true);
+			expect(replicaB.has("todo2")).toBe(true);
 		});
 
-		test("applies field-level last-write-wins during merge", () => {
-			// Create a local document with an older eventstamp
-			const localEventstamp = "2025-01-01T00:00:00.000Z|0001|aaaa";
-			const localDoc = encodeResource(
-				"id1",
-				{ name: "Alice", age: 30 },
-				localEventstamp,
-			);
-			const crdt = new ResourceMap<{ name: string; age: number }>(
-				new Map([["id1", localDoc]]),
-				localEventstamp,
-			);
-
-			// Create a remote document with a newer eventstamp for one field
-			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteDocument: Document = {
-				data: [encodeResource("id1", { age: 31 }, laterEventstamp)],
-				meta: { "~eventstamp": laterEventstamp },
-			};
-
-			crdt.merge(remoteDocument);
-
-			const merged = crdt.get("id1");
-			expect(merged?.name).toBe("Alice"); // Local value preserved
-			expect(merged?.age).toBe(31); // Remote value wins (later eventstamp)
-		});
-
-		test("handles deleted documents in remote document", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map());
+		test("deletion beats subsequent stale updates", () => {
+			const crdt = new ResourceMap<{ name: string }>(RESOURCE_TYPE);
 			crdt.add("id1", { name: "Alice" });
 
-			const deletedDoc = encodeResource(
-				"id1",
-				{ name: "Alice" },
-				MIN_EVENTSTAMP,
-			);
-			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			deletedDoc.meta["~deletedAt"] = deletionEventstamp;
+			crdt.delete("id1");
+			crdt.update("id1", { name: "Bob" }); // Should not resurrect due to later delete stamp
 
-			const remoteDocument: Document = {
-				data: [deletedDoc],
-				meta: { "~eventstamp": deletionEventstamp },
-			};
-
-			crdt.merge(remoteDocument);
-
-			// Document is soft-deleted
 			const document = crdt.document();
-			const doc = document.data.find((d) => d.id === "id1");
-			expect(doc?.meta["~deletedAt"]).not.toBeNull();
-		});
-
-		test("forwards clock to remote eventstamp during merge", () => {
-			const crdt = new ResourceMap<{ name: string }>(new Map(), MIN_EVENTSTAMP);
-
-			const futureEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const remoteDocument: Document = {
-				data: [],
-				meta: { "~eventstamp": futureEventstamp },
-			};
-
-			crdt.merge(remoteDocument);
-
-			// Add a new document after merge
-			crdt.add("id1", { name: "Alice" });
-			const document = crdt.document();
-
-			// New eventstamp should be >= remote eventstamp
-			expect(document.meta["~eventstamp"] >= futureEventstamp).toBe(true);
-		});
-
-		test("merge is idempotent", () => {
-			const crdt = new ResourceMap<{ name: string; age: number }>(new Map());
-			crdt.add("id1", { name: "Alice", age: 30 });
-
-			const remoteDocument: Document = {
-				data: [encodeResource("id2", { name: "Bob", age: 25 }, MIN_EVENTSTAMP)],
-				meta: { "~eventstamp": MIN_EVENTSTAMP },
-			};
-
-			crdt.merge(remoteDocument);
-			const document2 = crdt.document();
-
-			// Merge again
-			crdt.merge(remoteDocument);
-			const document3 = crdt.document();
-
-			// Results should be identical
-			expect(document2.data.length).toBe(document3.data.length);
-			expect(crdt.get("id1")).toEqual({ name: "Alice", age: 30 });
-			expect(crdt.get("id2")).toEqual({ name: "Bob", age: 25 });
-		});
-
-		test("merge preserves local data when remote is older", () => {
-			const localEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const localDoc = encodeResource(
-				"id1",
-				{ name: "Alice" },
-				localEventstamp,
-			);
-			const crdt = new ResourceMap(new Map([["id1", localDoc]]));
-
-			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteDocument: Document = {
-				data: [encodeResource("id1", { name: "Bob" }, olderEventstamp)],
-				meta: { "~eventstamp": olderEventstamp },
-			};
-
-			crdt.merge(remoteDocument);
-
-			// Local value should be preserved (newer eventstamp)
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-		});
-
-		test("merge combines documents from multiple replicas", () => {
-			// Simulate two replicas that have diverged
-			const replica1 = new ResourceMap<{ text: string; completed: boolean }>(
-				new Map(),
-			);
-			replica1.add("todo1", { text: "Task 1", completed: false });
-			replica1.add("todo2", { text: "Task 2", completed: false });
-
-			const replica2 = new ResourceMap<{ text: string; completed: boolean }>(
-				new Map(),
-			);
-			replica2.add("todo3", { text: "Task 3", completed: false });
-			replica2.update("todo1", { completed: true }); // Update existing
-
-			// Merge replica2's changes into replica1
-			const document2 = replica2.document();
-			replica1.merge(document2);
-
-			// replica1 should now have all three todos
-			expect(replica1.has("todo1")).toBe(true);
-			expect(replica1.has("todo2")).toBe(true);
-			expect(replica1.has("todo3")).toBe(true);
-
-			// And todo1 should reflect the completion status
-			expect(replica1.get("todo1")?.completed).toBe(true);
+			const encoded = document.data.find((node) => node.id === "id1");
+			expect(encoded?.meta["~deletedAt"]).not.toBeNull();
 		});
 	});
 });

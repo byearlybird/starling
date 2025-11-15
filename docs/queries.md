@@ -7,7 +7,9 @@ Starling ships with reactive queries built directly into the `Store` class. Regi
 ```typescript
 import { Store } from "@byearlybird/starling";
 
-const store = await new Store<{ text: string; completed: boolean }>().init();
+const store = await new Store<{ text: string; completed: boolean }>({
+  resourceType: "todos",
+}).init();
 
 // Filter incomplete todos
 const activeTodos = store.query({

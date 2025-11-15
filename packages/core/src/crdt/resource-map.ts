@@ -3,9 +3,9 @@ import type { Document } from "./document";
 import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
 import {
+	addEventstamps,
 	decodeResource,
 	deleteResource,
-	encodeResource,
 	mergeResources,
 } from "./resource";
 
@@ -24,7 +24,7 @@ import {
  *
  * @example
  * ```typescript
- * const map = new ResourceMap();
+ * const map = new ResourceMap("todos");
  * map.add("id1", { name: "Alice" });
  * const doc = map.get("id1"); // { name: "Alice" }
  * ```
@@ -32,11 +32,17 @@ import {
 export class ResourceMap<T extends Record<string, unknown>> {
 	#map: Map<string, ResourceObject>;
 	#clock: Clock;
+	#type: string;
 
 	constructor(
+		type: string,
 		map: Map<string, ResourceObject> = new Map(),
 		eventstamp?: string,
 	) {
+		if (!type) {
+			throw new Error("resource type is required");
+		}
+		this.#type = type;
 		this.#map = map;
 		this.#clock = new Clock();
 		if (eventstamp) {
@@ -87,8 +93,15 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeResource(id, object, this.#clock.now());
-		this.#map.set(id, encoded);
+		const eventstamp = this.#clock.now();
+		const [attrs, events] = addEventstamps(object, eventstamp);
+		const resource: ResourceObject = {
+			type: this.#type,
+			id,
+			attributes: attrs,
+			meta: { "~eventstamps": events, "~deletedAt": null },
+		};
+		this.#map.set(id, resource);
 	}
 
 	/**
@@ -98,13 +111,20 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeResource(id, object, this.#clock.now());
+		const eventstamp = this.#clock.now();
+		const [attrs, events] = addEventstamps(object, eventstamp);
+		const resource: ResourceObject = {
+			type: this.#type,
+			id,
+			attributes: attrs,
+			meta: { "~eventstamps": events, "~deletedAt": null },
+		};
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeResources(current, encoded);
+			const [merged] = mergeResources(current, resource);
 			this.#map.set(id, merged);
 		} else {
-			this.#map.set(id, encoded);
+			this.#map.set(id, resource);
 		}
 	}
 
@@ -144,6 +164,14 @@ export class ResourceMap<T extends Record<string, unknown>> {
 		const currentDocument = this.document();
 		const result = mergeDocuments(currentDocument, document);
 
+		for (const resource of result.document.data) {
+			if (resource.type !== this.#type) {
+				throw new Error(
+					`Resource type mismatch: expected "${this.#type}" but received "${resource.type}"`,
+				);
+			}
+		}
+
 		this.#clock.forward(result.document.meta["~eventstamp"]);
 		this.#map = new Map(
 			result.document.data.map((resource) => [resource.id, resource]),
@@ -156,9 +184,18 @@ export class ResourceMap<T extends Record<string, unknown>> {
 	 * @returns New ResourceMap instance initialized with the document's data
 	 */
 	static fromDocument<U extends Record<string, unknown>>(
+		type: string,
 		document: Document,
 	): ResourceMap<U> {
+		for (const resource of document.data) {
+			if (resource.type !== type) {
+				throw new Error(
+					`Resource type mismatch: expected "${type}" but received "${resource.type}"`,
+				);
+			}
+		}
 		return new ResourceMap<U>(
+			type,
 			new Map(document.data.map((resource) => [resource.id, resource])),
 			document.meta["~eventstamp"],
 		);

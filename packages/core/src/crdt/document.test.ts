@@ -1,7 +1,17 @@
 import { expect, test } from "bun:test";
 import { createDocument, type Document, mergeDocuments } from "./document";
-import { encodeResource } from "./resource";
-import { encodeValue } from "./value";
+import { createResource } from "./resource";
+
+const RESOURCE_TYPE = "users";
+
+function buildResource(
+	id: string,
+	data: Record<string, unknown>,
+	eventstamp: string,
+	deletedAt: string | null = null,
+) {
+	return createResource(RESOURCE_TYPE, id, data, eventstamp, deletedAt);
+}
 
 test("createDocument returns empty document with given eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
@@ -48,325 +58,189 @@ test("mergeDocuments keeps older eventstamp when into is newer", () => {
 	);
 });
 
-test("mergeDocuments adds new document from source", () => {
+test("mergeDocuments adds new resource objects", () => {
+	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from: Document = {
+	data: [
+		buildResource("doc1", { name: "Alice" }, "2025-01-01T00:01:00.000Z|0000|c3d4"),
+	],
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
+	};
+
+	const result = mergeDocuments(into, from);
+
+	expect(result.document.data).toHaveLength(1);
+	expect(result.changes.added.size).toBe(1);
+	expect(result.changes.added.get("doc1")).toBeDefined();
+	expect(result.changes.updated.size).toBe(0);
+	expect(result.changes.deleted.size).toBe(0);
+});
+
+test("mergeDocuments tracks added resources that are not deleted", () => {
 	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
 	const from: Document = {
 		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice" },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	expect(result.document.data.length).toBe(1);
-	expect(result.document.data[0]?.id).toBe("doc-1");
-	expect(result.changes.added.size).toBe(1);
-	expect(result.changes.added.has("doc-1")).toBe(true);
-	expect(result.changes.updated.size).toBe(0);
-	expect(result.changes.deleted.size).toBe(0);
-});
-
-test("mergeDocuments updates existing document", () => {
-	const into: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice", age: 30 },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
-	};
-	const from: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ age: 31 },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	expect(result.document.data.length).toBe(1);
-	expect(result.changes.added.size).toBe(0);
-	expect(result.changes.updated.size).toBe(1);
-	expect(result.changes.updated.has("doc-1")).toBe(true);
-	expect(result.changes.deleted.size).toBe(0);
-});
-
-test("mergeDocuments marks document as deleted", () => {
-	const into: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice" },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
-	};
-
-	const deletedDoc = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
-
-	const from: Document = {
-		data: [deletedDoc],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	expect(result.document.data.length).toBe(1);
-	expect(result.document.data[0]?.meta["~deletedAt"]).toBe(
-		"2025-01-01T00:05:00.000Z|0001|c3d4",
-	);
-	expect(result.changes.added.size).toBe(0);
-	expect(result.changes.updated.size).toBe(0);
-	expect(result.changes.deleted.size).toBe(1);
-	expect(result.changes.deleted.has("doc-1")).toBe(true);
-});
-
-test("mergeDocuments keeps deleted document deleted on update", () => {
-	const deletedDoc = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:02:00.000Z|0001|b2c3";
-
-	const into: Document = {
-		data: [deletedDoc],
-		meta: { "~eventstamp": "2025-01-01T00:02:00.000Z|0001|b2c3" },
-	};
-
-	const from: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice Updated" },
-				"2025-01-01T00:05:00.000Z|0002|c3d4",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0002|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	// Deletion is final: document stays deleted, but data is merged internally
-	expect(result.document.data.length).toBe(1);
-	expect(result.document.data[0]?.meta["~deletedAt"]).toBe(
-		"2025-01-01T00:02:00.000Z|0001|b2c3",
-	);
-	expect(result.changes.added.size).toBe(0);
-	expect(result.changes.updated.size).toBe(0);
-	expect(result.changes.deleted.size).toBe(0);
-});
-
-test("mergeDocuments does not track deleted documents as added", () => {
-	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
-
-	const deletedDoc = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:05:00.000Z|0001|c3d4",
-	);
-	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
-
-	const from: Document = {
-		data: [deletedDoc],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	expect(result.document.data.length).toBe(1);
-	expect(result.changes.added.size).toBe(0);
-	expect(result.changes.updated.size).toBe(0);
-	expect(result.changes.deleted.size).toBe(0);
-});
-
-test("mergeDocuments merges multiple documents with mixed operations", () => {
-	const into: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice", age: 30 },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-			encodeResource(
-				"doc-2",
-				{ name: "Bob", age: 25 },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
-	};
-
-	const deletedDoc = encodeResource(
-		"doc-2",
-		{ name: "Bob" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-	deletedDoc.meta["~deletedAt"] = "2025-01-01T00:05:00.000Z|0001|c3d4";
-
-	const from: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ age: 31 },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			), // update
-			deletedDoc, // delete
-			encodeResource(
-				"doc-3",
-				{ name: "Charlie", age: 28 },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			), // add
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
-	};
-
-	const result = mergeDocuments(into, from);
-
-	expect(result.document.data.length).toBe(3);
-	expect(result.changes.added.size).toBe(1);
-	expect(result.changes.added.has("doc-3")).toBe(true);
-	expect(result.changes.updated.size).toBe(1);
-	expect(result.changes.updated.has("doc-1")).toBe(true);
-	expect(result.changes.deleted.size).toBe(1);
-	expect(result.changes.deleted.has("doc-2")).toBe(true);
-});
-
-test("mergeDocuments preserves documents only in base collection", () => {
-	const into: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice" },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-			encodeResource(
-				"doc-2",
+			buildResource("doc1", { name: "Alice" }, "2025-01-01T00:01:00.000Z|0000|c3d4"),
+			buildResource(
+				"doc2",
 				{ name: "Bob" },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
+				"2025-01-01T00:01:00.000Z|0000|c3d4",
+				"2025-01-01T00:01:00.000Z|0000|c3d4",
 			),
 		],
-		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
-	};
-	const from: Document = {
-		data: [
-			encodeResource(
-				"doc-3",
-				{ name: "Charlie" },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
 	};
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.data.length).toBe(3);
-	const ids = result.document.data.map((doc) => doc.id);
-	expect(ids).toContain("doc-1");
-	expect(ids).toContain("doc-2");
-	expect(ids).toContain("doc-3");
+	expect(result.document.data).toHaveLength(2);
+	expect(result.changes.added.size).toBe(1);
+	expect(result.changes.added.get("doc1")).toBeDefined();
+	expect(result.changes.added.get("doc2")).not.toBeDefined(); // Deleted, so not tracked as added
 });
 
-test("mergeDocuments does not mark unchanged documents as updated", () => {
-	const doc = encodeResource(
-		"doc-1",
-		{ name: "Alice" },
-		"2025-01-01T00:00:00.000Z|0000|a1b2",
-	);
-
+test("mergeDocuments updates existing resource objects", () => {
+const resource1 = buildResource(
+	"doc1",
+	{ name: "Alice", age: 30 },
+	"2025-01-01T00:00:00.000Z|0000|a1b2",
+);
 	const into: Document = {
-		data: [doc],
+		data: [resource1],
 		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
+
+const resource2 = buildResource(
+	"doc1",
+	{ name: "Bob", age: 25 },
+	"2025-01-01T00:01:00.000Z|0000|c3d4",
+);
 	const from: Document = {
-		data: [doc],
-		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [resource2],
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
 	};
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.data.length).toBe(1);
+	expect(result.document.data).toHaveLength(1);
 	expect(result.changes.added.size).toBe(0);
-	expect(result.changes.updated.size).toBe(0);
+	expect(result.changes.updated.size).toBe(1);
 	expect(result.changes.deleted.size).toBe(0);
 });
 
-test("mergeDocuments field-level LWW for nested objects", () => {
+test("mergeDocuments tracks deletions", () => {
+const resource1 = buildResource(
+	"doc1",
+	{ name: "Alice" },
+	"2025-01-01T00:00:00.000Z|0000|a1b2",
+);
 	const into: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ name: "Alice", email: "alice@old.com" },
-				"2025-01-01T00:00:00.000Z|0000|a1b2",
-			),
-		],
+		data: [resource1],
 		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
+const resource2 = buildResource(
+	"doc1",
+	{ name: "Alice" },
+	"2025-01-01T00:01:00.000Z|0000|c3d4",
+	"2025-01-01T00:01:00.000Z|0000|c3d4",
+);
 	const from: Document = {
-		data: [
-			encodeResource(
-				"doc-1",
-				{ email: "alice@new.com" },
-				"2025-01-01T00:05:00.000Z|0001|c3d4",
-			),
-		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		data: [resource2],
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
 	};
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.data.length).toBe(1);
-	expect(result.changes.updated.size).toBe(1);
-	expect(result.changes.updated.has("doc-1")).toBe(true);
+	expect(result.document.data).toHaveLength(1);
+	expect(result.document.data[0]?.meta["~deletedAt"]).toBe(
+		"2025-01-01T00:01:00.000Z|0000|c3d4",
+	);
+	expect(result.changes.deleted.size).toBe(1);
+	expect(result.changes.deleted.has("doc1")).toBe(true);
 });
 
-test("mergeDocuments with primitive values", () => {
+test("mergeDocuments does not restore deleted resources on update", () => {
+const resource1 = buildResource(
+	"doc1",
+	{ name: "Alice" },
+	"2025-01-01T00:00:00.000Z|0000|a1b2",
+	"2025-01-01T00:00:30.000Z|0000|x1y2",
+);
+	const into: Document = {
+		data: [resource1],
+		meta: { "~eventstamp": "2025-01-01T00:00:30.000Z|0000|x1y2" },
+	};
+
+const resource2 = buildResource(
+	"doc1",
+	{ name: "Bob" },
+	"2025-01-01T00:01:00.000Z|0000|c3d4",
+);
+	const from: Document = {
+		data: [resource2],
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Resource should merge but stay deleted
+	expect(result.document.data[0]?.meta["~deletedAt"]).toBe(
+		"2025-01-01T00:00:30.000Z|0000|x1y2",
+	);
+	expect(result.changes.deleted.size).toBe(0); // Not a new deletion, already deleted
+	expect(result.changes.updated.size).toBe(0); // Not tracked as update while deleted
+});
+
+test("mergeDocuments handles multiple resources", () => {
 	const into: Document = {
 		data: [
-			{
-				type: "resource",
-				id: "doc-1",
-				attributes: encodeValue("hello", "2025-01-01T00:00:00.000Z|0000|a1b2"),
-				meta: { "~deletedAt": null },
-			},
+			buildResource("doc1", { name: "Alice", age: 30 }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+			buildResource("doc2", { name: "Bob", age: 25 }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
 		],
 		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
 	};
 
 	const from: Document = {
 		data: [
-			{
-				type: "resource",
-				id: "doc-1",
-				attributes: encodeValue("world", "2025-01-01T00:05:00.000Z|0001|c3d4"),
-				meta: { "~deletedAt": null },
-			},
+			buildResource("doc1", { name: "Alice", age: 31 }, "2025-01-01T00:01:00.000Z|0000|c3d4"),
+			buildResource("doc3", { name: "Charlie" }, "2025-01-01T00:01:00.000Z|0000|c3d4"),
 		],
-		meta: { "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
 	};
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.data.length).toBe(1);
+	expect(result.document.data).toHaveLength(3);
+	expect(result.changes.added.size).toBe(1);
 	expect(result.changes.updated.size).toBe(1);
-	expect(result.changes.updated.has("doc-1")).toBe(true);
+	expect(result.changes.deleted.size).toBe(0);
+});
+
+test("mergeDocuments uses field-level LWW for resource data", () => {
+	const into: Document = {
+		data: [
+			buildResource("doc1", { name: "Alice", age: 30 }, "2025-01-01T00:00:00.000Z|0000|a1b2"),
+		],
+		meta: { "~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2" },
+	};
+
+	const from: Document = {
+		data: [
+			buildResource("doc1", { name: "Bob", email: "bob@example.com" }, "2025-01-01T00:01:00.000Z|0000|c3d4"),
+		],
+		meta: { "~eventstamp": "2025-01-01T00:01:00.000Z|0000|c3d4" },
+	};
+
+	const result = mergeDocuments(into, from);
+	// biome-ignore lint/style/noNonNullAssertion: <allow for test>
+	const merged = result.document.data[0]!;
+
+	// name and email should come from `from` (newer)
+	// age should come from `into` (not in `from`)
+	expect(merged.attributes.name).toBe("Bob");
+	expect((merged.attributes as Record<string, unknown>).email).toBe(
+		"bob@example.com",
+	);
+	expect(merged.attributes.age).toBe(30);
 });

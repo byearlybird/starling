@@ -40,7 +40,7 @@ type UnstorageConfig = {
  * import { createStorage } from "unstorage";
  * import localStorageDriver from "unstorage/drivers/localstorage";
  *
- * const store = await new Store<Todo>()
+ * const store = await new Store<Todo>({ resourceType: "todos" })
  *   .use(unstoragePlugin('todos', createStorage({
  *     driver: localStorageDriver({ base: 'app:' })
  *   }), {
