@@ -21,6 +21,8 @@ export type StoreAddOptions = {
 export type StoreConfig = {
 	/** Custom ID generator. Defaults to crypto.randomUUID() */
 	getId?: () => string;
+	/** Resource type identifier for this store. Defaults to "default" */
+	type?: string;
 };
 
 /**
@@ -150,7 +152,7 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T extends Record<string, unknown>> {
-	#crdt = new CRDT<T>();
+	#crdt: CRDT<T>;
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -162,6 +164,8 @@ export class Store<T extends Record<string, unknown>> {
 	#queries = new Set<QueryInternal<T, any>>();
 
 	constructor(config: StoreConfig = {}) {
+		const type = config.type ?? "default";
+		this.#crdt = new CRDT<T>(new Map(), type);
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
 
@@ -200,8 +204,8 @@ export class Store<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Merge a collection from storage or another replica using field-level LWW.
-	 * @param collection - Collection from storage or another store instance
+	 * Merge a document from storage or another replica using field-level LWW.
+	 * @param collection - Document from storage or another store instance
 	 */
 	merge(collection: Collection): void {
 		const currentCollection = this.collection();
@@ -211,10 +215,10 @@ export class Store<T extends Record<string, unknown>> {
 		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc)["~data"]] as const,
+			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -430,8 +434,8 @@ export class Store<T extends Record<string, unknown>> {
 	}
 
 	#decodeActive(doc: EncodedDocument | null): T | null {
-		if (!doc || doc["~deletedAt"]) return null;
-		return decodeDoc<T>(doc)["~data"];
+		if (!doc || doc.meta.deletedAt) return null;
+		return decodeDoc<T>(doc).data;
 	}
 
 	#emitMutations(

@@ -7,24 +7,30 @@ import {
 } from "./record";
 
 /**
- * Top-level document structure with system metadata for tracking identity,
- * data, and deletion state. Documents are the primary unit of storage and
- * synchronization in Starling.
+ * Resource object structure representing a single stored entity.
+ * Resources are the primary unit of storage and synchronization in Starling.
  *
- * The tilde prefix (~) distinguishes system metadata from user-defined data.
+ * Each resource has a type, unique identifier, attributes containing the data,
+ * and metadata for tracking deletion state and eventstamps.
  */
 export type EncodedDocument = {
-	/** Unique identifier for this document */
-	"~id": string;
-	/** The document's data as a nested object structure */
-	"~data": EncodedRecord;
-	/** Eventstamp when this document was soft-deleted, or null if not deleted */
-	"~deletedAt": string | null;
-	/** The greatest eventstamp in this document (including deletedAt if applicable) */
-	"~latest": string;
+	/** Resource type identifier */
+	type: string;
+	/** Unique identifier for this resource */
+	id: string;
+	/** The resource's data as a nested object structure */
+	attributes: EncodedRecord;
+	/** Metadata for tracking deletion and eventstamps */
+	meta: {
+		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
+		deletedAt: string | null;
+		/** The greatest eventstamp in this resource (including deletedAt if applicable) */
+		latest: string;
+	};
 };
 
 export function encodeDoc<T extends Record<string, unknown>>(
+	type: string,
 	id: string,
 	obj: T,
 	eventstamp: string,
@@ -35,24 +41,29 @@ export function encodeDoc<T extends Record<string, unknown>>(
 		deletedAt && deletedAt > eventstamp ? deletedAt : eventstamp;
 
 	return {
-		"~id": id,
-		"~data": encodedData,
-		"~deletedAt": deletedAt,
-		"~latest": latest,
+		type,
+		id,
+		attributes: encodedData,
+		meta: {
+			deletedAt,
+			latest,
+		},
 	};
 }
 
 export function decodeDoc<T extends Record<string, unknown>>(
 	doc: EncodedDocument,
 ): {
-	"~id": string;
-	"~data": T;
-	"~deletedAt": string | null;
+	type: string;
+	id: string;
+	data: T;
+	deletedAt: string | null;
 } {
 	return {
-		"~id": doc["~id"],
-		"~data": decodeRecord(doc["~data"]) as T,
-		"~deletedAt": doc["~deletedAt"],
+		type: doc.type,
+		id: doc.id,
+		data: decodeRecord(doc.attributes) as T,
+		deletedAt: doc.meta.deletedAt,
 	};
 }
 
@@ -61,16 +72,16 @@ export function mergeDocs(
 	from: EncodedDocument,
 ): [EncodedDocument, string] {
 	const [mergedData, dataEventstamp] = mergeRecords(
-		into["~data"],
-		from["~data"],
+		into.attributes,
+		from.attributes,
 	);
 
 	const mergedDeletedAt =
-		into["~deletedAt"] && from["~deletedAt"]
-			? into["~deletedAt"] > from["~deletedAt"]
-				? into["~deletedAt"]
-				: from["~deletedAt"]
-			: into["~deletedAt"] || from["~deletedAt"] || null;
+		into.meta.deletedAt && from.meta.deletedAt
+			? into.meta.deletedAt > from.meta.deletedAt
+				? into.meta.deletedAt
+				: from.meta.deletedAt
+			: into.meta.deletedAt || from.meta.deletedAt || null;
 
 	// Calculate the greatest eventstamp from data and deletion timestamp
 	let greatestEventstamp: string = dataEventstamp;
@@ -80,10 +91,13 @@ export function mergeDocs(
 
 	return [
 		{
-			"~id": into["~id"],
-			"~data": mergedData,
-			"~deletedAt": mergedDeletedAt,
-			"~latest": greatestEventstamp,
+			type: into.type,
+			id: into.id,
+			attributes: mergedData,
+			meta: {
+				deletedAt: mergedDeletedAt,
+				latest: greatestEventstamp,
+			},
 		},
 		greatestEventstamp,
 	];
@@ -95,26 +109,29 @@ export function deleteDoc(
 ): EncodedDocument {
 	// The latest is the max of the data's latest and the deletion eventstamp
 	const latest =
-		eventstamp > doc["~data"]["~latest"]
+		eventstamp > doc.attributes["~latest"]
 			? eventstamp
-			: doc["~data"]["~latest"];
+			: doc.attributes["~latest"];
 
 	return {
-		"~id": doc["~id"],
-		"~data": doc["~data"],
-		"~deletedAt": eventstamp,
-		"~latest": latest,
+		type: doc.type,
+		id: doc.id,
+		attributes: doc.attributes,
+		meta: {
+			deletedAt: eventstamp,
+			latest,
+		},
 	};
 }
 
 /**
- * Transform all values in a document using a provided function.
+ * Transform all values in a resource using a provided function.
  *
  * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
  *
- * @param doc - Document to transform
+ * @param doc - Resource to transform
  * @param process - Function to apply to each leaf value (receives value and eventstamp, returns transformed value and eventstamp)
- * @returns New document with transformed values
+ * @returns New resource with transformed values
  *
  * @example
  * ```ts
@@ -129,18 +146,21 @@ export function processDocument(
 	doc: EncodedDocument,
 	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
 ): EncodedDocument {
-	const processedData = processRecord(doc["~data"], process);
+	const processedData = processRecord(doc.attributes, process);
 
 	// Calculate latest from processed data and deletedAt
 	const latest =
-		doc["~deletedAt"] && doc["~deletedAt"] > processedData["~latest"]
-			? doc["~deletedAt"]
+		doc.meta.deletedAt && doc.meta.deletedAt > processedData["~latest"]
+			? doc.meta.deletedAt
 			: processedData["~latest"];
 
 	return {
-		"~id": doc["~id"],
-		"~data": processedData,
-		"~deletedAt": doc["~deletedAt"],
-		"~latest": latest,
+		type: doc.type,
+		id: doc.id,
+		attributes: processedData,
+		meta: {
+			deletedAt: doc.meta.deletedAt,
+			latest,
+		},
 	};
 }

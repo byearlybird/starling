@@ -1,40 +1,49 @@
 import { type EncodedDocument, mergeDocs } from "./document";
 
 /**
- * A collection represents the complete state of a store:
- * - A set of documents (including soft-deleted ones)
- * - The highest eventstamp observed across all operations
+ * A document represents the complete state of a store:
+ * - API version information
+ * - Metadata including the highest eventstamp observed across all operations
+ * - A set of resource objects (including soft-deleted ones)
  *
- * Collections are the unit of synchronization between store replicas.
+ * Documents are the unit of synchronization between store replicas.
  */
 export type Collection = {
-	/** Array of encoded documents with eventstamps and metadata */
-	"~docs": EncodedDocument[];
+	/** API version information */
+	jsonapi: {
+		version: "1.1";
+	};
 
-	/** Latest eventstamp observed by this collection for clock synchronization */
-	"~eventstamp": string;
+	/** Document-level metadata */
+	meta: {
+		/** Latest eventstamp observed by this document for clock synchronization */
+		eventstamp: string;
+	};
+
+	/** Array of resource objects with eventstamps and metadata */
+	data: EncodedDocument[];
 };
 
 /**
  * Change tracking information returned by mergeCollections.
- * Categorizes documents by mutation type for hook notifications.
+ * Categorizes resources by mutation type for hook notifications.
  */
 export type CollectionChanges = {
-	/** Documents that were newly added (didn't exist before or were previously deleted) */
+	/** Resources that were newly added (didn't exist before or were previously deleted) */
 	added: Map<string, EncodedDocument>;
 
-	/** Documents that were modified (existed before and changed) */
+	/** Resources that were modified (existed before and changed) */
 	updated: Map<string, EncodedDocument>;
 
-	/** Documents that were deleted (newly marked with ~deletedAt) */
+	/** Resources that were deleted (newly marked with deletedAt) */
 	deleted: Set<string>;
 };
 
 /**
- * Result of merging two collections.
+ * Result of merging two documents.
  */
 export type MergeCollectionsResult = {
-	/** The merged collection with updated documents and forwarded clock */
+	/** The merged document with updated resources and forwarded clock */
 	collection: Collection;
 
 	/** Change tracking for plugin hook notifications */
@@ -42,38 +51,40 @@ export type MergeCollectionsResult = {
 };
 
 /**
- * Merges two collections using field-level Last-Write-Wins semantics.
+ * Merges two documents using field-level Last-Write-Wins semantics.
  *
  * The merge operation:
- * 1. Forwards the clock to the newest eventstamp from either collection
- * 2. Merges each document pair using field-level LWW (via mergeDocs)
+ * 1. Forwards the clock to the newest eventstamp from either document
+ * 2. Merges each resource pair using field-level LWW (via mergeDocs)
  * 3. Tracks what changed for hook notifications (added/updated/deleted)
  *
- * Deletion is final: once a document is deleted, updates to it are merged into
- * the document's data but don't restore visibility. Only new documents or
+ * Deletion is final: once a resource is deleted, updates to it are merged into
+ * the resource's attributes but don't restore visibility. Only new resources or
  * transitions into the deleted state are tracked.
  *
- * @param into - The base collection to merge into
- * @param from - The source collection to merge from
- * @returns Merged collection and categorized changes
+ * @param into - The base document to merge into
+ * @param from - The source document to merge from
+ * @returns Merged document and categorized changes
  *
  * @example
  * ```typescript
  * const into = {
- *   "~docs": [{ "~id": "doc1", "~data": {...}, "~deletedAt": null }],
- *   "~eventstamp": "2025-01-01T00:00:00.000Z|0001|a1b2"
+ *   jsonapi: { version: "1.1" },
+ *   meta: { eventstamp: "2025-01-01T00:00:00.000Z|0001|a1b2" },
+ *   data: [{ type: "items", id: "doc1", attributes: {...}, meta: { deletedAt: null, latest: "..." } }]
  * };
  *
  * const from = {
- *   "~docs": [
- *     { "~id": "doc1", "~data": {...}, "~deletedAt": null }, // updated
- *     { "~id": "doc2", "~data": {...}, "~deletedAt": null }  // new
- *   ],
- *   "~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4"
+ *   jsonapi: { version: "1.1" },
+ *   meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+ *   data: [
+ *     { type: "items", id: "doc1", attributes: {...}, meta: { deletedAt: null, latest: "..." } }, // updated
+ *     { type: "items", id: "doc2", attributes: {...}, meta: { deletedAt: null, latest: "..." } }  // new
+ *   ]
  * };
  *
  * const result = mergeCollections(into, from);
- * // result.collection.~eventstamp === "2025-01-01T00:05:00.000Z|0001|c3d4"
+ * // result.collection.meta.eventstamp === "2025-01-01T00:05:00.000Z|0001|c3d4"
  * // result.changes.added has "doc2"
  * // result.changes.updated has "doc1"
  * ```
@@ -82,10 +93,10 @@ export function mergeCollections(
 	into: Collection,
 	from: Collection,
 ): MergeCollectionsResult {
-	// Build index of base documents by ID for efficient lookup
+	// Build index of base resources by ID for efficient lookup
 	const intoDocsById = new Map<string, EncodedDocument>();
-	for (const doc of into["~docs"]) {
-		intoDocsById.set(doc["~id"], doc);
+	for (const doc of into.data) {
+		intoDocsById.set(doc.id, doc);
 	}
 
 	// Track changes for hook notifications
@@ -93,33 +104,33 @@ export function mergeCollections(
 	const updated = new Map<string, EncodedDocument>();
 	const deleted = new Set<string>();
 
-	// Start with base documents, will update/add as we process source
+	// Start with base resources, will update/add as we process source
 	const mergedDocsById = new Map<string, EncodedDocument>(intoDocsById);
 
-	// Process each source document
-	for (const fromDoc of from["~docs"]) {
-		const id = fromDoc["~id"];
+	// Process each source resource
+	for (const fromDoc of from.data) {
+		const id = fromDoc.id;
 		const intoDoc = intoDocsById.get(id);
 
 		if (!intoDoc) {
-			// New document from source - store it and track if not deleted
+			// New resource from source - store it and track if not deleted
 			mergedDocsById.set(id, fromDoc);
-			if (!fromDoc["~deletedAt"]) {
+			if (!fromDoc.meta.deletedAt) {
 				added.set(id, fromDoc);
 			}
 		} else {
-			// Skip merge if documents are identical (same reference)
+			// Skip merge if resources are identical (same reference)
 			if (intoDoc === fromDoc) {
 				continue;
 			}
 
-			// Merge existing document using field-level LWW
+			// Merge existing resource using field-level LWW
 			const [mergedDoc] = mergeDocs(intoDoc, fromDoc);
 			mergedDocsById.set(id, mergedDoc);
 
 			// Track state transitions for hook notifications
-			const wasDeleted = intoDoc["~deletedAt"] !== null;
-			const isDeleted = mergedDoc["~deletedAt"] !== null;
+			const wasDeleted = intoDoc.meta.deletedAt !== null;
+			const isDeleted = mergedDoc.meta.deletedAt !== null;
 
 			// Only track transitions: new deletion or non-deleted update
 			if (!wasDeleted && isDeleted) {
@@ -127,23 +138,26 @@ export function mergeCollections(
 				deleted.add(id);
 			} else if (!isDeleted) {
 				// Not deleted, so this is an update
-				// (including updates that occur while doc is deleted, which merge silently)
+				// (including updates that occur while resource is deleted, which merge silently)
 				updated.set(id, mergedDoc);
 			}
-			// If wasDeleted && isDeleted, doc stays deleted - no change tracking
+			// If wasDeleted && isDeleted, resource stays deleted - no change tracking
 		}
 	}
 
 	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
 	const newestEventstamp =
-		into["~eventstamp"] >= from["~eventstamp"]
-			? into["~eventstamp"]
-			: from["~eventstamp"];
+		into.meta.eventstamp >= from.meta.eventstamp
+			? into.meta.eventstamp
+			: from.meta.eventstamp;
 
 	return {
 		collection: {
-			"~docs": Array.from(mergedDocsById.values()),
-			"~eventstamp": newestEventstamp,
+			jsonapi: { version: "1.1" },
+			meta: {
+				eventstamp: newestEventstamp,
+			},
+			data: Array.from(mergedDocsById.values()),
 		},
 		changes: {
 			added,
@@ -154,11 +168,11 @@ export function mergeCollections(
 }
 
 /**
- * Creates an empty collection with the given eventstamp.
+ * Creates an empty document with the given eventstamp.
  * Useful for initializing new stores or testing.
  *
- * @param eventstamp - Initial clock value for this collection
- * @returns Empty collection
+ * @param eventstamp - Initial clock value for this document
+ * @returns Empty document
  *
  * @example
  * ```typescript
@@ -167,7 +181,10 @@ export function mergeCollections(
  */
 export function createCollection(eventstamp: string): Collection {
 	return {
-		"~docs": [],
-		"~eventstamp": eventstamp,
+		jsonapi: { version: "1.1" },
+		meta: {
+			eventstamp,
+		},
+		data: [],
 	};
 }

@@ -116,53 +116,88 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 { todos: { "id1": { text: "..." }, "id2": { text: "..." } } }  // Each todo merges independently
 ```
 
-**Deletions**: Soft-deleted via `~deletedAt` eventstamp. Deleted documents remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
+**Deletions**: Soft-deleted via `deletedAt` eventstamp in the resource metadata. Deleted resources remain in the snapshot, enabling restoration by writing newer eventstamps to their fields. This also ensures deletion events propagate correctly during sync.
 
-### Collection Format
+### Document Format
 
-The `Collection` type represents the complete persistent state of a store, following the tilde convention for system-reserved keys:
+The `Collection` type represents the complete persistent state of a store, containing API version information, metadata, and an array of resource objects:
 
 ```typescript
 export type Collection = {
-  "~docs": EncodedDocument[];
-  "~eventstamp": string;
+  jsonapi: {
+    version: "1.1";
+  };
+  meta: {
+    eventstamp: string;
+  };
+  data: EncodedDocument[];
 };
 ```
 
 **Design notes:**
 
-- **`~docs`**: Array of encoded documents, including soft-deleted items (those with `~deletedAt` set). This ensures deletion events propagate during sync.
-- **`~eventstamp`**: The highest eventstamp observed by the collection. When merging collections, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries.
+- **`jsonapi`**: Version information for the document structure
+- **`meta.eventstamp`**: The highest eventstamp observed by the document. When merging documents, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries
+- **`data`**: Array of resource objects, including soft-deleted items (those with `meta.deletedAt` set). This ensures deletion events propagate during sync
 
-Example collection:
+Example document:
 
 ```typescript
 {
-  "~docs": [
+  jsonapi: { version: "1.1" },
+  meta: {
+    eventstamp: "2025-10-26T10:00:00.000Z|0001|a7f2"
+  },
+  data: [
     {
-      "~id": "user-1",
-      "~data": {
-        "name": ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
-        "email": ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
+      type: "users",
+      id: "user-1",
+      attributes: {
+        name: ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
+        email: ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
       },
-      "~deletedAt": null
+      meta: {
+        deletedAt: null,
+        latest: "2025-10-26T10:00:00.000Z|0001|a7f2"
+      }
     }
-  ],
-  "~eventstamp": "2025-10-26T10:00:00.000Z|0001|a7f2"
+  ]
 }
 ```
 
-The tilde prefix (`~`) distinguishes system metadata from user-defined data, maintaining consistency with other system-reserved keys like `~id` and `~deletedAt` in encoded documents.
+### Resource Object Format
 
-### Merging Collections
+Each resource in the `data` array follows this structure:
 
-The `mergeCollections(into, from)` function handles collection-level merging with automatic change detection:
+```typescript
+export type EncodedDocument = {
+  type: string;
+  id: string;
+  attributes: EncodedRecord;
+  meta: {
+    deletedAt: string | null;
+    latest: string;
+  };
+};
+```
 
-1. **Field-level LWW**: Each document pair merges using `mergeDocs`, preserving the newest eventstamp for each field
-2. **Clock forwarding**: The resulting collection's eventstamp is the maximum of both input eventstamps
+**Design notes:**
+
+- **`type`**: Resource type identifier (e.g., "users", "todos", "posts")
+- **`id`**: Unique identifier for this resource
+- **`attributes`**: The resource's data as a nested object structure with eventstamps
+- **`meta.deletedAt`**: Eventstamp when this resource was soft-deleted, or null if not deleted
+- **`meta.latest`**: The greatest eventstamp in this resource (including deletedAt if applicable)
+
+### Merging Documents
+
+The `mergeCollections(into, from)` function handles document-level merging with automatic change detection:
+
+1. **Field-level LWW**: Each resource pair merges using `mergeDocs`, preserving the newest eventstamp for each field
+2. **Clock forwarding**: The resulting document's eventstamp is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
 
-This design separates merge logic from store orchestration, enabling independent testing and reuse of collection operations.
+This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
 
 ## Design Scope
 
@@ -239,8 +274,8 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps field values with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`document.ts`](../packages/core/src/crdt/document.ts) | Attaches system metadata (`~id`, `~deletedAt`) and handles soft-deletion |
-| [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages sets of documents with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
+| [`document.ts`](../packages/core/src/crdt/document.ts) | Defines resource object structure (`type`, `id`, `attributes`, `meta`) and handles soft-deletion |
+| [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages documents containing resource objects with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
 | [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
 ### Data Flow
@@ -251,12 +286,12 @@ User mutation → Store → Transaction staging → Commit → Plugin hooks
                                     ↓
                             Eventstamp application
                                     ↓
-                            Document/Record/Value merge
+                            Resource/Record/Value merge
 ```
 
-**Collection sync:**
+**Document sync:**
 ```
-store.merge(snapshot) → mergeCollections(into, from) → Document merge (mergeDocs)
+store.merge(snapshot) → mergeCollections(into, from) → Resource merge (mergeDocs)
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
