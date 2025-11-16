@@ -4,6 +4,18 @@ import {
 	createResourceMap,
 	createResourceMapFromSnapshot,
 } from "./resource-map";
+import type { QueryInternal } from "./types";
+import { decodeActive } from "./utils";
+import {
+	hydrateQuery as hydrateQueryFn,
+	notifyQueries as notifyQueriesFn,
+	runQueryCallbacks,
+} from "./query-manager";
+import {
+	emitMutations as emitMutationsFn,
+	executeDisposeHooks,
+	executeInitHooks,
+} from "./plugin-manager";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -161,14 +173,6 @@ export type Query<U> = {
 	dispose: () => void;
 };
 
-type QueryInternal<T, U> = {
-	where: (data: T) => boolean;
-	select?: (data: T) => U;
-	order?: (a: U, b: U) => number;
-	results: Map<string, U>;
-	callbacks: Set<() => void>;
-};
-
 /**
  * Create a lightweight local-first data store with built-in sync and reactive queries.
  *
@@ -209,88 +213,17 @@ export function createStore<T extends Record<string, unknown>>(
 	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
 	const queries = new Set<QueryInternal<T, any>>();
 
-	function decodeActive(doc: ResourceObject<T> | null): T | null {
-		if (!doc || doc.meta.deletedAt) return null;
-		return doc.attributes as T;
-	}
-
-	function selectValue<U>(query: QueryInternal<T, U>, value: T): U {
-		return query.select ? query.select(value) : (value as unknown as U);
-	}
-
-	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-	function runQueryCallbacks(dirtyQueries: Set<QueryInternal<T, any>>): void {
-		for (const query of dirtyQueries) {
-			for (const callback of query.callbacks) {
-				callback();
-			}
-		}
-	}
-
-	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-	function hydrateQuery(query: QueryInternal<T, any>): void {
-		query.results.clear();
-		for (const [key, value] of entries()) {
-			if (query.where(value)) {
-				const selected = selectValue(query, value);
-				query.results.set(key, selected);
-			}
-		}
-	}
-
 	function notifyQueries(
 		addEntries: ReadonlyArray<readonly [string, T]>,
 		updateEntries: ReadonlyArray<readonly [string, T]>,
 		deleteKeys: ReadonlyArray<string>,
 	): void {
-		if (queries.size === 0) return;
-		// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-		const dirtyQueries = new Set<QueryInternal<T, any>>();
-
-		if (addEntries.length > 0) {
-			for (const [key, value] of addEntries) {
-				for (const query of queries) {
-					if (query.where(value)) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (updateEntries.length > 0) {
-			for (const [key, value] of updateEntries) {
-				for (const query of queries) {
-					const matches = query.where(value);
-					const inResults = query.results.has(key);
-
-					if (matches && !inResults) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					} else if (!matches && inResults) {
-						query.results.delete(key);
-						dirtyQueries.add(query);
-					} else if (matches && inResults) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (deleteKeys.length > 0) {
-			for (const key of deleteKeys) {
-				for (const query of queries) {
-					if (query.results.delete(key)) {
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
+		const dirtyQueries = notifyQueriesFn(
+			queries,
+			addEntries,
+			updateEntries,
+			deleteKeys,
+		);
 		if (dirtyQueries.size > 0) {
 			runQueryCallbacks(dirtyQueries);
 		}
@@ -302,22 +235,14 @@ export function createStore<T extends Record<string, unknown>>(
 		deleteKeys: ReadonlyArray<string>,
 	): void {
 		notifyQueries(addEntries, updateEntries, deleteKeys);
-
-		if (addEntries.length > 0) {
-			for (const handler of onAddHandlers) {
-				handler(addEntries);
-			}
-		}
-		if (updateEntries.length > 0) {
-			for (const handler of onUpdateHandlers) {
-				handler(updateEntries);
-			}
-		}
-		if (deleteKeys.length > 0) {
-			for (const handler of onDeleteHandlers) {
-				handler(deleteKeys);
-			}
-		}
+		emitMutationsFn(
+			onAddHandlers,
+			onUpdateHandlers,
+			onDeleteHandlers,
+			addEntries,
+			updateEntries,
+			deleteKeys,
+		);
 	}
 
 	function has(key: string): boolean {
@@ -442,21 +367,17 @@ export function createStore<T extends Record<string, unknown>>(
 	}
 
 	async function init(): Promise<Store<T>> {
-		for (const hook of onInitHandlers) {
-			await hook(store);
-		}
+		await executeInitHooks(onInitHandlers, store);
 
 		for (const query of queries) {
-			hydrateQuery(query);
+			hydrateQueryFn(query, entries());
 		}
 
 		return store;
 	}
 
 	async function dispose(): Promise<void> {
-		for (let i = onDisposeHandlers.length - 1; i >= 0; i--) {
-			await onDisposeHandlers[i]?.();
-		}
+		await executeDisposeHooks(onDisposeHandlers);
 
 		for (const query of queries) {
 			query.callbacks.clear();
@@ -482,7 +403,7 @@ export function createStore<T extends Record<string, unknown>>(
 		};
 
 		queries.add(q);
-		hydrateQuery(q);
+		hydrateQueryFn(q, entries());
 
 		return {
 			results: () => {
