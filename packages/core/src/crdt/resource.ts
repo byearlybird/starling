@@ -28,7 +28,7 @@ export type ResourceObject<
 	};
 };
 
-export function encodeResource<T extends Record<string, unknown>>(
+export function makeResource<T extends Record<string, unknown>>(
 	type: string,
 	id: string,
 	obj: T,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { deleteResource, encodeResource, mergeResources } from ".";
+import { deleteResource, makeResource, mergeResources } from ".";
 
-test("encodeResource creates EncodedDocument with null deletedAt", () => {
-	const result = encodeResource(
+test("makeResource creates EncodedDocument with null deletedAt", () => {
+	const result = makeResource(
 		"users",
 		"user-1",
 		{ name: "Alice", age: 30 },
@@ -15,8 +15,8 @@ test("encodeResource creates EncodedDocument with null deletedAt", () => {
 	expect(result.attributes).toBeDefined();
 });
 
-test("encodeResource with id", () => {
-	const result = encodeResource(
+test("makeResource with id", () => {
+	const result = makeResource(
 		"users",
 		"user-2",
 		{ name: "Bob", email: "bob@example.com" },
@@ -33,10 +33,10 @@ test("mergeResources both deleted - keeps greater timestamp", () => {
 	const eventstamp1 = "2025-01-01T00:00:00.000Z|0000|a1b2";
 	const eventstamp2 = "2025-01-02T00:00:00.000Z|0000|c3d4";
 
-	const doc1 = encodeResource("items", "doc-1", { name: "Alice" }, eventstamp1);
+	const doc1 = makeResource("items", "doc-1", { name: "Alice" }, eventstamp1);
 	doc1.meta.deletedAt = "2025-01-01T12:00:00.000Z|0001|g7h8";
 
-	const doc2 = encodeResource("items", "doc-2", { name: "Bob" }, eventstamp2);
+	const doc2 = makeResource("items", "doc-2", { name: "Bob" }, eventstamp2);
 	doc2.meta.deletedAt = "2025-01-02T12:00:00.000Z|0002|i9j0";
 
 	const merged = mergeResources(doc1, doc2);
@@ -46,7 +46,7 @@ test("mergeResources both deleted - keeps greater timestamp", () => {
 });
 
 test("mergeResources both deleted - keeps greater timestamp (reverse order)", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -54,7 +54,7 @@ test("mergeResources both deleted - keeps greater timestamp (reverse order)", ()
 	);
 	doc1.meta.deletedAt = "2025-01-02T12:00:00.000Z|0002|i9j0";
 
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -69,7 +69,7 @@ test("mergeResources both deleted - keeps greater timestamp (reverse order)", ()
 });
 
 test("mergeResources one deleted - keeps the deleted one", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -77,7 +77,7 @@ test("mergeResources one deleted - keeps the deleted one", () => {
 	);
 	doc1.meta.deletedAt = "2025-01-01T12:00:00.000Z|0001|g7h8";
 
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -92,7 +92,7 @@ test("mergeResources one deleted - keeps the deleted one", () => {
 });
 
 test("mergeResources one deleted (from) - keeps the deleted one", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -100,7 +100,7 @@ test("mergeResources one deleted (from) - keeps the deleted one", () => {
 	);
 	doc1.meta.deletedAt = null;
 
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -115,13 +115,13 @@ test("mergeResources one deleted (from) - keeps the deleted one", () => {
 });
 
 test("mergeResources neither deleted - returns null", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -135,14 +135,14 @@ test("mergeResources neither deleted - returns null", () => {
 });
 
 test("mergeResources preserves id from into document", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -155,13 +155,13 @@ test("mergeResources preserves id from into document", () => {
 });
 
 test("mergeResources merges attributes using object mergeRecords", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice", age: 30 },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice Updated", email: "alice@example.com" },
@@ -176,7 +176,7 @@ test("mergeResources merges attributes using object mergeRecords", () => {
 
 test("deleteResource marks document as deleted with eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const doc = encodeResource(
+	const doc = makeResource(
 		"users",
 		"user-1",
 		{ name: "Alice", age: 30 },
@@ -192,7 +192,7 @@ test("deleteResource marks document as deleted with eventstamp", () => {
 });
 
 test("deleteResource preserves original document id and data", () => {
-	const doc = encodeResource(
+	const doc = makeResource(
 		"items",
 		"doc-123",
 		{ status: "active" },
@@ -206,7 +206,7 @@ test("deleteResource preserves original document id and data", () => {
 });
 
 test("deleteResource can be called on already deleted document", () => {
-	const doc = encodeResource(
+	const doc = makeResource(
 		"users",
 		"user-1",
 		{ name: "Bob" },
@@ -220,7 +220,7 @@ test("deleteResource can be called on already deleted document", () => {
 });
 
 test("deleteResource shows document is deleted", () => {
-	const doc = encodeResource(
+	const doc = makeResource(
 		"users",
 		"user-1",
 		{ name: "Alice" },
@@ -233,13 +233,13 @@ test("deleteResource shows document is deleted", () => {
 });
 
 test("mergeResources bubbles newest eventstamp from nested object fields", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"users",
 		"doc-1",
 		{ user: { name: "Alice", email: "alice@old.com" } },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"users",
 		"doc-1",
 		{ user: { email: "alice@new.com" } },
@@ -257,7 +257,7 @@ test("mergeResources bubbles newest eventstamp from nested object fields", () =>
 });
 
 test("mergeResources returns newest eventstamp even with multiple nested changes", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"users",
 		"doc-1",
 		{
@@ -268,7 +268,7 @@ test("mergeResources returns newest eventstamp even with multiple nested changes
 		},
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"users",
 		"doc-1",
 		{
@@ -287,13 +287,13 @@ test("mergeResources returns newest eventstamp even with multiple nested changes
 });
 
 test("mergeResources returns newest eventstamp when adding new fields", () => {
-	const doc1 = encodeResource(
+	const doc1 = makeResource(
 		"users",
 		"doc-1",
 		{ name: "Alice", age: 30 },
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
-	const doc2 = encodeResource(
+	const doc2 = makeResource(
 		"users",
 		"doc-1",
 		{ email: "alice@example.com", phone: "555-1234" },

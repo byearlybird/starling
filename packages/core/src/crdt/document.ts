@@ -176,10 +176,10 @@ export function mergeDocuments(
  *
  * @example
  * ```typescript
- * const empty = createDocument("2025-01-01T00:00:00.000Z|0000|0000");
+ * const empty = makeDocument("2025-01-01T00:00:00.000Z|0000|0000");
  * ```
  */
-export function createDocument(eventstamp: string): Document {
+export function makeDocument(eventstamp: string): Document {
 	return {
 		jsonapi: { version: "1.1" },
 		meta: {

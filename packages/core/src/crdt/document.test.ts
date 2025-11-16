@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createDocument, type Document, mergeDocuments } from "./document";
-import { encodeResource } from "./resource";
+import { type Document, makeDocument, mergeDocuments } from "./document";
+import { makeResource } from "./resource";
 
-test("createDocument returns empty collection with given eventstamp", () => {
+test("makeDocument returns empty collection with given eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const collection = createDocument(eventstamp);
+	const collection = makeDocument(eventstamp);
 
 	expect(collection.data).toEqual([]);
 	expect(collection.meta.eventstamp).toBe(eventstamp);
@@ -12,8 +12,8 @@ test("createDocument returns empty collection with given eventstamp", () => {
 });
 
 test("mergeDocuments with empty collections", () => {
-	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
-	const from = createDocument("2025-01-01T00:05:00.000Z|0001|c3d4");
+	const into = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from = makeDocument("2025-01-01T00:05:00.000Z|0001|c3d4");
 
 	const result = mergeDocuments(into, from);
 
@@ -27,8 +27,8 @@ test("mergeDocuments with empty collections", () => {
 });
 
 test("mergeDocuments forwards clock to newer eventstamp", () => {
-	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
-	const from = createDocument("2025-01-01T00:10:00.000Z|0002|e5f6");
+	const into = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from = makeDocument("2025-01-01T00:10:00.000Z|0002|e5f6");
 
 	const result = mergeDocuments(into, from);
 
@@ -38,8 +38,8 @@ test("mergeDocuments forwards clock to newer eventstamp", () => {
 });
 
 test("mergeDocuments keeps older eventstamp when into is newer", () => {
-	const into = createDocument("2025-01-01T00:10:00.000Z|0002|e5f6");
-	const from = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const into = makeDocument("2025-01-01T00:10:00.000Z|0002|e5f6");
+	const from = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
 
 	const result = mergeDocuments(into, from);
 
@@ -49,12 +49,12 @@ test("mergeDocuments keeps older eventstamp when into is newer", () => {
 });
 
 test("mergeDocuments adds new document from source", () => {
-	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const into = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
 	const from: Document = {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice" },
@@ -78,7 +78,7 @@ test("mergeDocuments updates existing document", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice", age: 30 },
@@ -90,7 +90,7 @@ test("mergeDocuments updates existing document", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ age: 31 },
@@ -113,7 +113,7 @@ test("mergeDocuments marks document as deleted", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice" },
@@ -122,7 +122,7 @@ test("mergeDocuments marks document as deleted", () => {
 		],
 	};
 
-	const deletedDoc = encodeResource(
+	const deletedDoc = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -149,7 +149,7 @@ test("mergeDocuments marks document as deleted", () => {
 });
 
 test("mergeDocuments keeps deleted document deleted on update", () => {
-	const deletedDoc = encodeResource(
+	const deletedDoc = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -167,7 +167,7 @@ test("mergeDocuments keeps deleted document deleted on update", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0002|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice Updated" },
@@ -189,9 +189,9 @@ test("mergeDocuments keeps deleted document deleted on update", () => {
 });
 
 test("mergeDocuments does not track deleted documents as added", () => {
-	const into = createDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const into = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
 
-	const deletedDoc = encodeResource(
+	const deletedDoc = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -218,13 +218,13 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice", age: 30 },
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-2",
 				{ name: "Bob", age: 25 },
@@ -233,7 +233,7 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 		],
 	};
 
-	const deletedDoc = encodeResource(
+	const deletedDoc = makeResource(
 		"items",
 		"doc-2",
 		{ name: "Bob" },
@@ -245,14 +245,14 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ age: 31 },
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			), // update
 			deletedDoc, // delete
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-3",
 				{ name: "Charlie", age: 28 },
@@ -277,13 +277,13 @@ test("mergeDocuments preserves documents only in base collection", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice" },
 				"2025-01-01T00:00:00.000Z|0000|a1b2",
 			),
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-2",
 				{ name: "Bob" },
@@ -295,7 +295,7 @@ test("mergeDocuments preserves documents only in base collection", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-3",
 				{ name: "Charlie" },
@@ -314,7 +314,7 @@ test("mergeDocuments preserves documents only in base collection", () => {
 });
 
 test("mergeDocuments does not mark unchanged documents as updated", () => {
-	const doc = encodeResource(
+	const doc = makeResource(
 		"items",
 		"doc-1",
 		{ name: "Alice" },
@@ -345,7 +345,7 @@ test("mergeDocuments field-level LWW for nested objects", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ name: "Alice", email: "alice@old.com" },
@@ -358,7 +358,7 @@ test("mergeDocuments field-level LWW for nested objects", () => {
 		jsonapi: { version: "1.1" },
 		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
-			encodeResource(
+			makeResource(
 				"items",
 				"doc-1",
 				{ email: "alice@new.com" },

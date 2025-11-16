@@ -2,7 +2,7 @@ import { Clock } from "../clock";
 import type { Document } from "./document";
 import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
-import { deleteResource, encodeResource, mergeResources } from "./resource";
+import { deleteResource, makeResource, mergeResources } from "./resource";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -82,7 +82,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeResource(this.#type, id, object, this.#clock.now());
+		const encoded = makeResource(this.#type, id, object, this.#clock.now());
 		this.#map.set(id, encoded);
 	}
 
@@ -93,7 +93,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeResource(
+		const encoded = makeResource(
 			this.#type,
 			id,
 			object as T,

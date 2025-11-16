@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { CRDT } from "./crdt";
 import type { Document } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
-import { encodeResource } from "./resource";
+import { makeResource } from "./resource";
 
 describe("CRDT", () => {
 	describe("constructor", () => {
@@ -24,13 +24,13 @@ describe("CRDT", () => {
 		});
 
 		test("creates CRDT with existing documents", () => {
-			const doc1 = encodeResource(
+			const doc1 = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const doc2 = encodeResource(
+			const doc2 = makeResource(
 				"items",
 				"id2",
 				{ name: "Bob" },
@@ -51,7 +51,7 @@ describe("CRDT", () => {
 
 	describe("has", () => {
 		test("returns true for existing documents", () => {
-			const doc = encodeResource(
+			const doc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
@@ -74,7 +74,7 @@ describe("CRDT", () => {
 
 	describe("get", () => {
 		test("returns document for existing id", () => {
-			const doc = encodeResource(
+			const doc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
@@ -218,13 +218,13 @@ describe("CRDT", () => {
 
 	describe("snapshot", () => {
 		test("returns collection with documents and eventstamp", () => {
-			const doc1 = encodeResource(
+			const doc1 = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const doc2 = encodeResource(
+			const doc2 = makeResource(
 				"items",
 				"id2",
 				{ name: "Bob" },
@@ -281,8 +281,8 @@ describe("CRDT", () => {
 				jsonapi: { version: "1.1" },
 				meta: { eventstamp: "2025-01-01T00:00:00.000Z|0001|abcd" },
 				data: [
-					encodeResource("items", "id1", { name: "Alice" }, MIN_EVENTSTAMP),
-					encodeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP),
+					makeResource("items", "id1", { name: "Alice" }, MIN_EVENTSTAMP),
+					makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP),
 				],
 			};
 
@@ -297,7 +297,7 @@ describe("CRDT", () => {
 		});
 
 		test("preserves deleted documents", () => {
-			const deletedDoc = encodeResource(
+			const deletedDoc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
@@ -432,7 +432,7 @@ describe("CRDT", () => {
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
 				meta: { eventstamp: MIN_EVENTSTAMP },
-				data: [encodeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP)],
+				data: [makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP)],
 			};
 
 			crdt.merge(remoteCollection);
@@ -446,7 +446,7 @@ describe("CRDT", () => {
 		test("applies field-level last-write-wins during merge", () => {
 			// Create a local document with an older eventstamp
 			const localEventstamp = "2025-01-01T00:00:00.000Z|0001|aaaa";
-			const localDoc = encodeResource(
+			const localDoc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice", age: 30 },
@@ -463,7 +463,7 @@ describe("CRDT", () => {
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
 				meta: { eventstamp: laterEventstamp },
-				data: [encodeResource("items", "id1", { age: 31 }, laterEventstamp)],
+				data: [makeResource("items", "id1", { age: 31 }, laterEventstamp)],
 			};
 
 			crdt.merge(remoteCollection);
@@ -477,7 +477,7 @@ describe("CRDT", () => {
 			const crdt = new CRDT<{ name: string }>(new Map(), "items");
 			crdt.add("id1", { name: "Alice" });
 
-			const deletedDoc = encodeResource(
+			const deletedDoc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
@@ -532,7 +532,7 @@ describe("CRDT", () => {
 				jsonapi: { version: "1.1" },
 				meta: { eventstamp: MIN_EVENTSTAMP },
 				data: [
-					encodeResource(
+					makeResource(
 						"items",
 						"id2",
 						{ name: "Bob", age: 25 },
@@ -556,7 +556,7 @@ describe("CRDT", () => {
 
 		test("merge preserves local data when remote is older", () => {
 			const localEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const localDoc = encodeResource(
+			const localDoc = makeResource(
 				"items",
 				"id1",
 				{ name: "Alice" },
@@ -568,9 +568,7 @@ describe("CRDT", () => {
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
 				meta: { eventstamp: olderEventstamp },
-				data: [
-					encodeResource("items", "id1", { name: "Bob" }, olderEventstamp),
-				],
+				data: [makeResource("items", "id1", { name: "Bob" }, olderEventstamp)],
 			};
 
 			crdt.merge(remoteCollection);
