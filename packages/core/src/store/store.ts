@@ -64,18 +64,20 @@ export type StoreSetTransaction<T> = {
 };
 
 /**
- * A store instance with methods for mutations, queries, and sync.
+ * Core CRUD operations available to all stores and plugins.
  *
- * The TMethods type parameter accumulates methods from all registered plugins,
- * providing full type safety for plugin-added functionality.
+ * This is the stable API surface that plugins can rely on. It provides:
+ * - **Read operations**: `has`, `get`, `entries`
+ * - **Write operations**: `add`, `update`, `del`
+ * - **Transactions**: `begin`
+ * - **Sync operations**: `collection`, `merge`
+ *
+ * This type excludes plugin-specific methods and lifecycle functions,
+ * ensuring plugins only depend on the core store functionality.
  *
  * @template T - The type of documents stored in this collection
- * @template TMethods - Accumulated plugin methods
  */
-export type Store<
-	T extends Record<string, unknown>,
-	TMethods extends Record<string, any> = {},
-> = {
+export type StoreBase<T extends Record<string, unknown>> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -97,6 +99,21 @@ export type Store<
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
 	del: (key: string) => void;
+};
+
+/**
+ * Plugin system methods for extending the store.
+ *
+ * These methods manage the plugin lifecycle and enable type-safe
+ * method accumulation across multiple plugins.
+ *
+ * @template T - The type of documents stored in this collection
+ * @template TMethods - Accumulated plugin methods from all registered plugins
+ */
+export type StorePluginAPI<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = {
 	/** Register a plugin that can add hooks and methods to the store */
 	use: <TNewMethods extends Record<string, any>>(
 		plugin: Plugin<T, TNewMethods>,
@@ -105,26 +122,48 @@ export type Store<
 	init: () => Promise<Store<T, TMethods>>;
 	/** Dispose the store and run plugin cleanup */
 	dispose: () => Promise<void>;
-} & TMethods;
+};
 
 /**
- * Base store API available to plugin hooks.
+ * Complete store instance with CRUD operations, plugin system, and accumulated plugin methods.
  *
- * This is a subset of Store without the plugin methods, used as the type
- * for the store parameter in plugin hooks.
+ * ## Type System Architecture
+ *
+ * The store type system is composed of three layers:
+ *
+ * ```
+ * StoreBase<T>              Core CRUD operations (has, get, add, update, del, etc.)
+ *      +
+ * StorePluginAPI<T, M>      Plugin lifecycle (use, init, dispose)
+ *      +
+ * TMethods                  Accumulated methods from plugins
+ *      =
+ * Store<T, TMethods>        Complete store API
+ * ```
+ *
+ * ## Type Flow Example
+ *
+ * ```typescript
+ * createStore<Todo>()                    // Store<Todo, {}>
+ *   .use(queryPlugin())                   // Store<Todo, { query: ... }>
+ *   .use(customPlugin())                  // Store<Todo, { query: ..., custom: ... }>
+ *   .init()                               // Promise<Store<Todo, { query: ..., custom: ... }>>
+ * ```
+ *
+ * ## Plugin Method Accumulation
+ *
+ * Each call to `.use()` adds new methods to the store type:
+ * - Methods are type-safe and auto-complete in IDEs
+ * - Method conflicts are detected at runtime
+ * - Type accumulates through the chain: `TMethods & TNewMethods`
+ *
+ * @template T - The type of documents stored in this collection
+ * @template TMethods - Accumulated plugin methods (default: {})
  */
-export type StoreBase<T extends Record<string, unknown>> = Pick<
-	Store<T>,
-	| "has"
-	| "get"
-	| "entries"
-	| "collection"
-	| "merge"
-	| "begin"
-	| "add"
-	| "update"
-	| "del"
->;
+export type Store<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
 
 /**
  * Plugin lifecycle and mutation hooks.
