@@ -19,13 +19,15 @@ export type EncodedDocument = {
 	/** Unique identifier for this resource */
 	id: string;
 	/** The resource's data as a nested object structure */
-	attributes: EncodedRecord;
+	attributes: Record<string, unknown>;
 	/** Metadata for tracking deletion and eventstamps */
 	meta: {
-		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
-		deletedAt: string | null;
+		/** Mirrored structure containing eventstamps for each attribute field */
+		eventstamps: Record<string, unknown>;
 		/** The greatest eventstamp in this resource (including deletedAt if applicable) */
 		latest: string;
+		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
+		deletedAt: string | null;
 	};
 };
 
@@ -36,17 +38,20 @@ export function encodeDoc<T extends Record<string, unknown>>(
 	eventstamp: string,
 	deletedAt: string | null = null,
 ): EncodedDocument {
-	const encodedData = encodeRecord(obj, eventstamp);
+	const encoded = encodeRecord(obj, eventstamp);
 	const latest =
-		deletedAt && deletedAt > eventstamp ? deletedAt : eventstamp;
+		deletedAt && deletedAt > encoded.meta.latest
+			? deletedAt
+			: encoded.meta.latest;
 
 	return {
 		type,
 		id,
-		attributes: encodedData,
+		attributes: encoded.data,
 		meta: {
-			deletedAt,
+			eventstamps: encoded.meta.eventstamps,
 			latest,
+			deletedAt,
 		},
 	};
 }
@@ -59,10 +64,18 @@ export function decodeDoc<T extends Record<string, unknown>>(
 	data: T;
 	deletedAt: string | null;
 } {
+	const encodedRecord: EncodedRecord = {
+		data: doc.attributes,
+		meta: {
+			eventstamps: doc.meta.eventstamps,
+			latest: doc.meta.latest,
+		},
+	};
+
 	return {
 		type: doc.type,
 		id: doc.id,
-		data: decodeRecord(doc.attributes) as T,
+		data: decodeRecord(encodedRecord) as T,
 		deletedAt: doc.meta.deletedAt,
 	};
 }
@@ -71,10 +84,24 @@ export function mergeDocs(
 	into: EncodedDocument,
 	from: EncodedDocument,
 ): [EncodedDocument, string] {
-	const [mergedData, dataEventstamp] = mergeRecords(
-		into.attributes,
-		from.attributes,
-	);
+	// Reconstruct EncodedRecords for merging
+	const intoRecord: EncodedRecord = {
+		data: into.attributes,
+		meta: {
+			eventstamps: into.meta.eventstamps,
+			latest: into.meta.latest,
+		},
+	};
+
+	const fromRecord: EncodedRecord = {
+		data: from.attributes,
+		meta: {
+			eventstamps: from.meta.eventstamps,
+			latest: from.meta.latest,
+		},
+	};
+
+	const [mergedRecord, dataEventstamp] = mergeRecords(intoRecord, fromRecord);
 
 	const mergedDeletedAt =
 		into.meta.deletedAt && from.meta.deletedAt
@@ -93,10 +120,11 @@ export function mergeDocs(
 		{
 			type: into.type,
 			id: into.id,
-			attributes: mergedData,
+			attributes: mergedRecord.data,
 			meta: {
-				deletedAt: mergedDeletedAt,
+				eventstamps: mergedRecord.meta.eventstamps,
 				latest: greatestEventstamp,
+				deletedAt: mergedDeletedAt,
 			},
 		},
 		greatestEventstamp,
@@ -109,17 +137,18 @@ export function deleteDoc(
 ): EncodedDocument {
 	// The latest is the max of the data's latest and the deletion eventstamp
 	const latest =
-		eventstamp > doc.attributes["~latest"]
+		eventstamp > doc.meta.latest
 			? eventstamp
-			: doc.attributes["~latest"];
+			: doc.meta.latest;
 
 	return {
 		type: doc.type,
 		id: doc.id,
 		attributes: doc.attributes,
 		meta: {
-			deletedAt: eventstamp,
+			eventstamps: doc.meta.eventstamps,
 			latest,
+			deletedAt: eventstamp,
 		},
 	};
 }
@@ -146,21 +175,30 @@ export function processDocument(
 	doc: EncodedDocument,
 	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
 ): EncodedDocument {
-	const processedData = processRecord(doc.attributes, process);
+	const recordToProcess: EncodedRecord = {
+		data: doc.attributes,
+		meta: {
+			eventstamps: doc.meta.eventstamps,
+			latest: doc.meta.latest,
+		},
+	};
+
+	const processedRecord = processRecord(recordToProcess, process);
 
 	// Calculate latest from processed data and deletedAt
 	const latest =
-		doc.meta.deletedAt && doc.meta.deletedAt > processedData["~latest"]
+		doc.meta.deletedAt && doc.meta.deletedAt > processedRecord.meta.latest
 			? doc.meta.deletedAt
-			: processedData["~latest"];
+			: processedRecord.meta.latest;
 
 	return {
 		type: doc.type,
 		id: doc.id,
-		attributes: processedData,
+		attributes: processedRecord.data,
 		meta: {
-			deletedAt: doc.meta.deletedAt,
+			eventstamps: processedRecord.meta.eventstamps,
 			latest,
+			deletedAt: doc.meta.deletedAt,
 		},
 	};
 }

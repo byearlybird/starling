@@ -153,12 +153,16 @@ Example document:
       type: "users",
       id: "user-1",
       attributes: {
-        name: ["Alice", "2025-10-26T10:00:00.000Z|0001|a7f2"],
-        email: ["alice@example.com", "2025-10-26T10:00:00.000Z|0001|a7f2"]
+        name: "Alice",
+        email: "alice@example.com"
       },
       meta: {
-        deletedAt: null,
-        latest: "2025-10-26T10:00:00.000Z|0001|a7f2"
+        eventstamps: {
+          name: "2025-10-26T10:00:00.000Z|0001|a7f2",
+          email: "2025-10-26T10:00:00.000Z|0001|a7f2"
+        },
+        latest: "2025-10-26T10:00:00.000Z|0001|a7f2",
+        deletedAt: null
       }
     }
   ]
@@ -173,10 +177,11 @@ Each resource in the `data` array follows this structure:
 export type EncodedDocument = {
   type: string;
   id: string;
-  attributes: EncodedRecord;
+  attributes: Record<string, unknown>;
   meta: {
-    deletedAt: string | null;
+    eventstamps: Record<string, unknown>;
     latest: string;
+    deletedAt: string | null;
   };
 };
 ```
@@ -185,9 +190,10 @@ export type EncodedDocument = {
 
 - **`type`**: Resource type identifier (e.g., "users", "todos", "posts")
 - **`id`**: Unique identifier for this resource
-- **`attributes`**: The resource's data as a nested object structure with eventstamps
-- **`meta.deletedAt`**: Eventstamp when this resource was soft-deleted, or null if not deleted
+- **`attributes`**: The resource's data as a nested object structure (plain values, not wrapped)
+- **`meta.eventstamps`**: Mirrored structure containing eventstamps for each attribute field
 - **`meta.latest`**: The greatest eventstamp in this resource (including deletedAt if applicable)
+- **`meta.deletedAt`**: Eventstamp when this resource was soft-deleted, or null if not deleted
 
 ### Merging Documents
 

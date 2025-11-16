@@ -2,7 +2,8 @@ import { MIN_EVENTSTAMP } from "./eventstamp";
 import { isObject } from "./utils";
 
 /**
- * A structure that separates data from eventstamps using mirrored object shapes.
+ * Encoded record structure containing data with mirrored eventstamp metadata.
+ *
  * The eventstamps structure mirrors the data structure exactly, with eventstamp
  * strings at leaf positions corresponding to data values.
  *
@@ -12,21 +13,24 @@ import { isObject } from "./utils";
  * @example
  * ```ts
  * // For data: { user: { name: "Alice", age: 30 } }
- * // Encoded as:
- * {
- *   "~data": { user: { name: "Alice", age: 30 } },
- *   "~eventstamps": { user: { name: "2025-...|0001|a1b2", age: "2025-...|0001|a1b2" } },
- *   "~latest": "2025-...|0001|a1b2"
- * }
+ * // Returns: [data, meta]
+ * // data: { user: { name: "Alice", age: 30 } }
+ * // meta: {
+ * //   eventstamps: { user: { name: "2025-...|0001|a1b2", age: "2025-...|0001|a1b2" } },
+ * //   latest: "2025-...|0001|a1b2"
+ * // }
  * ```
  */
 export type EncodedRecord = {
 	/** The actual data structure */
-	"~data": Record<string, unknown>;
-	/** Mirrored structure containing eventstamps for each field */
-	"~eventstamps": Record<string, unknown>;
-	/** The greatest eventstamp in this record (cached for efficient merging) */
-	"~latest": string;
+	data: Record<string, unknown>;
+	/** Metadata containing eventstamps and latest timestamp */
+	meta: {
+		/** Mirrored structure containing eventstamps for each field */
+		eventstamps: Record<string, unknown>;
+		/** The greatest eventstamp in this record (cached for efficient merging) */
+		latest: string;
+	};
 };
 
 export function processRecord(
@@ -74,16 +78,18 @@ export function processRecord(
 	};
 
 	step(
-		source["~data"],
-		source["~eventstamps"],
+		source.data,
+		source.meta.eventstamps,
 		resultData,
 		resultEventstamps,
 	);
 
 	return {
-		"~data": resultData,
-		"~eventstamps": resultEventstamps,
-		"~latest": latestEventstamp,
+		data: resultData,
+		meta: {
+			eventstamps: resultEventstamps,
+			latest: latestEventstamp,
+		},
 	};
 }
 
@@ -123,9 +129,11 @@ export function encodeRecord<T extends Record<string, unknown>>(
 
 	step(obj, data, eventstamps);
 	return {
-		"~data": data,
-		"~eventstamps": eventstamps,
-		"~latest": eventstamp,
+		data,
+		meta: {
+			eventstamps,
+			latest: eventstamp,
+		},
 	};
 }
 
@@ -150,7 +158,7 @@ export function decodeRecord<T extends Record<string, unknown>>(
 		}
 	};
 
-	step(obj["~data"], result);
+	step(obj.data, result);
 	return result as T;
 }
 
@@ -233,19 +241,19 @@ export function mergeRecords(
 	};
 
 	step(
-		into["~data"],
-		into["~eventstamps"],
-		from["~data"],
-		from["~eventstamps"],
+		into.data,
+		into.meta.eventstamps,
+		from.data,
+		from.meta.eventstamps,
 		resultData,
 		resultEventstamps,
 	);
 
-	// Use the cached ~latest values from both records
+	// Use the cached latest values from both records
 	const latestEventstamp =
-		into["~latest"] > from["~latest"]
-			? into["~latest"]
-			: from["~latest"];
+		into.meta.latest > from.meta.latest
+			? into.meta.latest
+			: from.meta.latest;
 
 	// Also consider any new eventstamps from the merge
 	const finalLatest =
@@ -255,9 +263,11 @@ export function mergeRecords(
 
 	return [
 		{
-			"~data": resultData,
-			"~eventstamps": resultEventstamps,
-			"~latest": finalLatest,
+			data: resultData,
+			meta: {
+				eventstamps: resultEventstamps,
+				latest: finalLatest,
+			},
 		},
 		finalLatest,
 	];

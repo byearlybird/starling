@@ -7,8 +7,8 @@ test("encode wraps all leaf values with eventstamp using mirrored structure", ()
 	const encoded = encodeRecord(obj, eventstamp);
 
 	// Check the mirrored structure
-	expect(encoded["~data"]).toEqual({ name: "Alice", age: 30 });
-	expect(encoded["~eventstamps"]).toEqual({ name: eventstamp, age: eventstamp });
+	expect(encoded.data).toEqual({ name: "Alice", age: 30 });
+	expect(encoded.meta.eventstamps).toEqual({ name: eventstamp, age: eventstamp });
 });
 
 test("decode extracts all values from encoded object", () => {
@@ -31,13 +31,13 @@ test("encode handles nested objects recursively", () => {
 	const encoded = encodeRecord(obj, eventstamp);
 
 	// Check the mirrored structure for nested objects
-	expect(encoded["~data"]).toEqual({
+	expect(encoded.data).toEqual({
 		user: {
 			name: "Bob",
 			email: "bob@example.com",
 		},
 	});
-	expect(encoded["~eventstamps"]).toEqual({
+	expect(encoded.meta.eventstamps).toEqual({
 		user: {
 			name: eventstamp,
 			email: eventstamp,
@@ -162,7 +162,7 @@ test("processRecord applies processor to every encoded value", () => {
 	expect(seen).toEqual(expect.arrayContaining(["Alice", true, 3, "captain"]));
 
 	// Check the processed mirrored structure
-	const eventstamps = processed["~eventstamps"] as Record<string, unknown>;
+	const eventstamps = processed.meta.eventstamps as Record<string, unknown>;
 	expect(eventstamps.name).toBe(`${eventstamp}-processed`);
 	expect(eventstamps.active).toBe(`${eventstamp}-processed`);
 
@@ -185,12 +185,12 @@ test("processRecord returns a new encoded record without mutating source", () =>
 	expect(processed).not.toBe(encoded);
 
 	// Check that the structure was not mutated
-	expect(processed["~data"]).not.toBe(encoded["~data"]);
-	expect(processed["~eventstamps"]).not.toBe(encoded["~eventstamps"]);
+	expect(processed.data).not.toBe(encoded.data);
+	expect(processed.meta.eventstamps).not.toBe(encoded.meta.eventstamps);
 
 	// Check the processed values
-	const processedData = processed["~data"] as Record<string, Record<string, unknown>>;
-	const processedStamps = processed["~eventstamps"] as Record<string, Record<string, string>>;
+	const processedData = processed.data as Record<string, Record<string, unknown>>;
+	const processedStamps = processed.meta.eventstamps as Record<string, Record<string, string>>;
 
 	expect(processedData.user.name).toBe("Eve");
 	expect(processedStamps.user.name).toBe("processed-stamp");
