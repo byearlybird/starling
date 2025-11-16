@@ -2,12 +2,20 @@
 /**
  * Starling Benchmarks
  *
- * Comprehensive benchmark suite for Starling's CRDT operations and Store API.
+ * Benchmark suite testing performance across different document sizes.
+ * Modeled after database benchmarks that test operations on small, medium, and large rows.
+ *
  * Run with: bun run bench
  *
- * Sections:
- * - CRDT Document Operations: encode/decode/merge primitives
- * - Store Operations: add/update/delete/get/merge at scale
+ * Document Sizes:
+ * - Small:  ~100 bytes  (minimal user profile)
+ * - Medium: ~1KB        (user with metadata and preferences)
+ * - Large:  ~10KB       (user with extensive history and rich content)
+ *
+ * Operations tested at each size:
+ * - CRDT primitives: encode, decode, merge
+ * - Store CRUD: add, get, update, delete
+ * - Store bulk operations: batch add, batch merge, iteration
  */
 
 import { bench, group, run, summary } from "mitata";
@@ -21,46 +29,250 @@ import {
 } from "./src/crdt";
 
 // ============================================================================
-// TEST DATA HELPERS
+// DOCUMENT SIZE GENERATORS
 // ============================================================================
 
-type TestData = {
-	userId: string;
+/** Small document: ~100 bytes (minimal user profile) */
+type SmallDoc = {
+	id: string;
+	name: string;
+	email: string;
+	status: "active" | "inactive";
+};
+
+function generateSmallDoc(index: number): SmallDoc {
+	return {
+		id: `user-${index}`,
+		name: `User ${index}`,
+		email: `user${index}@example.com`,
+		status: index % 2 === 0 ? "active" : "inactive",
+	};
+}
+
+/** Medium document: ~1KB (user with metadata and preferences) */
+type MediumDoc = {
+	id: string;
 	username: string;
 	email: string;
-	status: string;
+	profile: {
+		firstName: string;
+		lastName: string;
+		bio: string;
+		avatar: string;
+	};
+	preferences: {
+		theme: "light" | "dark";
+		language: string;
+		notifications: {
+			email: boolean;
+			push: boolean;
+			sms: boolean;
+		};
+		privacy: {
+			profileVisible: boolean;
+			showEmail: boolean;
+			showActivity: boolean;
+		};
+	};
 	metadata: {
 		createdAt: string;
+		updatedAt: string;
+		lastLogin: string;
+		loginCount: number;
 		tags: string[];
-		settings: {
-			theme: string;
-			notifications: {
-				email: boolean;
-				sms: boolean;
-			};
-		};
 	};
 };
 
-function generateTestData(index: number): TestData {
+function generateMediumDoc(index: number): MediumDoc {
 	return {
-		userId: `user-${index}`,
+		id: `user-${index}`,
 		username: `user_${index}`,
 		email: `user${index}@example.com`,
-		status: index % 2 === 0 ? "active" : "inactive",
+		profile: {
+			firstName: `First${index}`,
+			lastName: `Last${index}`,
+			bio: `This is a biographical description for user ${index}. They are interested in technology, science, and various other topics.`,
+			avatar: `https://example.com/avatars/${index}.jpg`,
+		},
+		preferences: {
+			theme: index % 2 === 0 ? "light" : "dark",
+			language: "en-US",
+			notifications: {
+				email: index % 2 === 0,
+				push: index % 3 === 0,
+				sms: false,
+			},
+			privacy: {
+				profileVisible: true,
+				showEmail: false,
+				showActivity: index % 2 === 0,
+			},
+		},
 		metadata: {
 			createdAt: "2025-01-01T00:00:00.000Z",
-			tags: ["tag1", "tag2", "tag3"],
-			settings: {
-				theme: index % 3 === 0 ? "dark" : "light",
-				notifications: {
-					email: index % 2 === 0,
-					sms: index % 3 === 0,
+			updatedAt: "2025-01-15T00:00:00.000Z",
+			lastLogin: "2025-01-16T00:00:00.000Z",
+			loginCount: index * 10,
+			tags: ["user", "active", "verified", `tier-${index % 3}`],
+		},
+	};
+}
+
+/** Large document: ~10KB (user with extensive history and rich content) */
+type LargeDoc = {
+	id: string;
+	username: string;
+	email: string;
+	profile: {
+		firstName: string;
+		lastName: string;
+		bio: string;
+		avatar: string;
+		socialLinks: Record<string, string>;
+		location: {
+			city: string;
+			country: string;
+			timezone: string;
+		};
+	};
+	preferences: {
+		theme: "light" | "dark";
+		language: string;
+		notifications: Record<string, boolean>;
+		privacy: Record<string, boolean>;
+		accessibility: Record<string, unknown>;
+	};
+	activity: {
+		loginHistory: Array<{ timestamp: string; ip: string; userAgent: string }>;
+		recentActions: Array<{
+			type: string;
+			timestamp: string;
+			metadata: Record<string, unknown>;
+		}>;
+	};
+	content: {
+		posts: Array<{ id: string; title: string; content: string; tags: string[] }>;
+		comments: Array<{
+			id: string;
+			postId: string;
+			content: string;
+			timestamp: string;
+		}>;
+	};
+	metadata: {
+		createdAt: string;
+		updatedAt: string;
+		lastLogin: string;
+		loginCount: number;
+		tags: string[];
+		customFields: Record<string, unknown>;
+	};
+};
+
+function generateLargeDoc(index: number): LargeDoc {
+	return {
+		id: `user-${index}`,
+		username: `user_${index}`,
+		email: `user${index}@example.com`,
+		profile: {
+			firstName: `First${index}`,
+			lastName: `Last${index}`,
+			bio: `This is an extensive biographical description for user ${index}. They have a rich history on the platform and are very active in the community. Their interests span across multiple domains including technology, science, art, music, and literature. They frequently contribute valuable insights and have built a strong reputation over time.`.repeat(
+				2,
+			),
+			avatar: `https://example.com/avatars/${index}.jpg`,
+			socialLinks: {
+				twitter: `https://twitter.com/user${index}`,
+				linkedin: `https://linkedin.com/in/user${index}`,
+				github: `https://github.com/user${index}`,
+				website: `https://user${index}.com`,
+			},
+			location: {
+				city: "San Francisco",
+				country: "USA",
+				timezone: "America/Los_Angeles",
+			},
+		},
+		preferences: {
+			theme: index % 2 === 0 ? "light" : "dark",
+			language: "en-US",
+			notifications: {
+				email: true,
+				push: true,
+				sms: false,
+				desktop: true,
+				mentions: true,
+				followers: true,
+				messages: true,
+			},
+			privacy: {
+				profileVisible: true,
+				showEmail: false,
+				showActivity: true,
+				showFollowers: true,
+				allowMessages: true,
+				allowComments: true,
+			},
+			accessibility: {
+				highContrast: false,
+				reducedMotion: false,
+				screenReader: false,
+				fontSize: 16,
+			},
+		},
+		activity: {
+			loginHistory: Array.from({ length: 10 }, (_, i) => ({
+				timestamp: `2025-01-${String(i + 1).padStart(2, "0")}T12:00:00.000Z`,
+				ip: `192.168.1.${i}`,
+				userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
+			})),
+			recentActions: Array.from({ length: 20 }, (_, i) => ({
+				type: ["post", "comment", "like", "share"][i % 4] as string,
+				timestamp: `2025-01-15T${String(i).padStart(2, "0")}:00:00.000Z`,
+				metadata: {
+					targetId: `item-${i}`,
+					count: i,
 				},
+			})),
+		},
+		content: {
+			posts: Array.from({ length: 5 }, (_, i) => ({
+				id: `post-${i}`,
+				title: `Post ${i} - An interesting discussion about technology and innovation`,
+				content: `This is the full content of post ${i}. It contains detailed information and insights. `.repeat(
+					10,
+				),
+				tags: ["tech", "innovation", "discussion", `topic-${i}`],
+			})),
+			comments: Array.from({ length: 15 }, (_, i) => ({
+				id: `comment-${i}`,
+				postId: `post-${i % 5}`,
+				content: `This is a thoughtful comment on the post. It adds valuable perspective. `.repeat(
+					3,
+				),
+				timestamp: `2025-01-15T${String(i).padStart(2, "0")}:30:00.000Z`,
+			})),
+		},
+		metadata: {
+			createdAt: "2025-01-01T00:00:00.000Z",
+			updatedAt: "2025-01-15T00:00:00.000Z",
+			lastLogin: "2025-01-16T00:00:00.000Z",
+			loginCount: index * 100,
+			tags: Array.from({ length: 10 }, (_, i) => `tag-${i}`),
+			customFields: {
+				field1: "value1",
+				field2: 42,
+				field3: true,
+				field4: ["array", "of", "values"],
+				field5: { nested: "object" },
 			},
 		},
 	};
 }
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 function generateEventstamp(counter: number): string {
 	const isoString = "2025-01-01T00:00:00.000Z";
@@ -68,284 +280,220 @@ function generateEventstamp(counter: number): string {
 	return `${isoString}|${counter.toString(16).padStart(4, "0")}|${nonce}`;
 }
 
-function createEncodedDocuments(count: number): EncodedDocument[] {
-	const docs: EncodedDocument[] = [];
-	for (let i = 0; i < count; i++) {
-		const doc = encodeDoc(
-			`doc-${i}`,
-			generateTestData(i),
-			generateEventstamp(i),
-		);
-		docs.push(doc);
-	}
-	return docs;
-}
-
-function createPairedDocuments(
-	count: number,
-): [EncodedDocument[], EncodedDocument[]] {
-	const docs1: EncodedDocument[] = [];
-	const docs2: EncodedDocument[] = [];
-	for (let i = 0; i < count; i++) {
-		docs1.push(
-			encodeDoc(`doc-${i}`, generateTestData(i), generateEventstamp(i)),
-		);
-		docs2.push(
-			encodeDoc(
-				`doc-${i}`,
-				generateTestData(i + count),
-				generateEventstamp(i + count),
-			),
-		);
-	}
-	return [docs1, docs2];
-}
-
 // ============================================================================
-// CRDT DOCUMENT OPERATIONS
+// CRDT OPERATIONS: SMALL DOCUMENTS (~100 bytes)
 // ============================================================================
 
 summary(() => {
-	group("CRDT: encodeDoc/decodeDoc - 100 items", () => {
-		const items = Array.from({ length: 100 }, (_, i) => ({
-			id: `doc-${i}`,
-			data: generateTestData(i),
-			eventstamp: generateEventstamp(i),
-		}));
-		const encodedDocs = createEncodedDocuments(100);
+	group("CRDT: Small documents (~100 bytes)", () => {
+		const doc = generateSmallDoc(0);
+		const eventstamp = generateEventstamp(0);
+		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const doc2 = generateSmallDoc(1);
+		const eventstamp2 = generateEventstamp(1);
+		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
 
-		bench("encodeDoc x100", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				encodeDoc(id, data, eventstamp);
-			});
+		bench("encode", () => {
+			encodeDoc("doc-0", doc, eventstamp);
 		});
 
-		bench("decodeDoc x100", () => {
-			encodedDocs.forEach((doc) => {
-				decodeDoc(doc);
-			});
+		bench("decode", () => {
+			decodeDoc(encoded);
 		});
 
-		bench("round-trip (encode + decode) x100", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				const encoded = encodeDoc(id, data, eventstamp);
-				decodeDoc(encoded);
-			});
-		});
-	});
-
-	group("CRDT: encodeDoc/decodeDoc - 5,000 items", () => {
-		const items = Array.from({ length: 5000 }, (_, i) => ({
-			id: `doc-${i}`,
-			data: generateTestData(i),
-			eventstamp: generateEventstamp(i),
-		}));
-		const encodedDocs = createEncodedDocuments(5000);
-
-		bench("encodeDoc x5000", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				encodeDoc(id, data, eventstamp);
-			});
-		});
-
-		bench("decodeDoc x5000", () => {
-			encodedDocs.forEach((doc) => {
-				decodeDoc(doc);
-			});
-		});
-
-		bench("round-trip (encode + decode) x5000", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				const encoded = encodeDoc(id, data, eventstamp);
-				decodeDoc(encoded);
-			});
-		});
-	});
-
-	group("CRDT: encodeDoc/decodeDoc - 100,000 items", () => {
-		const items = Array.from({ length: 100000 }, (_, i) => ({
-			id: `doc-${i}`,
-			data: generateTestData(i),
-			eventstamp: generateEventstamp(i),
-		}));
-		const encodedDocs = createEncodedDocuments(100000);
-
-		bench("encodeDoc x100000", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				encodeDoc(id, data, eventstamp);
-			});
-		});
-
-		bench("decodeDoc x100000", () => {
-			encodedDocs.forEach((doc) => {
-				decodeDoc(doc);
-			});
-		});
-
-		bench("round-trip (encode + decode) x100000", () => {
-			items.forEach(({ id, data, eventstamp }) => {
-				const encoded = encodeDoc(id, data, eventstamp);
-				decodeDoc(encoded);
-			});
-		});
-	});
-});
-
-summary(() => {
-	group("CRDT: mergeDocs - 100 items", () => {
-		const [encodedDocs1, encodedDocs2] = createPairedDocuments(100);
-
-		bench("mergeDocs x100", () => {
-			let result = encodedDocs1[0];
-			if (!result) return;
-			for (let i = 1; i < 100; i++) {
-				const doc2 = encodedDocs2[i];
-				if (!doc2) continue;
-				const [merged] = mergeDocs(result, doc2);
-				result = merged;
-			}
-		});
-	});
-
-	group("CRDT: mergeDocs - 5,000 items", () => {
-		const [encodedDocs1, encodedDocs2] = createPairedDocuments(5000);
-
-		bench("mergeDocs x5000", () => {
-			let result = encodedDocs1[0];
-			if (!result) return;
-			for (let i = 1; i < 5000; i++) {
-				const doc2 = encodedDocs2[i];
-				if (!doc2) continue;
-				const [merged] = mergeDocs(result, doc2);
-				result = merged;
-			}
-		});
-	});
-
-	group("CRDT: mergeDocs - 100,000 items", () => {
-		const [encodedDocs1, encodedDocs2] = createPairedDocuments(100000);
-
-		bench("mergeDocs x100000", () => {
-			let result = encodedDocs1[0];
-			if (!result) return;
-			for (let i = 1; i < 100000; i++) {
-				const doc2 = encodedDocs2[i];
-				if (!doc2) continue;
-				const [merged] = mergeDocs(result, doc2);
-				result = merged;
-			}
+		bench("merge", () => {
+			mergeDocs(encoded, encoded2);
 		});
 	});
 });
 
 // ============================================================================
-// STORE OPERATIONS: ADD
+// CRDT OPERATIONS: MEDIUM DOCUMENTS (~1KB)
 // ============================================================================
 
 summary(() => {
-	group("Store: ADD operations", () => {
-		bench("sequential add x1000", () => {
-			const testData = Array.from({ length: 1000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const addStore = new Store<TestData>();
-			return () => {
-				testData.forEach((data, i) => {
-					addStore.add(data, { withId: `item-${i}` });
+	group("CRDT: Medium documents (~1KB)", () => {
+		const doc = generateMediumDoc(0);
+		const eventstamp = generateEventstamp(0);
+		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const doc2 = generateMediumDoc(1);
+		const eventstamp2 = generateEventstamp(1);
+		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+
+		bench("encode", () => {
+			encodeDoc("doc-0", doc, eventstamp);
+		});
+
+		bench("decode", () => {
+			decodeDoc(encoded);
+		});
+
+		bench("merge", () => {
+			mergeDocs(encoded, encoded2);
+		});
+	});
+});
+
+// ============================================================================
+// CRDT OPERATIONS: LARGE DOCUMENTS (~10KB)
+// ============================================================================
+
+summary(() => {
+	group("CRDT: Large documents (~10KB)", () => {
+		const doc = generateLargeDoc(0);
+		const eventstamp = generateEventstamp(0);
+		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const doc2 = generateLargeDoc(1);
+		const eventstamp2 = generateEventstamp(1);
+		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+
+		bench("encode", () => {
+			encodeDoc("doc-0", doc, eventstamp);
+		});
+
+		bench("decode", () => {
+			decodeDoc(encoded);
+		});
+
+		bench("merge", () => {
+			mergeDocs(encoded, encoded2);
+		});
+	});
+});
+
+// ============================================================================
+// STORE OPERATIONS: SMALL DOCUMENTS (~100 bytes)
+// ============================================================================
+
+summary(() => {
+	group("Store: Small documents (~100 bytes)", () => {
+		const doc = generateSmallDoc(0);
+
+		bench("add", () => {
+			const store = new Store<SmallDoc>();
+			store.add(doc, { withId: "doc-0" });
+		});
+
+		const storeWithDoc = new Store<SmallDoc>();
+		storeWithDoc.add(doc, { withId: "doc-0" });
+
+		bench("get", () => {
+			storeWithDoc.get("doc-0");
+		});
+
+		bench("update", () => {
+			storeWithDoc.update("doc-0", { status: "active" });
+		});
+
+		bench("delete", () => {
+			const store = new Store<SmallDoc>();
+			store.add(doc, { withId: "doc-0" });
+			store.del("doc-0");
+		});
+	});
+});
+
+// ============================================================================
+// STORE OPERATIONS: MEDIUM DOCUMENTS (~1KB)
+// ============================================================================
+
+summary(() => {
+	group("Store: Medium documents (~1KB)", () => {
+		const doc = generateMediumDoc(0);
+
+		bench("add", () => {
+			const store = new Store<MediumDoc>();
+			store.add(doc, { withId: "doc-0" });
+		});
+
+		const storeWithDoc = new Store<MediumDoc>();
+		storeWithDoc.add(doc, { withId: "doc-0" });
+
+		bench("get", () => {
+			storeWithDoc.get("doc-0");
+		});
+
+		bench("update", () => {
+			storeWithDoc.update("doc-0", { username: "updated_user" });
+		});
+
+		bench("delete", () => {
+			const store = new Store<MediumDoc>();
+			store.add(doc, { withId: "doc-0" });
+			store.del("doc-0");
+		});
+	});
+});
+
+// ============================================================================
+// STORE OPERATIONS: LARGE DOCUMENTS (~10KB)
+// ============================================================================
+
+summary(() => {
+	group("Store: Large documents (~10KB)", () => {
+		const doc = generateLargeDoc(0);
+
+		bench("add", () => {
+			const store = new Store<LargeDoc>();
+			store.add(doc, { withId: "doc-0" });
+		});
+
+		const storeWithDoc = new Store<LargeDoc>();
+		storeWithDoc.add(doc, { withId: "doc-0" });
+
+		bench("get", () => {
+			storeWithDoc.get("doc-0");
+		});
+
+		bench("update", () => {
+			storeWithDoc.update("doc-0", { username: "updated_user" });
+		});
+
+		bench("delete", () => {
+			const store = new Store<LargeDoc>();
+			store.add(doc, { withId: "doc-0" });
+			store.del("doc-0");
+		});
+	});
+});
+
+// ============================================================================
+// BULK OPERATIONS: BATCH ADD (1000 documents)
+// ============================================================================
+
+summary(() => {
+	group("Bulk: Batch add 1000 documents", () => {
+		const smallDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateSmallDoc(i),
+		);
+		const mediumDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateMediumDoc(i),
+		);
+		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+
+		bench("small (~100 bytes each)", () => {
+			const store = new Store<SmallDoc>();
+			store.begin((tx) => {
+				smallDocs.forEach((doc, i) => {
+					tx.add(doc, { withId: `doc-${i}` });
 				});
-			};
+			});
 		});
 
-		bench("batch add x25000", () => {
-			const testData = Array.from({ length: 25000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const txStore = new Store<TestData>();
-			txStore.begin((tx) => {
-				testData.forEach((data, i) => {
-					tx.add(data, { withId: `item-${i}` });
+		bench("medium (~1KB each)", () => {
+			const store = new Store<MediumDoc>();
+			store.begin((tx) => {
+				mediumDocs.forEach((doc, i) => {
+					tx.add(doc, { withId: `doc-${i}` });
 				});
 			});
 		});
-	});
-});
 
-// ============================================================================
-// STORE OPERATIONS: GET
-// ============================================================================
-
-summary(() => {
-	group("Store: GET operations", () => {
-		const testData100 = Array.from({ length: 100 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store100 = new Store<TestData>();
-		store100.begin((tx) => {
-			testData100.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
-			});
-		});
-
-		bench("get x100", () => {
-			for (let i = 0; i < 100; i++) {
-				store100.get(`item-${i}`);
-			}
-		});
-
-		const testData5000 = Array.from({ length: 5000 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store5000 = new Store<TestData>();
-		store5000.begin((tx) => {
-			testData5000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
-			});
-		});
-
-		bench("get x5000", () => {
-			for (let i = 0; i < 5000; i++) {
-				store5000.get(`item-${i}`);
-			}
-		});
-	});
-});
-
-// ============================================================================
-// STORE OPERATIONS: UPDATE
-// ============================================================================
-
-summary(() => {
-	group("Store: UPDATE operations", () => {
-		const testData1000 = Array.from({ length: 1000 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store1000 = new Store<TestData>();
-		store1000.begin((tx) => {
-			testData1000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
-			});
-		});
-
-		bench("sequential update x1000", () => {
-			testData1000.forEach((_, i) => {
-				store1000.update(`item-${i}`, { status: "updated" });
-			});
-		});
-
-		const testData25000 = Array.from({ length: 25000 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store25000 = new Store<TestData>();
-		store25000.begin((tx) => {
-			testData25000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
-			});
-		});
-
-		bench("batch update x25000", () => {
-			store25000.begin((tx) => {
-				testData25000.forEach((_, i) => {
-					tx.update(`item-${i}`, { status: "refreshed" });
+		bench("large (~10KB each)", () => {
+			const store = new Store<LargeDoc>();
+			store.begin((tx) => {
+				largeDocs.forEach((doc, i) => {
+					tx.add(doc, { withId: `doc-${i}` });
 				});
 			});
 		});
@@ -353,209 +501,160 @@ summary(() => {
 });
 
 // ============================================================================
-// STORE OPERATIONS: DELETE
+// BULK OPERATIONS: ITERATION (1000 documents)
 // ============================================================================
 
 summary(() => {
-	group("Store: DELETE operations", () => {
-		bench("sequential del x1000", () => {
-			const testData = Array.from({ length: 1000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const store = new Store<TestData>();
-			store.begin((tx) => {
-				testData.forEach((data, i) => {
-					tx.add(data, { withId: `item-${i}` });
-				});
-			});
-			testData.forEach((_, i) => {
-				store.del(`item-${i}`);
+	group("Bulk: Iterate 1000 documents", () => {
+		const smallStore = new Store<SmallDoc>();
+		const smallDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateSmallDoc(i),
+		);
+		smallStore.begin((tx) => {
+			smallDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
 
-		bench("batch del x25000", () => {
-			const testData = Array.from({ length: 25000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const store = new Store<TestData>();
-			store.begin((tx) => {
-				testData.forEach((data, i) => {
-					tx.add(data, { withId: `item-${i}` });
-				});
+		const mediumStore = new Store<MediumDoc>();
+		const mediumDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateMediumDoc(i),
+		);
+		mediumStore.begin((tx) => {
+			mediumDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
-			store.begin((tx) => {
-				testData.forEach((_, i) => {
-					tx.del(`item-${i}`);
-				});
+		});
+
+		const largeStore = new Store<LargeDoc>();
+		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		largeStore.begin((tx) => {
+			largeDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
+		});
+
+		bench("small (~100 bytes each)", () => {
+			let count = 0;
+			for (const [,] of smallStore.entries()) {
+				count++;
+			}
+		});
+
+		bench("medium (~1KB each)", () => {
+			let count = 0;
+			for (const [,] of mediumStore.entries()) {
+				count++;
+			}
+		});
+
+		bench("large (~10KB each)", () => {
+			let count = 0;
+			for (const [,] of largeStore.entries()) {
+				count++;
+			}
 		});
 	});
 });
 
 // ============================================================================
-// STORE OPERATIONS: ITERATION & SNAPSHOT
+// BULK OPERATIONS: SNAPSHOT (1000 documents)
 // ============================================================================
 
 summary(() => {
-	group("Store: ITERATION operations", () => {
-		const testData1000 = Array.from({ length: 1000 }, (_, i) =>
-			generateTestData(i),
+	group("Bulk: Snapshot 1000 documents", () => {
+		const smallStore = new Store<SmallDoc>();
+		const smallDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateSmallDoc(i),
 		);
-		const store1000 = new Store<TestData>();
-		store1000.begin((tx) => {
-			testData1000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
+		smallStore.begin((tx) => {
+			smallDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
 
-		bench("entries() x1000", () => {
-			let _count = 0;
-			for (const [,] of store1000.entries()) {
-				_count++;
-			}
-		});
-
-		const testData25000 = Array.from({ length: 25000 }, (_, i) =>
-			generateTestData(i),
+		const mediumStore = new Store<MediumDoc>();
+		const mediumDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateMediumDoc(i),
 		);
-		const store25000 = new Store<TestData>();
-		store25000.begin((tx) => {
-			testData25000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
+		mediumStore.begin((tx) => {
+			mediumDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
 
-		bench("entries() x25000", () => {
-			let _count = 0;
-			for (const [,] of store25000.entries()) {
-				_count++;
-			}
-		});
-	});
-
-	group("Store: SNAPSHOT operations", () => {
-		const testData1000 = Array.from({ length: 1000 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store1000 = new Store<TestData>();
-		store1000.begin((tx) => {
-			testData1000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
+		const largeStore = new Store<LargeDoc>();
+		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		largeStore.begin((tx) => {
+			largeDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
 
-		bench("collection() x1000", () => {
-			store1000.collection();
+		bench("small (~100 bytes each)", () => {
+			smallStore.collection();
 		});
 
-		const testData25000 = Array.from({ length: 25000 }, (_, i) =>
-			generateTestData(i),
-		);
-		const store25000 = new Store<TestData>();
-		store25000.begin((tx) => {
-			testData25000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
-			});
+		bench("medium (~1KB each)", () => {
+			mediumStore.collection();
 		});
 
-		bench("collection() x25000", () => {
-			store25000.collection();
+		bench("large (~10KB each)", () => {
+			largeStore.collection();
 		});
 	});
 });
 
 // ============================================================================
-// STORE OPERATIONS: MERGE
+// BULK OPERATIONS: MERGE (1000 documents)
 // ============================================================================
 
 summary(() => {
-	group("Store: MERGE operations", () => {
-		const testData1000 = Array.from({ length: 1000 }, (_, i) =>
-			generateTestData(i),
+	group("Bulk: Merge 1000 documents", () => {
+		const smallStore = new Store<SmallDoc>();
+		const smallDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateSmallDoc(i),
 		);
-		const store1000 = new Store<TestData>();
-		store1000.begin((tx) => {
-			testData1000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
+		smallStore.begin((tx) => {
+			smallDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
-		const collection1000 = store1000.collection();
+		const smallCollection = smallStore.collection();
 
-		bench("merge x1000", () => {
-			const mergeStore = new Store<TestData>();
-			mergeStore.merge(collection1000);
-		});
-
-		const testData25000 = Array.from({ length: 25000 }, (_, i) =>
-			generateTestData(i),
+		const mediumStore = new Store<MediumDoc>();
+		const mediumDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateMediumDoc(i),
 		);
-		const store25000 = new Store<TestData>();
-		store25000.begin((tx) => {
-			testData25000.forEach((data, i) => {
-				tx.add(data, { withId: `item-${i}` });
+		mediumStore.begin((tx) => {
+			mediumDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
-		const collection25000 = store25000.collection();
+		const mediumCollection = mediumStore.collection();
 
-		bench("merge x25000", () => {
-			const mergeStore = new Store<TestData>();
-			mergeStore.merge(collection25000);
-		});
-	});
-});
-
-// ============================================================================
-// STORE OPERATIONS: COMPLEX WORKFLOWS
-// ============================================================================
-
-summary(() => {
-	group("Store: COMPLEX workflows", () => {
-		bench("add 5000 then delete 5000", () => {
-			const testData = Array.from({ length: 5000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const store = new Store<TestData>();
-
-			store.begin((tx) => {
-				testData.forEach((data, i) => {
-					tx.add(data, { withId: `item-${i}` });
-				});
-			});
-
-			store.begin((tx) => {
-				testData.forEach((_, i) => {
-					tx.del(`item-${i}`);
-				});
+		const largeStore = new Store<LargeDoc>();
+		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		largeStore.begin((tx) => {
+			largeDocs.forEach((doc, i) => {
+				tx.add(doc, { withId: `doc-${i}` });
 			});
 		});
+		const largeCollection = largeStore.collection();
 
-		bench("mixed ops x1000", () => {
-			const testData = Array.from({ length: 1000 }, (_, i) =>
-				generateTestData(i),
-			);
-			const store = new Store<TestData>();
+		bench("small (~100 bytes each)", () => {
+			const store = new Store<SmallDoc>();
+			store.merge(smallCollection);
+		});
 
-			store.begin((tx) => {
-				testData.forEach((data, i) => {
-					tx.add(data, { withId: `item-${i}` });
-				});
-			});
+		bench("medium (~1KB each)", () => {
+			const store = new Store<MediumDoc>();
+			store.merge(mediumCollection);
+		});
 
-			for (let i = 0; i < 500; i++) {
-				store.get(`item-${i}`);
-			}
-
-			store.begin((tx) => {
-				for (let i = 0; i < 500; i++) {
-					tx.update(`item-${i}`, { status: "updated" });
-				}
-			});
-
-			store.begin((tx) => {
-				for (let i = 500; i < 1000; i++) {
-					tx.del(`item-${i}`);
-				}
-			});
+		bench("large (~10KB each)", () => {
+			const store = new Store<LargeDoc>();
+			store.merge(largeCollection);
 		});
 	});
 });
