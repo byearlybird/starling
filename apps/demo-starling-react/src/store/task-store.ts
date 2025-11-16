@@ -57,19 +57,19 @@ const remoteStorage = unstoragePlugin<Task>(
 		pollIntervalMs: 1000, // set to 1 second for demo purposes
 		onBeforeSet: (data) => ({
 			...data,
-			"~docs": data["~docs"].map((doc) =>
-				processDocument(doc, (value) => ({
-					...value,
-					"~value": pseudoEncrypt(value["~value"]),
+			data: data.data.map((doc) =>
+				processDocument(doc, (value, eventstamp) => ({
+					value: pseudoEncrypt(value),
+					eventstamp,
 				})),
 			),
 		}),
 		onAfterGet: (data) => ({
 			...data,
-			"~docs": data["~docs"].map((doc) =>
-				processDocument(doc, (value) => ({
-					...value,
-					"~value": pseudoDecrypt(value["~value"]),
+			data: data.data.map((doc) =>
+				processDocument(doc, (value, eventstamp) => ({
+					value: pseudoDecrypt(value),
+					eventstamp,
 				})),
 			),
 		}),
