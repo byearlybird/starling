@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { Document } from "./document";
 import { CRDT } from "./crdt";
-import { decodeResource, encodeResource } from "./resource";
+import type { Document } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
+import { decodeResource, encodeResource } from "./resource";
 
 describe("CRDT", () => {
 	describe("constructor", () => {
@@ -44,8 +44,8 @@ describe("CRDT", () => {
 			const crdt = new CRDT<{ name: string }>(map, "items");
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-			expect(crdt.get("id2")).toEqual({ name: "Bob" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
+			expect(crdt.get("id2")?.attributes).toEqual({ name: "Bob" });
 		});
 	});
 
@@ -85,7 +85,7 @@ describe("CRDT", () => {
 				"items",
 			);
 
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
 
 		test("returns undefined for non-existing id", () => {
@@ -102,7 +102,7 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice" });
 
 			expect(crdt.has("id1")).toBe(true);
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
 
 		test("overwrites existing document with same id", () => {
@@ -111,7 +111,7 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice" });
 			crdt.add("id1", { name: "Bob" });
 
-			expect(crdt.get("id1")).toEqual({ name: "Bob" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Bob" });
 		});
 	});
 
@@ -122,7 +122,7 @@ describe("CRDT", () => {
 			crdt.add("id1", { name: "Alice", age: 30 });
 			crdt.update("id1", { age: 31 });
 
-			const merged = crdt.get("id1");
+			const merged = crdt.get("id1")?.attributes;
 			expect(merged).toBeDefined();
 			// Name should be preserved from original, age should be updated
 			expect(merged?.name).toBe("Alice");
@@ -135,7 +135,7 @@ describe("CRDT", () => {
 			crdt.update("id1", { name: "Alice" });
 
 			expect(crdt.has("id1")).toBe(true);
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
 
 		test("last-write-wins for concurrent updates", () => {
@@ -145,7 +145,7 @@ describe("CRDT", () => {
 			crdt.update("id1", { name: "Bob" });
 			crdt.update("id1", { name: "Charlie" });
 
-			const merged = crdt.get("id1");
+			const merged = crdt.get("id1")?.attributes;
 			expect(merged?.name).toBe("Charlie");
 		});
 	});
@@ -158,7 +158,7 @@ describe("CRDT", () => {
 			crdt.delete("id1");
 
 			// get() returns undefined for deleted documents
-			const deleted = crdt.get("id1");
+			const deleted = crdt.get("id1")?.attributes;
 			expect(deleted).toBeUndefined();
 			// has() returns false by default, but true if includeDeleted is true
 			expect(crdt.has("id1")).toBe(false);
@@ -334,7 +334,10 @@ describe("CRDT", () => {
 			);
 
 			expect(restored.has("id1")).toBe(true);
-			expect(restored.get("id1")).toEqual({ name: "Alice", age: 30 });
+			expect(restored.get("id1")?.attributes).toEqual({
+				name: "Alice",
+				age: 30,
+			});
 		});
 	});
 
@@ -363,7 +366,7 @@ describe("CRDT", () => {
 			}
 
 			// Age should be 31 (most recent update)
-			const merged = replica2.get("id1");
+			const merged = replica2.get("id1")?.attributes;
 			expect(merged?.age).toBe(31);
 		});
 
@@ -377,7 +380,7 @@ describe("CRDT", () => {
 			crdt.update("id1", { name: "Alice" });
 			crdt.update("id1", { age: 30 });
 
-			const doc = crdt.get("id1");
+			const doc = crdt.get("id1")?.attributes;
 			// Both fields should be present
 			expect(doc?.name).toBe("Alice");
 			expect(doc?.age).toBe(30);
@@ -437,8 +440,8 @@ describe("CRDT", () => {
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
-			expect(crdt.get("id2")).toEqual({ name: "Bob" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
+			expect(crdt.get("id2")?.attributes).toEqual({ name: "Bob" });
 		});
 
 		test("applies field-level last-write-wins during merge", () => {
@@ -466,7 +469,7 @@ describe("CRDT", () => {
 
 			crdt.merge(remoteCollection);
 
-			const merged = crdt.get("id1");
+			const merged = crdt.get("id1")?.attributes;
 			expect(merged?.name).toBe("Alice"); // Local value preserved
 			expect(merged?.age).toBe(31); // Remote value wins (later eventstamp)
 		});
@@ -548,8 +551,8 @@ describe("CRDT", () => {
 
 			// Results should be identical
 			expect(collection2.data.length).toBe(collection3.data.length);
-			expect(crdt.get("id1")).toEqual({ name: "Alice", age: 30 });
-			expect(crdt.get("id2")).toEqual({ name: "Bob", age: 25 });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice", age: 30 });
+			expect(crdt.get("id2")?.attributes).toEqual({ name: "Bob", age: 25 });
 		});
 
 		test("merge preserves local data when remote is older", () => {
@@ -574,7 +577,7 @@ describe("CRDT", () => {
 			crdt.merge(remoteCollection);
 
 			// Local value should be preserved (newer eventstamp)
-			expect(crdt.get("id1")).toEqual({ name: "Alice" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
 
 		test("merge combines documents from multiple replicas", () => {
@@ -603,7 +606,7 @@ describe("CRDT", () => {
 			expect(replica1.has("todo3")).toBe(true);
 
 			// And todo1 should reflect the completion status
-			expect(replica1.get("todo1")?.completed).toBe(true);
+			expect(replica1.get("todo1")?.attributes?.completed).toBe(true);
 		});
 	});
 });

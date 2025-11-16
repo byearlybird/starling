@@ -2,12 +2,7 @@ import { Clock } from "../clock";
 import type { Document } from "./document";
 import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
-import {
-	decodeResource,
-	deleteResource,
-	encodeResource,
-	mergeResources,
-} from "./resource";
+import { deleteResource, encodeResource, mergeResources } from "./resource";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -58,24 +53,23 @@ export class CRDT<T extends Record<string, unknown>> {
 
 	/**
 	 * Get a resource by ID.
-	 * @returns The decoded plain object, or undefined if not found or deleted
+	 * @returns The raw resource with metadata, or undefined if not found or deleted
 	 */
-	get(id: string): T | undefined {
+	get(id: string): ResourceObject<T> | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw.meta.deletedAt ? undefined : (decodeResource(raw).data as T);
+		return raw.meta.deletedAt ? undefined : raw;
 	}
 
 	/**
 	 * Iterate over all non-deleted resources as [id, resource] tuples.
 	 */
-	entries(): IterableIterator<readonly [string, T]> {
+	entries(): IterableIterator<readonly [string, ResourceObject<T>]> {
 		const self = this;
 		function* iterator() {
 			for (const [key, doc] of self.#map.entries()) {
 				if (!doc.meta.deletedAt) {
-					const decoded = decodeResource<T>(doc).data;
-					yield [key, decoded] as const;
+					yield [key, doc] as const;
 				}
 			}
 		}
@@ -99,7 +93,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeResource(this.#type, id, object, this.#clock.now());
+		const encoded = encodeResource(this.#type, id, object as T, this.#clock.now());
 		const current = this.#map.get(id);
 		if (current) {
 			const [merged] = mergeResources(current, encoded);
@@ -143,7 +137,9 @@ export class CRDT<T extends Record<string, unknown>> {
 		const result = mergeDocuments(currentCollection, collection);
 
 		this.#clock.forward(result.document.meta.eventstamp);
-		this.#map = new Map(result.document.data.map((doc) => [doc.id, doc]));
+		this.#map = new Map(
+			result.document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
+		);
 	}
 
 	static fromSnapshot<U extends Record<string, unknown>>(
@@ -153,7 +149,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		// Infer type from first resource if available, otherwise use provided type
 		const inferredType = collection.data[0]?.type ?? type;
 		return new CRDT<U>(
-			new Map(collection.data.map((doc) => [doc.id, doc])),
+			new Map(collection.data.map((doc) => [doc.id, doc as ResourceObject<U>])),
 			inferredType,
 			collection.meta.eventstamp,
 		);

@@ -1,5 +1,5 @@
 import type { Document, ResourceObject } from "./crdt";
-import { CRDT, decodeResource, mergeDocuments } from "./crdt";
+import { CRDT, mergeDocuments } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -69,7 +69,7 @@ export type StoreSetTransaction<T> = {
  * };
  * ```
  */
-export type Plugin<T> = {
+export type Plugin<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
 	onInit: (store: Store<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -185,14 +185,20 @@ export class Store<T extends Record<string, unknown>> {
 	 */
 	get(key: string): T | null {
 		const current = this.#crdt.get(key);
-		return current ?? null;
+		return current?.attributes ?? null;
 	}
 
 	/**
 	 * Iterate over all non-deleted documents as [id, document] tuples.
 	 */
 	entries(): IterableIterator<readonly [string, T]> {
-		return this.#crdt.entries();
+		const crdt = this.#crdt;
+		function* iterator() {
+			for (const [key, resource] of crdt.entries()) {
+				yield [key, resource.attributes as T] as const;
+			}
+		}
+		return iterator();
 	}
 
 	/**
@@ -215,10 +221,10 @@ export class Store<T extends Record<string, unknown>> {
 		this.#crdt = CRDT.fromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeResource<T>(doc).data] as const,
+			([key, doc]) => [key, doc.attributes as T] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeResource<T>(doc).data] as const,
+			([key, doc]) => [key, doc.attributes as T] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -272,7 +278,7 @@ export class Store<T extends Record<string, unknown>> {
 				staging.update(key, value as Partial<T>);
 				const merged = staging.get(key);
 				if (merged !== undefined) {
-					updateEntries.push([key, merged] as const);
+					updateEntries.push([key, merged.attributes as T] as const);
 				}
 			},
 			del: (key) => {
@@ -400,8 +406,8 @@ export class Store<T extends Record<string, unknown>> {
 	query<U = T>(config: QueryConfig<T, U>): Query<U> {
 		const query: QueryInternal<T, U> = {
 			where: config.where,
-			select: config.select,
-			order: config.order,
+			...(config.select && { select: config.select }),
+			...(config.order && { order: config.order }),
 			results: new Map(),
 			callbacks: new Set(),
 		};
@@ -435,7 +441,7 @@ export class Store<T extends Record<string, unknown>> {
 
 	#decodeActive(doc: ResourceObject<T> | null): T | null {
 		if (!doc || doc.meta.deletedAt) return null;
-		return decodeResource<T>(doc).data;
+		return doc.attributes as T;
 	}
 
 	#emitMutations(
