@@ -5,7 +5,7 @@ import {
 	generateNonce,
 	isValidEventstamp,
 	MIN_EVENTSTAMP,
-} from ".";
+} from "./eventstamp";
 
 test("decode() extracts timestamp and counter correctly", () => {
 	const nonce = generateNonce();

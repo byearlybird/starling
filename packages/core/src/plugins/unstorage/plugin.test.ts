@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from "bun:test";
 import { createStorage } from "unstorage";
-import type { Document } from "../../crdt";
-import { Store } from "../../store";
+import type { Document } from "../../document";
+import { Store } from "../../store/store";
 import { unstoragePlugin } from "./plugin";
 
 type Todo = {

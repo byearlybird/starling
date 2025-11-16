@@ -277,13 +277,11 @@ Each module handles a distinct responsibility in the state-based replication mod
 
 | Module | Responsibility |
 | --- | --- |
-| [`clock.ts`](../packages/core/src/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, generates random nonces for tie-breaking, and forwards itself when observing newer remote stamps |
-| [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
-| [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps field values with eventstamps and merges values by comparing stamps |
-| [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`resource.ts`](../packages/core/src/crdt/resource.ts) | Defines resource object structure (`type`, `id`, `attributes`, `meta`) and handles soft-deletion |
-| [`resource.ts`](../packages/core/src/crdt/resource.ts) | Manages documents containing resource objects with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
-| [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
+| [`clock/clock.ts`](../packages/core/src/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
+| [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
+| [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
+| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `Document` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
+| [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with reactive queries, transactions, plugin orchestration, and document sync helpers such as `merge()` and `collection()` |
 
 ### Data Flow
 
@@ -293,7 +291,7 @@ User mutation → Store → Transaction staging → Commit → Plugin hooks
                                     ↓
                             Eventstamp application
                                     ↓
-                            Resource/Record/Value merge
+                            Resource merge
 ```
 
 **Document sync:**

@@ -38,7 +38,7 @@ await store.dispose();
 
 ## API
 
-See the `QueryConfig` and `Query` types in your IDE for parameter details, or check the [Store class source](../../packages/core/src/store.ts#L92-L127) for full documentation.
+See the `QueryConfig` and `Query` types in your IDE for parameter details, or check the [Store class source](../../packages/core/src/store/store.ts#L92-L127) for full documentation.
 
 ## How Queries Work
 

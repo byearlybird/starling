@@ -1,5 +1,9 @@
-import type { Document, ResourceObject } from "./crdt";
-import { CRDT, mergeDocuments } from "./crdt";
+import type { Document, ResourceObject } from "../document";
+import { mergeDocuments } from "../document";
+import {
+	createResourceMap,
+	createResourceMapFromSnapshot,
+} from "./resource-map";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -152,7 +156,7 @@ type QueryInternal<T, U> = {
  * ```
  */
 export class Store<T extends Record<string, unknown>> {
-	#crdt: CRDT<T>;
+	#crdt: ReturnType<typeof createResourceMap<T>>;
 	#getId: () => string;
 
 	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
@@ -165,27 +169,27 @@ export class Store<T extends Record<string, unknown>> {
 
 	constructor(config: StoreConfig = {}) {
 		const type = config.type ?? "default";
-		this.#crdt = new CRDT<T>(new Map(), type);
+		this.#crdt = createResourceMap<T>(new Map(), type);
 		this.#getId = config.getId ?? (() => crypto.randomUUID());
 	}
 
 	/**
-	 * Check if a document exists by ID.
+	 * Check if a document exists by ID (excluding soft-deleted documents).
 	 * @param key - Document ID
-	 * @param opts - Options object with includeDeleted flag
-	 * @returns True if document exists, false otherwise
+	 * @returns True if document exists and is not deleted, false otherwise
 	 */
-	has(key: string, opts: { includeDeleted?: boolean } = {}): boolean {
-		return this.#crdt.has(key, opts);
+	has(key: string): boolean {
+		const resource = this.#crdt.get(key);
+		return resource != null && !resource.meta.deletedAt;
 	}
 
 	/**
-	 * Get a document by ID.
+	 * Get a document by ID (excluding soft-deleted documents).
 	 * @returns The document, or null if not found or deleted
 	 */
 	get(key: string): T | null {
 		const current = this.#crdt.get(key);
-		return current?.attributes ?? null;
+		return this.#decodeActive(current ?? null);
 	}
 
 	/**
@@ -195,7 +199,9 @@ export class Store<T extends Record<string, unknown>> {
 		const crdt = this.#crdt;
 		function* iterator() {
 			for (const [key, resource] of crdt.entries()) {
-				yield [key, resource.attributes as T] as const;
+				if (!resource.meta.deletedAt) {
+					yield [key, resource.attributes as T] as const;
+				}
 			}
 		}
 		return iterator();
@@ -217,8 +223,8 @@ export class Store<T extends Record<string, unknown>> {
 		const currentCollection = this.collection();
 		const result = mergeDocuments(currentCollection, document);
 
-		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.document);
+		// Replace the ResourceMap with the merged state
+		this.#crdt = createResourceMapFromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, doc]) => [key, doc.attributes as T] as const,
@@ -263,19 +269,19 @@ export class Store<T extends Record<string, unknown>> {
 		const updateEntries: Array<readonly [string, T]> = [];
 		const deleteKeys: Array<string> = [];
 
-		// Create a staging CRDT by cloning the current state
-		const staging = CRDT.fromSnapshot<T>(this.#crdt.snapshot());
+		// Create a staging ResourceMap by cloning the current state
+		const staging = createResourceMapFromSnapshot<T>(this.#crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
 			add: (value, options) => {
 				const key = options?.withId ?? this.#getId();
-				staging.add(key, value);
+				staging.set(key, value);
 				addEntries.push([key, value] as const);
 				return key;
 			},
 			update: (key, value) => {
-				staging.update(key, value as Partial<T>);
+				staging.set(key, value as Partial<T>);
 				const merged = staging.get(key);
 				if (merged !== undefined) {
 					updateEntries.push([key, merged.attributes as T] as const);

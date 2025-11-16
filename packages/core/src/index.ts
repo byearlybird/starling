@@ -1,5 +1,5 @@
 export type {
 	Document,
 	ResourceObject,
-} from "./crdt";
-export * from "./store";
+} from "./document";
+export * from "./store/store";

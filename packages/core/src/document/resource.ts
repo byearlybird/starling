@@ -1,4 +1,4 @@
-import { MIN_EVENTSTAMP } from "./eventstamp";
+import { MIN_EVENTSTAMP } from "../clock/eventstamp";
 import { isObject } from "./utils";
 
 function collectGreatestEventstamp(

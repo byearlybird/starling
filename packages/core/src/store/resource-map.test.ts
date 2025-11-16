@@ -1,29 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { CRDT } from "./crdt";
-import type { Document } from "./document";
-import { MIN_EVENTSTAMP } from "./eventstamp";
-import { makeResource } from "./resource";
+import { MIN_EVENTSTAMP } from "../clock/eventstamp";
+import type { Document } from "../document/document";
+import { makeResource } from "../document/resource";
+import {
+	createResourceMap,
+	createResourceMapFromSnapshot,
+} from "./resource-map";
 
-describe("CRDT", () => {
+describe("ResourceMap", () => {
 	describe("constructor", () => {
-		test("creates empty CRDT with default eventstamp", () => {
-			const crdt = new CRDT(new Map(), "default");
+		test("creates empty ResourceMap with default eventstamp", () => {
+			const crdt = createResourceMap(new Map(), "default");
 			const collection = crdt.snapshot();
 
 			expect(collection.data).toHaveLength(0);
 			expect(collection.meta.latest).toBeDefined();
 		});
 
-		test("creates CRDT with initial eventstamp and forwards clock", () => {
+		test("creates ResourceMap with initial eventstamp and forwards clock", () => {
 			const eventstamp = "2025-01-01T00:00:00.000Z|0001|abcd";
-			const crdt = new CRDT(new Map(), "default", eventstamp);
+			const crdt = createResourceMap(new Map(), "default", eventstamp);
 			const collection = crdt.snapshot();
 
 			// Clock should be at least at the provided eventstamp
 			expect(collection.meta.latest >= eventstamp).toBe(true);
 		});
 
-		test("creates CRDT with existing documents", () => {
+		test("creates ResourceMap with existing documents", () => {
 			const doc1 = makeResource(
 				"items",
 				"id1",
@@ -41,7 +44,7 @@ describe("CRDT", () => {
 				[doc2.id, doc2],
 			]);
 
-			const crdt = new CRDT<{ name: string }>(map, "items");
+			const crdt = createResourceMap<{ name: string }>(map, "items");
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
@@ -57,7 +60,7 @@ describe("CRDT", () => {
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const crdt = new CRDT<{ name: string }>(
+			const crdt = createResourceMap<{ name: string }>(
 				new Map([[doc.id, doc]]),
 				"items",
 			);
@@ -66,7 +69,7 @@ describe("CRDT", () => {
 		});
 
 		test("returns false for non-existing documents", () => {
-			const crdt = new CRDT(new Map(), "default");
+			const crdt = createResourceMap(new Map(), "default");
 
 			expect(crdt.has("id1")).toBe(false);
 		});
@@ -80,7 +83,7 @@ describe("CRDT", () => {
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const crdt = new CRDT<{ name: string }>(
+			const crdt = createResourceMap<{ name: string }>(
 				new Map([[doc.id, doc]]),
 				"items",
 			);
@@ -89,38 +92,30 @@ describe("CRDT", () => {
 		});
 
 		test("returns undefined for non-existing id", () => {
-			const crdt = new CRDT(new Map(), "default");
+			const crdt = createResourceMap(new Map(), "default");
 
 			expect(crdt.get("id1")).toBeUndefined();
 		});
 	});
 
-	describe("add", () => {
-		test("adds new document", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+	describe("set", () => {
+		test("creates new document", () => {
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
 
-		test("overwrites existing document with same id", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+		test("merges with existing document", () => {
+			const crdt = createResourceMap<{ name: string; age: number }>(
+				new Map(),
+				"items",
+			);
 
-			crdt.add("id1", { name: "Alice" });
-			crdt.add("id1", { name: "Bob" });
-
-			expect(crdt.get("id1")?.attributes).toEqual({ name: "Bob" });
-		});
-	});
-
-	describe("update", () => {
-		test("merges document with existing document", () => {
-			const crdt = new CRDT<{ name: string; age: number }>(new Map(), "items");
-
-			crdt.add("id1", { name: "Alice", age: 30 });
-			crdt.update("id1", { age: 31 });
+			crdt.set("id1", { name: "Alice", age: 30 });
+			crdt.set("id1", { age: 31 });
 
 			const merged = crdt.get("id1")?.attributes;
 			expect(merged).toBeDefined();
@@ -129,21 +124,21 @@ describe("CRDT", () => {
 			expect(merged?.age).toBe(31);
 		});
 
-		test("adds document if it doesn't exist", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+		test("overwrites with full object", () => {
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.update("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Bob" });
 
-			expect(crdt.has("id1")).toBe(true);
-			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
+			expect(crdt.get("id1")?.attributes).toEqual({ name: "Bob" });
 		});
 
-		test("last-write-wins for concurrent updates", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+		test("last-write-wins for concurrent sets", () => {
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
-			crdt.update("id1", { name: "Bob" });
-			crdt.update("id1", { name: "Charlie" });
+			crdt.set("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Bob" });
+			crdt.set("id1", { name: "Charlie" });
 
 			const merged = crdt.get("id1")?.attributes;
 			expect(merged?.name).toBe("Charlie");
@@ -152,21 +147,19 @@ describe("CRDT", () => {
 
 	describe("delete", () => {
 		test("soft-deletes existing document", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
 
-			// get() returns undefined for deleted documents
-			const deleted = crdt.get("id1")?.attributes;
-			expect(deleted).toBeUndefined();
-			// has() returns false by default, but true if includeDeleted is true
-			expect(crdt.has("id1")).toBe(false);
-			expect(crdt.has("id1", { includeDeleted: true })).toBe(true);
+			// ResourceMap returns deleted documents, just marks them with deletedAt
+			expect(crdt.has("id1")).toBe(true);
+			expect(crdt.get("id1")).toBeDefined();
+			expect(crdt.get("id1")?.meta.deletedAt).not.toBeNull();
 		});
 
 		test("does nothing if document doesn't exist", () => {
-			const crdt = new CRDT(new Map(), "default");
+			const crdt = createResourceMap(new Map(), "default");
 
 			crdt.delete("id1");
 
@@ -174,29 +167,27 @@ describe("CRDT", () => {
 		});
 
 		test("generates unique eventstamp for each delete", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
 			const collection1 = crdt.snapshot();
 
 			// Re-add and delete again
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
 			const collection2 = crdt.snapshot();
 
 			// Collections should have different eventstamps due to second delete
-			expect(collection2.meta.latest > collection1.meta.latest).toBe(
-				true,
-			);
+			expect(collection2.meta.latest > collection1.meta.latest).toBe(true);
 		});
 	});
 
 	describe("cloneMap", () => {
 		test("returns a copy of the internal encoded map", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			const clonedMap = crdt.cloneMap();
 
 			expect(clonedMap).not.toBe(crdt.cloneMap());
@@ -206,9 +197,9 @@ describe("CRDT", () => {
 		});
 
 		test("modifications to cloned map don't affect original", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			const clonedMap = crdt.cloneMap();
 			clonedMap.delete("id1");
 
@@ -230,7 +221,7 @@ describe("CRDT", () => {
 				{ name: "Bob" },
 				MIN_EVENTSTAMP,
 			);
-			const crdt = new CRDT(
+			const crdt = createResourceMap(
 				new Map([
 					[doc1.id, doc1],
 					[doc2.id, doc2],
@@ -245,9 +236,9 @@ describe("CRDT", () => {
 		});
 
 		test("includes deleted documents in collection", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
 
 			const collection = crdt.snapshot();
@@ -257,13 +248,13 @@ describe("CRDT", () => {
 		});
 
 		test("eventstamp reflects latest operation", () => {
-			const crdt = new CRDT<{ name: string }>(
+			const crdt = createResourceMap<{ name: string }>(
 				new Map(),
 				"items",
 				"2025-01-01T00:00:00.000Z|0001|abcd",
 			);
 
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
 
 			const collection = crdt.snapshot();
@@ -276,7 +267,7 @@ describe("CRDT", () => {
 	});
 
 	describe("fromSnapshot", () => {
-		test("creates CRDT from collection", () => {
+		test("creates ResourceMap from collection", () => {
 			const collection: Document = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: "2025-01-01T00:00:00.000Z|0001|abcd" },
@@ -286,14 +277,12 @@ describe("CRDT", () => {
 				],
 			};
 
-			const crdt = CRDT.fromSnapshot<{ name: string }>(collection);
+			const crdt = createResourceMapFromSnapshot<{ name: string }>(collection);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			// Clock forwards to at least the provided eventstamp
-			expect(
-				crdt.snapshot().meta.latest >= collection.meta.latest,
-			).toBe(true);
+			expect(crdt.snapshot().meta.latest >= collection.meta.latest).toBe(true);
 		});
 
 		test("preserves deleted documents", () => {
@@ -311,27 +300,27 @@ describe("CRDT", () => {
 				data: [deletedDoc],
 			};
 
-			const crdt = CRDT.fromSnapshot<{ name: string }>(collection);
+			const crdt = createResourceMapFromSnapshot<{ name: string }>(collection);
 
-			// Deleted documents still exist internally, but default has() returns false
-			expect(crdt.has("id1")).toBe(false);
-			expect(crdt.has("id1", { includeDeleted: true })).toBe(true);
-			// get() returns undefined for deleted documents
-			expect(crdt.get("id1")).toBeUndefined();
+			// ResourceMap returns deleted documents, just marks them with deletedAt
+			expect(crdt.has("id1")).toBe(true);
+			expect(crdt.get("id1")).toBeDefined();
+			expect(crdt.get("id1")?.meta.deletedAt).not.toBeNull();
 		});
 
 		test("round-trip preserves data", () => {
-			const original = new CRDT<{ name: string; age: number }>(
+			const original = createResourceMap<{ name: string; age: number }>(
 				new Map(),
 				"items",
 				"2025-01-01T00:00:00.000Z|0001|abcd",
 			);
-			original.add("id1", { name: "Alice", age: 30 });
+			original.set("id1", { name: "Alice", age: 30 });
 
 			const collection = original.snapshot();
-			const restored = CRDT.fromSnapshot<{ name: string; age: number }>(
-				collection,
-			);
+			const restored = createResourceMapFromSnapshot<{
+				name: string;
+				age: number;
+			}>(collection);
 
 			expect(restored.has("id1")).toBe(true);
 			expect(restored.get("id1")?.attributes).toEqual({
@@ -344,24 +333,24 @@ describe("CRDT", () => {
 	describe("convergence", () => {
 		test("multiple replicas converge to same state", () => {
 			// Replica 1: Add Alice, update age
-			const replica1 = new CRDT<{ name: string; age: number }>(
+			const replica1 = createResourceMap<{ name: string; age: number }>(
 				new Map(),
 				"users",
 			);
-			replica1.add("id1", { name: "Alice", age: 30 });
-			replica1.update("id1", { age: 31 });
+			replica1.set("id1", { name: "Alice", age: 30 });
+			replica1.set("id1", { age: 31 });
 
 			// Replica 2: Add Alice with different age
-			const replica2 = new CRDT<{ name: string; age: number }>(
+			const replica2 = createResourceMap<{ name: string; age: number }>(
 				new Map(),
 				"users",
 			);
-			replica2.add("id1", { name: "Alice", age: 25 });
+			replica2.set("id1", { name: "Alice", age: 25 });
 
 			// Merge replica1 into replica2
 			const collection1 = replica1.snapshot();
 			for (const encodedDoc of collection1.data) {
-				replica2.update(encodedDoc.id, encodedDoc.attributes as any);
+				replica2.set(encodedDoc.id, encodedDoc.attributes as any);
 			}
 
 			// Age should be 31 (most recent update)
@@ -370,14 +359,14 @@ describe("CRDT", () => {
 		});
 
 		test("concurrent updates resolve via LWW", () => {
-			const crdt = new CRDT<{ name?: string; age?: number }>(
+			const crdt = createResourceMap<{ name?: string; age?: number }>(
 				new Map(),
 				"items",
 			);
 
 			// Two concurrent updates to different fields
-			crdt.update("id1", { name: "Alice" });
-			crdt.update("id1", { age: 30 });
+			crdt.set("id1", { name: "Alice" });
+			crdt.set("id1", { age: 30 });
 
 			const doc = crdt.get("id1")?.attributes;
 			// Both fields should be present
@@ -386,16 +375,16 @@ describe("CRDT", () => {
 		});
 
 		test("delete after update preserves deletion", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 
 			// Add document
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 
 			// Delete it
 			crdt.delete("id1");
 
 			// Try to update (with older eventstamp via plain update)
-			crdt.update("id1", { name: "Bob" });
+			crdt.set("id1", { name: "Bob" });
 
 			// Should still be deleted (delete eventstamp is newer)
 			const collection = crdt.snapshot();
@@ -412,22 +401,22 @@ describe("CRDT", () => {
 				data: [],
 			};
 
-			const restored = CRDT.fromSnapshot<{ name: string }>(collection);
-			restored.add("id1", { name: "Alice" });
+			const restored = createResourceMapFromSnapshot<{ name: string }>(
+				collection,
+			);
+			restored.set("id1", { name: "Alice" });
 
 			// New operations should have eventstamps >= the loaded eventstamp
 			restored.delete("id1");
 			const collectionAfter = restored.snapshot();
-			expect(
-				collectionAfter.meta.latest >= collection.meta.latest,
-			).toBe(true);
+			expect(collectionAfter.meta.latest >= collection.meta.latest).toBe(true);
 		});
 	});
 
 	describe("merge", () => {
 		test("merges new documents from a collection", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
-			crdt.add("id1", { name: "Alice" });
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
+			crdt.set("id1", { name: "Alice" });
 
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
@@ -452,7 +441,7 @@ describe("CRDT", () => {
 				{ name: "Alice", age: 30 },
 				localEventstamp,
 			);
-			const crdt = new CRDT<{ name: string; age: number }>(
+			const crdt = createResourceMap<{ name: string; age: number }>(
 				new Map([["id1", localDoc]]),
 				"items",
 				localEventstamp,
@@ -474,8 +463,8 @@ describe("CRDT", () => {
 		});
 
 		test("handles deleted documents in remote collection", () => {
-			const crdt = new CRDT<{ name: string }>(new Map(), "items");
-			crdt.add("id1", { name: "Alice" });
+			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
+			crdt.set("id1", { name: "Alice" });
 
 			const deletedDoc = makeResource(
 				"items",
@@ -501,7 +490,7 @@ describe("CRDT", () => {
 		});
 
 		test("forwards clock to remote eventstamp during merge", () => {
-			const crdt = new CRDT<{ name: string }>(
+			const crdt = createResourceMap<{ name: string }>(
 				new Map(),
 				"items",
 				MIN_EVENTSTAMP,
@@ -517,7 +506,7 @@ describe("CRDT", () => {
 			crdt.merge(remoteCollection);
 
 			// Add a new document after merge
-			crdt.add("id1", { name: "Alice" });
+			crdt.set("id1", { name: "Alice" });
 			const collection = crdt.snapshot();
 
 			// New eventstamp should be >= remote eventstamp
@@ -525,8 +514,11 @@ describe("CRDT", () => {
 		});
 
 		test("merge is idempotent", () => {
-			const crdt = new CRDT<{ name: string; age: number }>(new Map(), "items");
-			crdt.add("id1", { name: "Alice", age: 30 });
+			const crdt = createResourceMap<{ name: string; age: number }>(
+				new Map(),
+				"items",
+			);
+			crdt.set("id1", { name: "Alice", age: 30 });
 
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
@@ -562,7 +554,7 @@ describe("CRDT", () => {
 				{ name: "Alice" },
 				localEventstamp,
 			);
-			const crdt = new CRDT(new Map([["id1", localDoc]]), "items");
+			const crdt = createResourceMap(new Map([["id1", localDoc]]), "items");
 
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			const remoteCollection: Document = {
@@ -579,19 +571,19 @@ describe("CRDT", () => {
 
 		test("merge combines documents from multiple replicas", () => {
 			// Simulate two replicas that have diverged
-			const replica1 = new CRDT<{ text: string; completed: boolean }>(
+			const replica1 = createResourceMap<{ text: string; completed: boolean }>(
 				new Map(),
 				"todos",
 			);
-			replica1.add("todo1", { text: "Task 1", completed: false });
-			replica1.add("todo2", { text: "Task 2", completed: false });
+			replica1.set("todo1", { text: "Task 1", completed: false });
+			replica1.set("todo2", { text: "Task 2", completed: false });
 
-			const replica2 = new CRDT<{ text: string; completed: boolean }>(
+			const replica2 = createResourceMap<{ text: string; completed: boolean }>(
 				new Map(),
 				"todos",
 			);
-			replica2.add("todo3", { text: "Task 3", completed: false });
-			replica2.update("todo1", { completed: true }); // Update existing
+			replica2.set("todo3", { text: "Task 3", completed: false });
+			replica2.set("todo1", { completed: true }); // Update existing
 
 			// Merge replica2's changes into replica1
 			const collection2 = replica2.snapshot();

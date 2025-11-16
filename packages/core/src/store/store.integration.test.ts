@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Document } from "./crdt";
+import type { Document } from "../document";
 import { Store } from "./store";
 
 /**
@@ -18,7 +18,7 @@ type TestUser = {
  *
  * This utility demonstrates how stores from different sources
  * (different clients, regions, or sync points) can be combined
- * into a single consistent state using CRDT-like merging.
+ * into a single consistent state using ResourceMap-based merging.
  *
  * The merge process:
  * 1. Creates a new empty store

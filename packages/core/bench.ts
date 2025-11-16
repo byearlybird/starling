@@ -19,8 +19,8 @@
  */
 
 import { bench, group, run, summary } from "mitata";
-import { generateNonce, makeResource, mergeResources } from "./src/crdt";
-import { Store } from "./src/store";
+import { generateNonce, makeResource, mergeResources } from "./src/document";
+import { Store } from "./src/store/store";
 
 // ============================================================================
 // DOCUMENT SIZE GENERATORS

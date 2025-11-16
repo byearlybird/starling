@@ -456,7 +456,9 @@ test("mergeDocuments: document meta.latest matches max of resource meta.latest v
 
 	expect(result.document.meta.latest).toBe(maxResourceLatest);
 	// Should be the newest resource eventstamp
-	expect(result.document.meta.latest).toBe("2025-01-01T00:05:00.000Z|0001|c3d4");
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:05:00.000Z|0001|c3d4",
+	);
 });
 
 test("mergeDocuments: document meta.latest after adding new resource", () => {
@@ -494,7 +496,9 @@ test("mergeDocuments: document meta.latest after adding new resource", () => {
 	}, "");
 
 	expect(result.document.meta.latest).toBe(maxResourceLatest);
-	expect(result.document.meta.latest).toBe("2025-01-01T00:10:00.000Z|0002|i9j0");
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:10:00.000Z|0002|i9j0",
+	);
 });
 
 test("mergeDocuments: document meta.latest after update", () => {
@@ -532,7 +536,9 @@ test("mergeDocuments: document meta.latest after update", () => {
 	}, "");
 
 	expect(result.document.meta.latest).toBe(maxResourceLatest);
-	expect(result.document.meta.latest).toBe("2025-01-01T00:08:00.000Z|0001|g7h8");
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:08:00.000Z|0001|g7h8",
+	);
 });
 
 test("mergeDocuments: document meta.latest with deleted resource", () => {
@@ -572,7 +578,9 @@ test("mergeDocuments: document meta.latest with deleted resource", () => {
 
 	expect(result.document.meta.latest).toBe(maxResourceLatest);
 	// Should include the deletion eventstamp
-	expect(result.document.meta.latest).toBe("2025-01-01T00:12:00.000Z|0003|k1l2");
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:12:00.000Z|0003|k1l2",
+	);
 });
 
 test("mergeDocuments: document meta.latest with multiple resources at different times", () => {
@@ -623,5 +631,7 @@ test("mergeDocuments: document meta.latest with multiple resources at different 
 
 	expect(result.document.meta.latest).toBe(maxResourceLatest);
 	// Should be the newest resource eventstamp across all resources
-	expect(result.document.meta.latest).toBe("2025-01-01T00:07:00.000Z|0002|g7h8");
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:07:00.000Z|0002|g7h8",
+	);
 });

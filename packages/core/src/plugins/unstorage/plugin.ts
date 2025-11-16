@@ -1,6 +1,6 @@
 import type { Storage } from "unstorage";
-import type { Document } from "../../crdt";
-import type { Plugin, Store } from "../../store";
+import type { Document } from "../../document";
+import type { Plugin, Store } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 

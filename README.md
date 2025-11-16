@@ -93,7 +93,7 @@ If you need support for mergeable array operations, semantic operations, or soph
 
 ## Core API
 
-Starling provides a simple API for mutations, queries, and sync. Hover over methods in your IDE to see inline documentation, or check the [Store class source](packages/core/src/store.ts) for complete API details.
+Starling provides a simple API for mutations, queries, and sync. Hover over methods in your IDE to see inline documentation, or check the [Store class source](packages/core/src/store/store.ts) for complete API details.
 
 ### Quick Reference
 
