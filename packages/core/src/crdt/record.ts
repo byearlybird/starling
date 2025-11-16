@@ -67,12 +67,8 @@ export function encodeRecord<T extends Record<string, unknown>>(
 }
 
 export function mergeRecords(
-	data1: Record<string, unknown>,
-	eventstamps1: Record<string, unknown>,
-	latest1: string,
-	data2: Record<string, unknown>,
-	eventstamps2: Record<string, unknown>,
-	latest2: string,
+	record1: EncodedRecord,
+	record2: EncodedRecord,
 ): EncodedRecord {
 	const resultData: Record<string, unknown> = {};
 	const resultEventstamps: Record<string, unknown> = {};
@@ -149,16 +145,18 @@ export function mergeRecords(
 	};
 
 	step(
-		data1,
-		eventstamps1,
-		data2,
-		eventstamps2,
+		record1.data,
+		record1.meta.eventstamps,
+		record2.data,
+		record2.meta.eventstamps,
 		resultData,
 		resultEventstamps,
 	);
 
 	// Use the cached latest values from both records
-	const latestEventstamp = latest1 > latest2 ? latest1 : latest2;
+	const latestEventstamp = record1.meta.latest > record2.meta.latest
+		? record1.meta.latest
+		: record2.meta.latest;
 
 	// Also consider any new eventstamps from the merge
 	const finalLatest =

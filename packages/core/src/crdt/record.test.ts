@@ -150,14 +150,7 @@ test("merge keeps newer value based on eventstamp", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data;
 
 	expect(decoded.name).toBe("Bob");
@@ -175,14 +168,7 @@ test("merge keeps older value when it has newer eventstamp", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data;
 
 	expect(decoded.status).toBe("active");
@@ -199,14 +185,7 @@ test("merge combines keys from both objects", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data;
 
 	expect(decoded).toEqual({
@@ -227,14 +206,7 @@ test("merge handles nested objects", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data as Record<string, unknown>;
 
 	const user = decoded.user as Record<string, unknown>;
@@ -254,14 +226,7 @@ test("merge preserves deeply nested structures", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data as Record<string, unknown>;
 
 	const a = decoded.a as Record<string, unknown>;
@@ -281,14 +246,7 @@ test("merge bubbles newest eventstamp from any nested field", () => {
 		"2025-10-25T12:00:05.000Z|9999|g7h8", // much newer
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 
 	// The newest eventstamp from the entire merge should bubble up
 	expect(merged.meta.latest).toBe("2025-10-25T12:00:05.000Z|9999|g7h8");
@@ -304,14 +262,7 @@ test("merge bubbles newest eventstamp even when only one field is newer", () => 
 		"2025-10-25T12:00:10.000Z|0001|i9j0", // Only a updates, but with newest timestamp
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 	const decoded = merged.data;
 
 	// The newest eventstamp should bubble up even though only one field changed
@@ -347,14 +298,7 @@ test("merge bubbles newest eventstamp through deeply nested structures", () => {
 		"2025-10-25T12:00:20.000Z|0001|k1l2", // Much newer
 	);
 
-	const merged = mergeRecords(
-		v1.data,
-		v1.meta.eventstamps,
-		v1.meta.latest,
-		v2.data,
-		v2.meta.eventstamps,
-		v2.meta.latest,
-	);
+	const merged = mergeRecords(v1, v2);
 
 	// The newest eventstamp from the deepest level should bubble all the way up
 	expect(merged.meta.latest).toBe("2025-10-25T12:00:20.000Z|0001|k1l2");

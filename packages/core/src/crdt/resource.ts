@@ -77,12 +77,20 @@ export function mergeResources<T extends Record<string, unknown>>(
 	from: ResourceObject<T>,
 ): [ResourceObject<T>, string] {
 	const mergedRecord = mergeRecords(
-		into.attributes,
-		into.meta.eventstamps,
-		into.meta.latest,
-		from.attributes,
-		from.meta.eventstamps,
-		from.meta.latest,
+		{
+			data: into.attributes,
+			meta: {
+				eventstamps: into.meta.eventstamps,
+				latest: into.meta.latest,
+			},
+		},
+		{
+			data: from.attributes,
+			meta: {
+				eventstamps: from.meta.eventstamps,
+				latest: from.meta.latest,
+			},
+		},
 	);
 
 	const mergedDeletedAt =
