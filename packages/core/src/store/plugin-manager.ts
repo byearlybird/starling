@@ -1,4 +1,4 @@
-import type { PluginHooks, StoreCore } from "./store";
+import type { PluginHooks, StoreBase } from "./store";
 
 /**
  * Execute all plugin onInit hooks sequentially.
@@ -7,7 +7,7 @@ import type { PluginHooks, StoreCore } from "./store";
  */
 export async function executeInitHooks<T extends Record<string, unknown>>(
 	hooks: Array<NonNullable<PluginHooks<T>["onInit"]>>,
-	store: StoreCore<T>,
+	store: StoreBase<T>,
 ): Promise<void> {
 	for (const hook of hooks) {
 		await hook(store);

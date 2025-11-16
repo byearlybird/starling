@@ -1,6 +1,6 @@
 import type { Storage } from "unstorage";
 import type { Document } from "../../document";
-import type { Plugin, StoreCore } from "../../store/store";
+import type { Plugin, StoreBase } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -67,7 +67,7 @@ function unstoragePlugin<T>(
 	} = config;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
-	let store: StoreCore<T> | null = null;
+	let store: StoreBase<T> | null = null;
 	let persistPromise: Promise<void> | null = null;
 
 	const persistSnapshot = async () => {

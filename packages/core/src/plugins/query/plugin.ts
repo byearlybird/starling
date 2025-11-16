@@ -4,7 +4,7 @@ import {
 	notifyQueries,
 	runQueryCallbacks,
 } from "../../store/query-manager";
-import type { Plugin, StoreCore } from "../../store/store";
+import type { Plugin, StoreBase } from "../../store/store";
 
 /**
  * Configuration for creating a reactive query.
@@ -104,7 +104,7 @@ function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 
 	return {
 		hooks: {
-			onInit: (store: StoreCore<T>) => {
+			onInit: (store) => {
 				// Hydrate all queries with initial data
 				for (const query of queries) {
 					hydrateQuery(query, store.entries());
@@ -142,7 +142,7 @@ function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 			},
 		},
 
-		methods: (store: StoreCore<T>) => ({
+		methods: (store) => ({
 			query: <U = T>(config: QueryConfig<T, U>): Query<U> => {
 				const q: QueryInternal<T, U> = {
 					where: config.where,

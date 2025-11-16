@@ -65,11 +65,18 @@ export type StoreSetTransaction<T> = {
 };
 
 /**
- * Core store methods available to all plugins and users.
+ * A store instance with methods for mutations, queries, and sync.
  *
- * This is the base API before any plugin methods are added.
+ * The TMethods type parameter accumulates methods from all registered plugins,
+ * providing full type safety for plugin-added functionality.
+ *
+ * @template T - The type of documents stored in this collection
+ * @template TMethods - Accumulated plugin methods
  */
-export type StoreCore<T extends Record<string, unknown>> = {
+export type Store<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -91,28 +98,34 @@ export type StoreCore<T extends Record<string, unknown>> = {
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
 	del: (key: string) => void;
+	/** Register a plugin that can add hooks and methods to the store */
+	use: <TNewMethods extends Record<string, any>>(
+		plugin: Plugin<T, TNewMethods>,
+	) => Store<T, TMethods & TNewMethods>;
 	/** Initialize the store and run plugin onInit hooks */
-	init: () => Promise<Store<T>>;
+	init: () => Promise<Store<T, TMethods>>;
 	/** Dispose the store and run plugin cleanup */
 	dispose: () => Promise<void>;
-};
+} & TMethods;
 
 /**
- * A store instance with accumulated plugin methods.
+ * Base store API available to plugin hooks.
  *
- * The TMethods type parameter accumulates methods from all registered plugins,
- * providing full type safety for plugin-added functionality.
+ * This is a subset of Store without the plugin methods, used as the type
+ * for the store parameter in plugin hooks.
  */
-export type Store<
-	T extends Record<string, unknown>,
-	TMethods extends Record<string, any> = {},
-> = StoreCore<T> &
-	TMethods & {
-		/** Register a plugin that can add hooks and methods to the store */
-		use: <TNewMethods extends Record<string, any>>(
-			plugin: Plugin<T, TNewMethods>,
-		) => Store<T, TMethods & TNewMethods>;
-	};
+export type StoreBase<T extends Record<string, unknown>> = Pick<
+	Store<T>,
+	| "has"
+	| "get"
+	| "entries"
+	| "collection"
+	| "merge"
+	| "begin"
+	| "add"
+	| "update"
+	| "del"
+>;
 
 /**
  * Plugin lifecycle and mutation hooks.
@@ -122,7 +135,7 @@ export type Store<
  */
 export type PluginHooks<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
-	onInit?: (store: StoreCore<T>) => Promise<void> | void;
+	onInit?: (store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
 	onDispose?: () => Promise<void> | void;
 	/** Called after documents are added (batched per transaction) */
@@ -163,7 +176,7 @@ export type Plugin<
 	/** Lifecycle and mutation hooks */
 	hooks?: PluginHooks<T>;
 	/** Factory function that returns methods to attach to the store */
-	methods?: (store: StoreCore<T>) => TMethods;
+	methods?: (store: StoreBase<T>) => TMethods;
 };
 
 /**
@@ -336,9 +349,7 @@ export function createStore<T extends Record<string, unknown>>(
 		begin((tx) => tx.del(key));
 	}
 
-	function use<TNewMethods extends Record<string, any>>(
-		plugin: Plugin<T, TNewMethods>,
-	): Store<T, TNewMethods> {
+	function use(plugin: Plugin<T, any>): any {
 		// Register hooks
 		if (plugin.hooks?.onInit) onInitHandlers.push(plugin.hooks.onInit);
 		if (plugin.hooks?.onDispose) onDisposeHandlers.push(plugin.hooks.onDispose);
@@ -348,7 +359,7 @@ export function createStore<T extends Record<string, unknown>>(
 
 		// Attach methods
 		if (plugin.methods) {
-			const methods = plugin.methods(store as StoreCore<T>);
+			const methods = plugin.methods(store);
 
 			// Check for conflicts
 			for (const key of Object.keys(methods)) {
@@ -362,11 +373,11 @@ export function createStore<T extends Record<string, unknown>>(
 			Object.assign(store, methods);
 		}
 
-		return store as Store<T, TNewMethods>;
+		return store;
 	}
 
-	async function init(): Promise<Store<T>> {
-		await executeInitHooks(onInitHandlers, store as StoreCore<T>);
+	async function init(): Promise<any> {
+		await executeInitHooks(onInitHandlers, store);
 		return store;
 	}
 
