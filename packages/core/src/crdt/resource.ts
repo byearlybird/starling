@@ -2,23 +2,6 @@ import { MIN_EVENTSTAMP } from "./eventstamp";
 import { isObject } from "./utils";
 
 /**
- * Deep clone a value (object or primitive).
- */
-function deepClone<T>(value: T): T {
-	if (!isObject(value)) {
-		return value;
-	}
-
-	const result: Record<string, unknown> = {};
-	for (const key in value as Record<string, unknown>) {
-		if (Object.hasOwn(value as Record<string, unknown>, key)) {
-			result[key] = deepClone((value as Record<string, unknown>)[key]);
-		}
-	}
-	return result as T;
-}
-
-/**
  * Resource object structure representing a single stored entity.
  * Resources are the primary unit of storage and synchronization in Starling.
  *
@@ -158,20 +141,12 @@ export function mergeResources<T extends Record<string, unknown>>(
 				}
 			} else if (value1 !== undefined) {
 				// Only in first record
-				dataOutput[key] = isObject(value1)
-					? deepClone(value1)
-					: value1;
-				eventstampOutput[key] = isObject(stamp1)
-					? deepClone(stamp1)
-					: stamp1;
+				dataOutput[key] = value1;
+				eventstampOutput[key] = stamp1;
 			} else if (value2 !== undefined) {
 				// Only in second record
-				dataOutput[key] = isObject(value2)
-					? deepClone(value2)
-					: value2;
-				eventstampOutput[key] = isObject(stamp2)
-					? deepClone(stamp2)
-					: stamp2;
+				dataOutput[key] = value2;
+				eventstampOutput[key] = stamp2;
 			}
 		}
 	};
