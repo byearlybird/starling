@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { CRDT } from "./crdt";
 import type { Document } from "./document";
 import { MIN_EVENTSTAMP } from "./eventstamp";
-import { decodeResource, encodeResource } from "./resource";
+import { encodeResource } from "./resource";
 
 describe("CRDT", () => {
 	describe("constructor", () => {
@@ -361,8 +361,7 @@ describe("CRDT", () => {
 			// Merge replica1 into replica2
 			const collection1 = replica1.snapshot();
 			for (const encodedDoc of collection1.data) {
-				const decoded = decodeResource(encodedDoc);
-				replica2.update(decoded.id, decoded.data as any);
+				replica2.update(encodedDoc.id, encodedDoc.attributes as any);
 			}
 
 			// Age should be 31 (most recent update)

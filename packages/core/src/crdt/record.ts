@@ -66,10 +66,10 @@ export function encodeRecord<T extends Record<string, unknown>>(
 	};
 }
 
-export function mergeRecords(
-	record1: EncodedRecord,
-	record2: EncodedRecord,
-): EncodedRecord {
+export function mergeRecords<T extends Record<string, unknown>>(
+	resource1: { attributes: T; meta: { eventstamps: Record<string, unknown>; latest: string } },
+	resource2: { attributes: T; meta: { eventstamps: Record<string, unknown>; latest: string } },
+): { attributes: T; meta: { eventstamps: Record<string, unknown>; latest: string } } {
 	const resultData: Record<string, unknown> = {};
 	const resultEventstamps: Record<string, unknown> = {};
 	let greatestEventstamp: string = MIN_EVENTSTAMP;
@@ -145,18 +145,18 @@ export function mergeRecords(
 	};
 
 	step(
-		record1.data,
-		record1.meta.eventstamps,
-		record2.data,
-		record2.meta.eventstamps,
+		resource1.attributes,
+		resource1.meta.eventstamps,
+		resource2.attributes,
+		resource2.meta.eventstamps,
 		resultData,
 		resultEventstamps,
 	);
 
 	// Use the cached latest values from both records
-	const latestEventstamp = record1.meta.latest > record2.meta.latest
-		? record1.meta.latest
-		: record2.meta.latest;
+	const latestEventstamp = resource1.meta.latest > resource2.meta.latest
+		? resource1.meta.latest
+		: resource2.meta.latest;
 
 	// Also consider any new eventstamps from the merge
 	const finalLatest =
@@ -165,7 +165,7 @@ export function mergeRecords(
 			: latestEventstamp;
 
 	return {
-		data: resultData,
+		attributes: resultData as T,
 		meta: {
 			eventstamps: resultEventstamps,
 			latest: finalLatest,

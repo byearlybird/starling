@@ -56,42 +56,11 @@ export function encodeResource<T extends Record<string, unknown>>(
 	};
 }
 
-export function decodeResource<T extends Record<string, unknown>>(
-	resource: ResourceObject<T>,
-): {
-	type: string;
-	id: string;
-	data: T;
-	deletedAt: string | null;
-} {
-	return {
-		type: resource.type,
-		id: resource.id,
-		data: resource.attributes,
-		deletedAt: resource.meta.deletedAt,
-	};
-}
-
 export function mergeResources<T extends Record<string, unknown>>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
-): [ResourceObject<T>, string] {
-	const mergedRecord = mergeRecords(
-		{
-			data: into.attributes,
-			meta: {
-				eventstamps: into.meta.eventstamps,
-				latest: into.meta.latest,
-			},
-		},
-		{
-			data: from.attributes,
-			meta: {
-				eventstamps: from.meta.eventstamps,
-				latest: from.meta.latest,
-			},
-		},
-	);
+): ResourceObject<T> {
+	const mergedRecord = mergeRecords(into, from);
 
 	const mergedDeletedAt =
 		into.meta.deletedAt && from.meta.deletedAt
@@ -106,19 +75,16 @@ export function mergeResources<T extends Record<string, unknown>>(
 		greatestEventstamp = mergedDeletedAt;
 	}
 
-	return [
-		{
-			type: into.type,
-			id: into.id,
-			attributes: mergedRecord.data as T,
-			meta: {
-				eventstamps: mergedRecord.meta.eventstamps,
-				latest: greatestEventstamp,
-				deletedAt: mergedDeletedAt,
-			},
+	return {
+		type: into.type,
+		id: into.id,
+		attributes: mergedRecord.attributes,
+		meta: {
+			eventstamps: mergedRecord.meta.eventstamps,
+			latest: greatestEventstamp,
+			deletedAt: mergedDeletedAt,
 		},
-		greatestEventstamp,
-	];
+	};
 }
 
 export function deleteResource<T extends Record<string, unknown>>(

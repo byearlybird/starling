@@ -125,7 +125,7 @@ export function mergeDocuments(
 			}
 
 			// Merge existing resource using field-level LWW
-			const [mergedDoc] = mergeResources(intoDoc, fromDoc);
+			const mergedDoc = mergeResources(intoDoc, fromDoc);
 			mergedDocsById.set(id, mergedDoc);
 
 			// Track state transitions for hook notifications

@@ -96,7 +96,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		const encoded = encodeResource(this.#type, id, object as T, this.#clock.now());
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeResources(current, encoded);
+			const merged = mergeResources(current, encoded);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, encoded);
