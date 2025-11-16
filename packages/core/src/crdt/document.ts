@@ -5,7 +5,6 @@ import {
 	mergeRecords,
 	processRecord,
 } from "./record";
-import type { EncodedValue } from "./value";
 
 /**
  * Top-level document structure with system metadata for tracking identity,
@@ -99,21 +98,21 @@ export function deleteDoc(
  * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
  *
  * @param doc - Document to transform
- * @param process - Function to apply to each leaf value
+ * @param process - Function to apply to each leaf value (receives value and eventstamp, returns transformed value and eventstamp)
  * @returns New document with transformed values
  *
  * @example
  * ```ts
  * // Encrypt all values before persisting
- * const encrypted = processDocument(doc, (value) => ({
- *   ...value,
- *   "~value": encrypt(value["~value"])
+ * const encrypted = processDocument(doc, (value, eventstamp) => ({
+ *   value: encrypt(value),
+ *   eventstamp: eventstamp
  * }));
  * ```
  */
 export function processDocument(
 	doc: EncodedDocument,
-	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
+	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
 ): EncodedDocument {
 	const processedData = processRecord(doc["~data"], process);
 
