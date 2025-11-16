@@ -15,7 +15,7 @@ test("decode extracts all values from encoded object", () => {
 	const original = { name: "Alice", age: 30, active: true };
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(original, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual(original);
 });
@@ -56,7 +56,7 @@ test("decode handles nested objects recursively", () => {
 	};
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(original, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual(original);
 });
@@ -73,7 +73,7 @@ test("encode handles deeply nested structures", () => {
 	};
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	console.log("serialized", JSON.stringify(obj));
 	expect(decoded).toEqual(obj);
@@ -88,7 +88,7 @@ test("encode handles mixed primitive types", () => {
 	};
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual(obj);
 });
@@ -102,7 +102,7 @@ test("encode includes all enumerable own properties", () => {
 
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual({ ownProp: "value", defined: "should be included" });
 });
@@ -111,7 +111,7 @@ test("encode handles empty objects", () => {
 	const obj = {};
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual({});
 });
@@ -120,7 +120,7 @@ test("encode handles objects with empty nested objects", () => {
 	const obj = { nested: {} };
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual({ nested: {} });
 });
@@ -133,7 +133,7 @@ test("encode preserves array values as leaf values", () => {
 	};
 	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
 	const encoded = encodeRecord(obj, eventstamp);
-	const decoded = decodeRecord(encoded);
+	const decoded = decodeRecord(encoded.data);
 
 	expect(decoded).toEqual(obj);
 	expect(decoded.tags).toEqual(["admin", "user", "moderator"]);
@@ -150,13 +150,17 @@ test("processRecord applies processor to every encoded value", () => {
 	const encoded = encodeRecord(obj, eventstamp);
 
 	const seen: unknown[] = [];
-	const processed = processRecord(encoded, (value, stamp) => {
-		seen.push(value);
-		return {
-			value,
-			eventstamp: `${stamp}-processed`,
-		};
-	});
+	const processed = processRecord(
+		encoded.data,
+		encoded.meta.eventstamps,
+		(value, stamp) => {
+			seen.push(value);
+			return {
+				value,
+				eventstamp: `${stamp}-processed`,
+			};
+		},
+	);
 
 	expect(seen).toHaveLength(4);
 	expect(seen).toEqual(expect.arrayContaining(["Alice", true, 3, "captain"]));
@@ -176,10 +180,14 @@ test("processRecord returns a new encoded record without mutating source", () =>
 	const encoded = encodeRecord({ user: { name: "Eve" } }, eventstamp);
 	const snapshot = JSON.parse(JSON.stringify(encoded));
 
-	const processed = processRecord(encoded, (value, stamp) => ({
-		value,
-		eventstamp: "processed-stamp",
-	}));
+	const processed = processRecord(
+		encoded.data,
+		encoded.meta.eventstamps,
+		(value, stamp) => ({
+			value,
+			eventstamp: "processed-stamp",
+		}),
+	);
 
 	expect(encoded).toEqual(snapshot);
 	expect(processed).not.toBe(encoded);
@@ -206,12 +214,19 @@ test("merge keeps newer value based on eventstamp", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data);
 
 	expect(decoded.name).toBe("Bob");
 	expect(decoded.age).toBe(25);
-	expect(eventstamp).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
 });
 
 test("merge keeps older value when it has newer eventstamp", () => {
@@ -224,11 +239,18 @@ test("merge keeps older value when it has newer eventstamp", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data);
 
 	expect(decoded.status).toBe("active");
-	expect(eventstamp).toBe("2025-10-25T12:00:05.000Z|0001|e5f6");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:05.000Z|0001|e5f6");
 });
 
 test("merge combines keys from both objects", () => {
@@ -241,15 +263,22 @@ test("merge combines keys from both objects", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data);
 
 	expect(decoded).toEqual({
 		name: "Alice",
 		age: 30,
 		email: "alice@example.com",
 	});
-	expect(eventstamp).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
 });
 
 test("merge handles nested objects", () => {
@@ -262,14 +291,21 @@ test("merge handles nested objects", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged) as Record<string, unknown>;
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data) as Record<string, unknown>;
 
 	const user = decoded.user as Record<string, unknown>;
 	expect(user.name).toBe("Bob");
 	expect(user.age).toBe(30);
 	expect(user.email).toBe("bob@example.com");
-	expect(eventstamp).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
 });
 
 test("merge preserves deeply nested structures", () => {
@@ -282,14 +318,21 @@ test("merge preserves deeply nested structures", () => {
 		"2025-10-25T12:00:01.000Z|0001|c3d4",
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged) as Record<string, unknown>;
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data) as Record<string, unknown>;
 
 	const a = decoded.a as Record<string, unknown>;
 	const b = a.b as Record<string, unknown>;
 	expect(b.c).toBe("v2");
 	expect(b.d).toBe("from-v1");
-	expect(eventstamp).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:01.000Z|0001|c3d4");
 });
 
 test("merge bubbles newest eventstamp from any nested field", () => {
@@ -302,10 +345,17 @@ test("merge bubbles newest eventstamp from any nested field", () => {
 		"2025-10-25T12:00:05.000Z|9999|g7h8", // much newer
 	);
 
-	const [, eventstamp] = mergeRecords(v1, v2);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
 
 	// The newest eventstamp from the entire merge should bubble up
-	expect(eventstamp).toBe("2025-10-25T12:00:05.000Z|9999|g7h8");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:05.000Z|9999|g7h8");
 });
 
 test("merge bubbles newest eventstamp even when only one field is newer", () => {
@@ -318,11 +368,18 @@ test("merge bubbles newest eventstamp even when only one field is newer", () => 
 		"2025-10-25T12:00:10.000Z|0001|i9j0", // Only a updates, but with newest timestamp
 	);
 
-	const [merged, eventstamp] = mergeRecords(v1, v2);
-	const decoded = decodeRecord(merged);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
+	const decoded = decodeRecord(merged.data);
 
 	// The newest eventstamp should bubble up even though only one field changed
-	expect(eventstamp).toBe("2025-10-25T12:00:10.000Z|0001|i9j0");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:10.000Z|0001|i9j0");
 	expect(decoded.a).toBe("new-a");
 	expect(decoded.b).toBe("value-b");
 	expect(decoded.c).toBe("value-c");
@@ -354,8 +411,15 @@ test("merge bubbles newest eventstamp through deeply nested structures", () => {
 		"2025-10-25T12:00:20.000Z|0001|k1l2", // Much newer
 	);
 
-	const [, eventstamp] = mergeRecords(v1, v2);
+	const merged = mergeRecords(
+		v1.data,
+		v1.meta.eventstamps,
+		v1.meta.latest,
+		v2.data,
+		v2.meta.eventstamps,
+		v2.meta.latest,
+	);
 
 	// The newest eventstamp from the deepest level should bubble all the way up
-	expect(eventstamp).toBe("2025-10-25T12:00:20.000Z|0001|k1l2");
+	expect(merged.meta.latest).toBe("2025-10-25T12:00:20.000Z|0001|k1l2");
 });

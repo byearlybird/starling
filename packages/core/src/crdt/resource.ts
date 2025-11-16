@@ -33,24 +33,6 @@ export type ResourceObject<
 	};
 };
 
-/**
- * Convert a ResourceObject to an EncodedRecord for use in merge/decode operations.
- *
- * @param resource - Resource to convert
- * @returns EncodedRecord with data and metadata extracted from the resource
- */
-function toEncodedRecord<T extends Record<string, unknown>>(
-	resource: ResourceObject<T>,
-): EncodedRecord {
-	return {
-		data: resource.attributes,
-		meta: {
-			eventstamps: resource.meta.eventstamps,
-			latest: resource.meta.latest,
-		},
-	};
-}
-
 export function encodeResource<T extends Record<string, unknown>>(
 	type: string,
 	id: string,
@@ -87,7 +69,7 @@ export function decodeResource<T extends Record<string, unknown>>(
 	return {
 		type: resource.type,
 		id: resource.id,
-		data: decodeRecord(toEncodedRecord(resource)) as T,
+		data: decodeRecord(resource.attributes) as T,
 		deletedAt: resource.meta.deletedAt,
 	};
 }
@@ -96,9 +78,13 @@ export function mergeResources<T extends Record<string, unknown>>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
 ): [ResourceObject<T>, string] {
-	const [mergedRecord, dataEventstamp] = mergeRecords(
-		toEncodedRecord(into),
-		toEncodedRecord(from),
+	const mergedRecord = mergeRecords(
+		into.attributes,
+		into.meta.eventstamps,
+		into.meta.latest,
+		from.attributes,
+		from.meta.eventstamps,
+		from.meta.latest,
 	);
 
 	const mergedDeletedAt =
@@ -109,7 +95,7 @@ export function mergeResources<T extends Record<string, unknown>>(
 			: into.meta.deletedAt || from.meta.deletedAt || null;
 
 	// Calculate the greatest eventstamp from data and deletion timestamp
-	let greatestEventstamp: string = dataEventstamp;
+	let greatestEventstamp: string = mergedRecord.meta.latest;
 	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
 		greatestEventstamp = mergedDeletedAt;
 	}
@@ -174,7 +160,11 @@ export function processResource<T extends Record<string, unknown>>(
 		eventstamp: string,
 	) => { value: unknown; eventstamp: string },
 ): ResourceObject<T> {
-	const processedRecord = processRecord(toEncodedRecord(resource), process);
+	const processedRecord = processRecord(
+		resource.attributes,
+		resource.meta.eventstamps,
+		process,
+	);
 
 	// Calculate latest from processed data and deletedAt
 	const latest =

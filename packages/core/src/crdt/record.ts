@@ -9,17 +9,6 @@ import { isObject } from "./utils";
  *
  * This enables field-level Last-Write-Wins merging while keeping data and
  * metadata cleanly separated.
- *
- * @example
- * ```ts
- * // For data: { user: { name: "Alice", age: 30 } }
- * // Returns: [data, meta]
- * // data: { user: { name: "Alice", age: 30 } }
- * // meta: {
- * //   eventstamps: { user: { name: "2025-...|0001|a1b2", age: "2025-...|0001|a1b2" } },
- * //   latest: "2025-...|0001|a1b2"
- * // }
- * ```
  */
 export type EncodedRecord = {
 	/** The actual data structure */
@@ -34,7 +23,8 @@ export type EncodedRecord = {
 };
 
 export function processRecord(
-	source: EncodedRecord,
+	data: Record<string, unknown>,
+	eventstamps: Record<string, unknown>,
 	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
 ): EncodedRecord {
 	const resultData: Record<string, unknown> = {};
@@ -78,8 +68,8 @@ export function processRecord(
 	};
 
 	step(
-		source.data,
-		source.meta.eventstamps,
+		data,
+		eventstamps,
 		resultData,
 		resultEventstamps,
 	);
@@ -138,7 +128,7 @@ export function encodeRecord<T extends Record<string, unknown>>(
 }
 
 export function decodeRecord<T extends Record<string, unknown>>(
-	obj: EncodedRecord,
+	data: Record<string, unknown>,
 ): T {
 	// Simply return a deep clone of the data portion
 	const result: Record<string, unknown> = {};
@@ -158,37 +148,41 @@ export function decodeRecord<T extends Record<string, unknown>>(
 		}
 	};
 
-	step(obj.data, result);
+	step(data, result);
 	return result as T;
 }
 
 export function mergeRecords(
-	into: EncodedRecord,
-	from: EncodedRecord,
-): [EncodedRecord, string] {
+	data1: Record<string, unknown>,
+	eventstamps1: Record<string, unknown>,
+	latest1: string,
+	data2: Record<string, unknown>,
+	eventstamps2: Record<string, unknown>,
+	latest2: string,
+): EncodedRecord {
 	const resultData: Record<string, unknown> = {};
 	const resultEventstamps: Record<string, unknown> = {};
 	let greatestEventstamp: string = MIN_EVENTSTAMP;
 
 	const step = (
-		data1: Record<string, unknown>,
-		eventstamps1: Record<string, unknown>,
-		data2: Record<string, unknown>,
-		eventstamps2: Record<string, unknown>,
+		d1: Record<string, unknown>,
+		e1: Record<string, unknown>,
+		d2: Record<string, unknown>,
+		e2: Record<string, unknown>,
 		dataOutput: Record<string, unknown>,
 		eventstampOutput: Record<string, unknown>,
 	) => {
 		// Collect all keys from both objects
 		const allKeys = new Set([
-			...Object.keys(data1),
-			...Object.keys(data2),
+			...Object.keys(d1),
+			...Object.keys(d2),
 		]);
 
 		for (const key of allKeys) {
-			const value1 = data1[key];
-			const value2 = data2[key];
-			const stamp1 = eventstamps1[key];
-			const stamp2 = eventstamps2[key];
+			const value1 = d1[key];
+			const value2 = d2[key];
+			const stamp1 = e1[key];
+			const stamp2 = e2[key];
 
 			// Both have this key
 			if (value1 !== undefined && value2 !== undefined) {
@@ -241,19 +235,16 @@ export function mergeRecords(
 	};
 
 	step(
-		into.data,
-		into.meta.eventstamps,
-		from.data,
-		from.meta.eventstamps,
+		data1,
+		eventstamps1,
+		data2,
+		eventstamps2,
 		resultData,
 		resultEventstamps,
 	);
 
 	// Use the cached latest values from both records
-	const latestEventstamp =
-		into.meta.latest > from.meta.latest
-			? into.meta.latest
-			: from.meta.latest;
+	const latestEventstamp = latest1 > latest2 ? latest1 : latest2;
 
 	// Also consider any new eventstamps from the merge
 	const finalLatest =
@@ -261,16 +252,13 @@ export function mergeRecords(
 			? greatestEventstamp
 			: latestEventstamp;
 
-	return [
-		{
-			data: resultData,
-			meta: {
-				eventstamps: resultEventstamps,
-				latest: finalLatest,
-			},
+	return {
+		data: resultData,
+		meta: {
+			eventstamps: resultEventstamps,
+			latest: finalLatest,
 		},
-		finalLatest,
-	];
+	};
 }
 
 /**
