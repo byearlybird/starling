@@ -53,7 +53,7 @@ type UnstorageConfig = {
  *
  * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
  */
-function unstoragePlugin<T>(
+function unstoragePlugin<T extends Record<string, unknown>>(
 	key: string,
 	storage: Storage<Document>,
 	config: UnstorageConfig = {},

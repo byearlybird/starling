@@ -181,4 +181,3 @@ function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 }
 
 export { queryPlugin };
-export type { QueryMethods, QueryConfig, Query };
