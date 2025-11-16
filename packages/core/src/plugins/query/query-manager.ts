@@ -1,4 +1,4 @@
-import type { QueryInternal } from "./types";
+import type { QueryInternal } from "../../store/types";
 import { selectValue } from "./utils";
 
 /**

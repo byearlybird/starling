@@ -1,15 +1,14 @@
 import type { Document, ResourceObject } from "../document";
 import { mergeDocuments } from "../document";
 import {
-	createResourceMap,
-	createResourceMapFromSnapshot,
-} from "./resource-map";
-import { decodeActive } from "./utils";
-import {
 	emitMutations as emitMutationsFn,
 	executeDisposeHooks,
 	executeInitHooks,
 } from "./plugin-manager";
+import {
+	createResourceMap,
+	createResourceMapFromSnapshot,
+} from "./resource-map";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -216,8 +215,7 @@ export function createStore<T extends Record<string, unknown>>(
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
 	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
-	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> =
-		[];
+	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> = [];
 	const onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>> = [];
 	const onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>> = [];
 	const onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>> = [];
@@ -407,4 +405,16 @@ export function createStore<T extends Record<string, unknown>>(
 	};
 
 	return store;
+}
+
+/**
+ * Decode a ResourceObject to its active value, or null if deleted.
+ * @param doc - ResourceObject to decode
+ * @returns Active value or null if document is deleted
+ */
+function decodeActive<T extends Record<string, unknown>>(
+	doc: ResourceObject<T> | null,
+): T | null {
+	if (!doc || doc.meta.deletedAt) return null;
+	return doc.attributes as T;
 }

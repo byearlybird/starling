@@ -1,10 +1,10 @@
+import type { Plugin } from "../../store/store";
 import type { QueryInternal } from "../../store/types";
 import {
 	hydrateQuery,
 	notifyQueries,
 	runQueryCallbacks,
-} from "../../store/query-manager";
-import type { Plugin, StoreBase } from "../../store/store";
+} from "./query-manager";
 
 /**
  * Configuration for creating a reactive query.
@@ -182,4 +182,3 @@ function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 
 export { queryPlugin };
 export type { QueryMethods, QueryConfig, Query };
-

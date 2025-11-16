@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { createStore } from "../../store/store";
 import { queryPlugin } from "./plugin";
 
@@ -25,8 +25,11 @@ describe("Query Plugin", () => {
 
 			const results = activeQuery.results();
 			expect(results.length).toBe(1);
-			expect(results[0][0]).toBe("todo1");
-			expect(results[0][1]).toEqual({ text: "Active task", completed: false });
+			expect(results[0]?.[0]).toBe("todo1");
+			expect(results[0]?.[1]).toEqual({
+				text: "Active task",
+				completed: false,
+			});
 		});
 
 		it("returns empty array when no items match", async () => {
@@ -108,7 +111,7 @@ describe("Query Plugin", () => {
 			});
 
 			expect(activeQuery.results().length).toBe(1);
-			expect(activeQuery.results()[0][0]).toBe("todo2");
+			expect(activeQuery.results()[0]?.[0]).toBe("todo2");
 		});
 
 		it("adds items to query when they start matching", async () => {
@@ -211,7 +214,10 @@ describe("Query Plugin", () => {
 			activeQuery.onChange(onChange);
 
 			store.begin((tx) => {
-				tx.add({ text: "Completed task", completed: true }, { withId: "todo1" });
+				tx.add(
+					{ text: "Completed task", completed: true },
+					{ withId: "todo1" },
+				);
 			});
 
 			expect(onChange).toHaveBeenCalledTimes(0);
@@ -257,8 +263,8 @@ describe("Query Plugin", () => {
 
 			const results = textQuery.results();
 			expect(results.length).toBe(2);
-			expect(results[0][1]).toBe("Task 1");
-			expect(results[1][1]).toBe("Task 2");
+			expect(results[0]?.[1]).toBe("Task 1");
+			expect(results[1]?.[1]).toBe("Task 2");
 		});
 
 		it("updates projected results reactively", async () => {
@@ -273,13 +279,13 @@ describe("Query Plugin", () => {
 				tx.add({ text: "Original", completed: false }, { withId: "todo1" });
 			});
 
-			expect(textQuery.results()[0][1]).toBe("Original");
+			expect(textQuery.results()[0]?.[1]).toBe("Original");
 
 			store.begin((tx) => {
 				tx.update("todo1", { text: "Updated" });
 			});
 
-			expect(textQuery.results()[0][1]).toBe("Updated");
+			expect(textQuery.results()[0]?.[1]).toBe("Updated");
 		});
 	});
 
@@ -299,9 +305,9 @@ describe("Query Plugin", () => {
 			});
 
 			const results = sortedQuery.results();
-			expect(results[0][1].text).toBe("Apple");
-			expect(results[1][1].text).toBe("Mango");
-			expect(results[2][1].text).toBe("Zebra");
+			expect(results[0]?.[1].text).toBe("Apple");
+			expect(results[1]?.[1].text).toBe("Mango");
+			expect(results[2]?.[1].text).toBe("Zebra");
 		});
 
 		it("combines select and order", async () => {
@@ -319,8 +325,8 @@ describe("Query Plugin", () => {
 			});
 
 			const results = sortedTextQuery.results();
-			expect(results[0][1]).toBe("Apple");
-			expect(results[1][1]).toBe("Zebra");
+			expect(results[0]?.[1]).toBe("Apple");
+			expect(results[1]?.[1]).toBe("Zebra");
 		});
 
 		it("sorts by numeric priority", async () => {
@@ -347,9 +353,9 @@ describe("Query Plugin", () => {
 			});
 
 			const results = priorityQuery.results();
-			expect(results[0][1].priority).toBe(10);
-			expect(results[1][1].priority).toBe(5);
-			expect(results[2][1].priority).toBe(1);
+			expect(results[0]?.[1].priority).toBe(10);
+			expect(results[1]?.[1].priority).toBe(5);
+			expect(results[2]?.[1].priority).toBe(1);
 		});
 	});
 
@@ -403,7 +409,7 @@ describe("Query Plugin", () => {
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
 			expect(activeQuery.results().length).toBe(1);
-			expect(activeQuery.results()[0][0]).toBe("todo1");
+			expect(activeQuery.results()[0]?.[0]).toBe("todo1");
 		});
 
 		it("cleans up query on dispose", async () => {
