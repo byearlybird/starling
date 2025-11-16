@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { encodeRecord, mergeRecords, processRecord } from ".";
+import { encodeRecord, mergeRecords } from ".";
 
 test("encode wraps all leaf values with eventstamp using mirrored structure", () => {
 	const obj = { name: "Alice", age: 30 };
@@ -138,70 +138,6 @@ test("encode preserves array values as leaf values", () => {
 	expect(decoded).toEqual(obj);
 	expect(decoded.tags).toEqual(["admin", "user", "moderator"]);
 	expect(decoded.scores).toEqual([95, 87, 92]);
-});
-
-test("processRecord applies processor to every encoded value", () => {
-	const obj = {
-		name: "Alice",
-		active: true,
-		stats: { level: 3, title: "captain" },
-	};
-	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
-	const encoded = encodeRecord(obj, eventstamp);
-
-	const seen: unknown[] = [];
-	const processed = processRecord(
-		encoded.data,
-		encoded.meta.eventstamps,
-		(value, stamp) => {
-			seen.push(value);
-			return {
-				value,
-				eventstamp: `${stamp}-processed`,
-			};
-		},
-	);
-
-	expect(seen).toHaveLength(4);
-	expect(seen).toEqual(expect.arrayContaining(["Alice", true, 3, "captain"]));
-
-	// Check the processed mirrored structure
-	const eventstamps = processed.meta.eventstamps as Record<string, unknown>;
-	expect(eventstamps.name).toBe(`${eventstamp}-processed`);
-	expect(eventstamps.active).toBe(`${eventstamp}-processed`);
-
-	const stats = eventstamps.stats as Record<string, string>;
-	expect(stats.level).toBe(`${eventstamp}-processed`);
-	expect(stats.title).toBe(`${eventstamp}-processed`);
-});
-
-test("processRecord returns a new encoded record without mutating source", () => {
-	const eventstamp = "2025-10-25T12:00:00.000Z|0001|a1b2";
-	const encoded = encodeRecord({ user: { name: "Eve" } }, eventstamp);
-	const snapshot = JSON.parse(JSON.stringify(encoded));
-
-	const processed = processRecord(
-		encoded.data,
-		encoded.meta.eventstamps,
-		(value, stamp) => ({
-			value,
-			eventstamp: "processed-stamp",
-		}),
-	);
-
-	expect(encoded).toEqual(snapshot);
-	expect(processed).not.toBe(encoded);
-
-	// Check that the structure was not mutated
-	expect(processed.data).not.toBe(encoded.data);
-	expect(processed.meta.eventstamps).not.toBe(encoded.meta.eventstamps);
-
-	// Check the processed values
-	const processedData = processed.data as Record<string, Record<string, unknown>>;
-	const processedStamps = processed.meta.eventstamps as Record<string, Record<string, string>>;
-
-	expect(processedData.user.name).toBe("Eve");
-	expect(processedStamps.user.name).toBe("processed-stamp");
 });
 
 test("merge keeps newer value based on eventstamp", () => {

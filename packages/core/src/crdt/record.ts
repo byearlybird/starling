@@ -22,67 +22,6 @@ export type EncodedRecord = {
 	};
 };
 
-export function processRecord(
-	data: Record<string, unknown>,
-	eventstamps: Record<string, unknown>,
-	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
-): EncodedRecord {
-	const resultData: Record<string, unknown> = {};
-	const resultEventstamps: Record<string, unknown> = {};
-	let latestEventstamp = MIN_EVENTSTAMP;
-
-	const step = (
-		dataInput: Record<string, unknown>,
-		eventstampInput: Record<string, unknown>,
-		dataOutput: Record<string, unknown>,
-		eventstampOutput: Record<string, unknown>,
-	) => {
-		for (const key in dataInput) {
-			if (!Object.hasOwn(dataInput, key)) continue;
-
-			const value = dataInput[key];
-			const eventstamp = eventstampInput[key];
-
-			if (isObject(value) && isObject(eventstamp)) {
-				// Nested object - recurse
-				dataOutput[key] = {};
-				eventstampOutput[key] = {};
-				step(
-					value as Record<string, unknown>,
-					eventstamp as Record<string, unknown>,
-					dataOutput[key] as Record<string, unknown>,
-					eventstampOutput[key] as Record<string, unknown>,
-				);
-			} else if (typeof eventstamp === "string") {
-				// Leaf value - process it
-				const processed = process(value, eventstamp);
-				dataOutput[key] = processed.value;
-				eventstampOutput[key] = processed.eventstamp;
-
-				// Track the greatest eventstamp
-				if (processed.eventstamp > latestEventstamp) {
-					latestEventstamp = processed.eventstamp;
-				}
-			}
-		}
-	};
-
-	step(
-		data,
-		eventstamps,
-		resultData,
-		resultEventstamps,
-	);
-
-	return {
-		data: resultData,
-		meta: {
-			eventstamps: resultEventstamps,
-			latest: latestEventstamp,
-		},
-	};
-}
-
 export function encodeRecord<T extends Record<string, unknown>>(
 	obj: T,
 	eventstamp: string,

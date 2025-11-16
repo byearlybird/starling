@@ -1,5 +1,4 @@
 import { Store } from "@byearlybird/starling";
-import { processResource } from "@byearlybird/starling/crdt";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStoreHooks } from "@byearlybird/starling-solid";
 import { createStorage } from "unstorage";
@@ -40,6 +39,22 @@ const pseudoDecrypt = (encrypted: unknown): unknown => {
 	return JSON.parse(jsonString);
 };
 
+const isObject = (value: unknown): value is Record<string, unknown> => {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const mapLeafValues = (
+	obj: unknown,
+	fn: (value: unknown) => unknown,
+): unknown => {
+	if (isObject(obj)) {
+		return Object.fromEntries(
+			Object.entries(obj).map(([key, value]) => [key, mapLeafValues(value, fn)]),
+		);
+	}
+	return fn(obj);
+};
+
 const localStorage = unstoragePlugin<Task>(
 	"tasks",
 	createStorage({
@@ -57,21 +72,17 @@ const remoteStorage = unstoragePlugin<Task>(
 		pollIntervalMs: 1000, // set to 1 second for demo purposes,
 		onBeforeSet: (data) => ({
 			...data,
-			data: data.data.map((doc) =>
-				processResource(doc, (value, eventstamp) => ({
-					value: pseudoEncrypt(value),
-					eventstamp,
-				})),
-			),
+			data: data.data.map((doc) => ({
+				...doc,
+				attributes: mapLeafValues(doc.attributes, pseudoEncrypt),
+			})),
 		}),
 		onAfterGet: (data) => ({
 			...data,
-			data: data.data.map((doc) =>
-				processResource(doc, (value, eventstamp) => ({
-					value: pseudoDecrypt(value),
-					eventstamp,
-				})),
-			),
+			data: data.data.map((doc) => ({
+				...doc,
+				attributes: mapLeafValues(doc.attributes, pseudoDecrypt),
+			})),
 		}),
 	},
 );

@@ -2,7 +2,6 @@ import {
 	type EncodedRecord,
 	encodeRecord,
 	mergeRecords,
-	processRecord,
 } from "./record";
 
 /**
@@ -130,56 +129,6 @@ export function deleteResource<T extends Record<string, unknown>>(
 			eventstamps: resource.meta.eventstamps,
 			latest,
 			deletedAt: eventstamp,
-		},
-	};
-}
-
-/**
- * Transform all values in a resource using a provided function.
- *
- * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
- *
- * @param resource - Resource to transform
- * @param process - Function to apply to each leaf value (receives value and eventstamp, returns transformed value and eventstamp)
- * @returns New resource with transformed values
- *
- * @example
- * ```ts
- * // Encrypt all values before persisting
- * const encrypted = processResource(resource, (value, eventstamp) => ({
- *   value: encrypt(value),
- *   eventstamp: eventstamp
- * }));
- * ```
- */
-export function processResource<T extends Record<string, unknown>>(
-	resource: ResourceObject<T>,
-	process: (
-		value: unknown,
-		eventstamp: string,
-	) => { value: unknown; eventstamp: string },
-): ResourceObject<T> {
-	const processedRecord = processRecord(
-		resource.attributes,
-		resource.meta.eventstamps,
-		process,
-	);
-
-	// Calculate latest from processed data and deletedAt
-	const latest =
-		resource.meta.deletedAt &&
-		resource.meta.deletedAt > processedRecord.meta.latest
-			? resource.meta.deletedAt
-			: processedRecord.meta.latest;
-
-	return {
-		type: resource.type,
-		id: resource.id,
-		attributes: processedRecord.data as T,
-		meta: {
-			eventstamps: processedRecord.meta.eventstamps,
-			latest,
-			deletedAt: resource.meta.deletedAt,
 		},
 	};
 }
