@@ -4,7 +4,7 @@ import {
 	notifyQueries,
 	runQueryCallbacks,
 } from "../../store/query-manager";
-import type { Plugin } from "../../store/store";
+import type { Plugin, StoreCore } from "../../store/store";
 
 /**
  * Configuration for creating a reactive query.
@@ -55,27 +55,46 @@ export type QueryMethods<T extends Record<string, unknown>> = {
  * Plugin that adds reactive query functionality to the store.
  *
  * Queries filter and transform store data based on predicates, automatically
- * updating when matching documents change.
+ * updating when matching documents change. All queries are reactive - they
+ * automatically update when the underlying data changes.
+ *
+ * @returns Plugin instance for store.use()
  *
  * @example
- * ```typescript
- * import { createStore } from '@byearlybird/starling';
- * import { queryPlugin } from '@byearlybird/starling/plugin-query';
+ * ```ts
+ * import { createStore } from "@byearlybird/starling";
+ * import { queryPlugin } from "@byearlybird/starling/plugin-query";
  *
- * const store = createStore<Todo>()
+ * const store = await createStore<Todo>()
  *   .use(queryPlugin())
  *   .init();
  *
+ * // Create a reactive query
  * const active = store.query({
  *   where: (todo) => !todo.completed
  * });
  *
+ * // Listen for changes
  * active.onChange(() => {
  *   console.log('Active todos:', active.results());
  * });
+ *
+ * // Project results
+ * const names = store.query({
+ *   where: (todo) => todo.completed,
+ *   select: (todo) => todo.text
+ * });
+ *
+ * // Sort results
+ * const sorted = store.query({
+ *   where: () => true,
+ *   order: (a, b) => a.text.localeCompare(b.text)
+ * });
  * ```
+ *
+ * @see {@link ../../../../docs/queries.md} for detailed usage guide
  */
-export function queryPlugin<T extends Record<string, unknown>>(): Plugin<
+function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 	T,
 	QueryMethods<T>
 > {
@@ -85,7 +104,7 @@ export function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 
 	return {
 		hooks: {
-			onInit: (store) => {
+			onInit: (store: StoreCore<T>) => {
 				// Hydrate all queries with initial data
 				for (const query of queries) {
 					hydrateQuery(query, store.entries());
@@ -123,7 +142,7 @@ export function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 			},
 		},
 
-		methods: (store) => ({
+		methods: (store: StoreCore<T>) => ({
 			query: <U = T>(config: QueryConfig<T, U>): Query<U> => {
 				const q: QueryInternal<T, U> = {
 					where: config.where,
@@ -160,3 +179,7 @@ export function queryPlugin<T extends Record<string, unknown>>(): Plugin<
 		}),
 	};
 }
+
+export { queryPlugin };
+export type { QueryMethods, QueryConfig, Query };
+
