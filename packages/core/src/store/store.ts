@@ -59,6 +59,44 @@ export type StoreSetTransaction<T> = {
 };
 
 /**
+ * A store instance with methods for mutations, queries, and sync.
+ *
+ * Stores are created via createStore() and provide a consistent API for
+ * managing collections of documents with field-level Last-Write-Wins merging.
+ */
+export type Store<T extends Record<string, unknown>> = {
+	/** Check if a document exists by ID (excluding soft-deleted documents) */
+	has: (key: string) => boolean;
+	/** Get a document by ID (excluding soft-deleted documents) */
+	get: (key: string) => T | null;
+	/** Iterate over all non-deleted documents as [id, document] tuples */
+	entries: () => IterableIterator<readonly [string, T]>;
+	/** Get the complete store state as a Document for persistence or sync */
+	collection: () => Document;
+	/** Merge a document from storage or another replica using field-level LWW */
+	merge: (document: Document) => void;
+	/** Run multiple operations in a transaction with rollback support */
+	begin: <R = void>(
+		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
+		opts?: { silent?: boolean },
+	) => NotPromise<R>;
+	/** Add a document to the store */
+	add: (value: T, options?: StoreAddOptions) => string;
+	/** Update a document with a partial value */
+	update: (key: string, value: DeepPartial<T>) => void;
+	/** Soft-delete a document */
+	del: (key: string) => void;
+	/** Register a plugin for persistence, analytics, etc. */
+	use: (plugin: Plugin<T>) => Store<T>;
+	/** Initialize the store and run plugin onInit hooks */
+	init: () => Promise<Store<T>>;
+	/** Dispose the store and run plugin cleanup */
+	dispose: () => Promise<void>;
+	/** Create a reactive query that auto-updates when matching docs change */
+	query: <U = T>(config: QueryConfig<T, U>) => Query<U>;
+};
+
+/**
  * Plugin interface for extending store behavior with persistence, analytics, etc.
  *
  * All hooks are optional. Mutation hooks receive batched entries after each
@@ -132,7 +170,7 @@ type QueryInternal<T, U> = {
 };
 
 /**
- * Lightweight local-first data store with built-in sync and reactive queries.
+ * Create a lightweight local-first data store with built-in sync and reactive queries.
  *
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
@@ -141,7 +179,7 @@ type QueryInternal<T, U> = {
  *
  * @example
  * ```ts
- * const store = await new Store<{ text: string; completed: boolean }>()
+ * const store = await createStore<{ text: string; completed: boolean }>()
  *   .use(unstoragePlugin('todos', storage))
  *   .init();
  *
@@ -155,76 +193,161 @@ type QueryInternal<T, U> = {
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export class Store<T extends Record<string, unknown>> {
-	#crdt: ReturnType<typeof createResourceMap<T>>;
-	#getId: () => string;
+export function createStore<T extends Record<string, unknown>>(
+	config: StoreConfig = {},
+): Store<T> {
+	const type = config.type ?? "default";
+	let crdt = createResourceMap<T>(new Map(), type);
+	const getId = config.getId ?? (() => crypto.randomUUID());
 
-	#onInitHandlers: Array<Plugin<T>["onInit"]> = [];
-	#onDisposeHandlers: Array<Plugin<T>["onDispose"]> = [];
-	#onAddHandlers: Array<NonNullable<Plugin<T>["onAdd"]>> = [];
-	#onUpdateHandlers: Array<NonNullable<Plugin<T>["onUpdate"]>> = [];
-	#onDeleteHandlers: Array<NonNullable<Plugin<T>["onDelete"]>> = [];
+	const onInitHandlers: Array<Plugin<T>["onInit"]> = [];
+	const onDisposeHandlers: Array<Plugin<T>["onDispose"]> = [];
+	const onAddHandlers: Array<NonNullable<Plugin<T>["onAdd"]>> = [];
+	const onUpdateHandlers: Array<NonNullable<Plugin<T>["onUpdate"]>> = [];
+	const onDeleteHandlers: Array<NonNullable<Plugin<T>["onDelete"]>> = [];
 
-	#queries = new Set<QueryInternal<T, any>>();
+	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
+	const queries = new Set<QueryInternal<T, any>>();
 
-	constructor(config: StoreConfig = {}) {
-		const type = config.type ?? "default";
-		this.#crdt = createResourceMap<T>(new Map(), type);
-		this.#getId = config.getId ?? (() => crypto.randomUUID());
+	function decodeActive(doc: ResourceObject<T> | null): T | null {
+		if (!doc || doc.meta.deletedAt) return null;
+		return doc.attributes as T;
 	}
 
-	/**
-	 * Check if a document exists by ID (excluding soft-deleted documents).
-	 * @param key - Document ID
-	 * @returns True if document exists and is not deleted, false otherwise
-	 */
-	has(key: string): boolean {
-		const resource = this.#crdt.get(key);
-		return resource != null && !resource.meta.deletedAt;
+	function selectValue<U>(query: QueryInternal<T, U>, value: T): U {
+		return query.select ? query.select(value) : (value as unknown as U);
 	}
 
-	/**
-	 * Get a document by ID (excluding soft-deleted documents).
-	 * @returns The document, or null if not found or deleted
-	 */
-	get(key: string): T | null {
-		const current = this.#crdt.get(key);
-		return this.#decodeActive(current ?? null);
+	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
+	function runQueryCallbacks(dirtyQueries: Set<QueryInternal<T, any>>): void {
+		for (const query of dirtyQueries) {
+			for (const callback of query.callbacks) {
+				callback();
+			}
+		}
 	}
 
-	/**
-	 * Iterate over all non-deleted documents as [id, document] tuples.
-	 */
-	entries(): IterableIterator<readonly [string, T]> {
-		const crdt = this.#crdt;
-		function* iterator() {
-			for (const [key, resource] of crdt.entries()) {
-				if (!resource.meta.deletedAt) {
-					yield [key, resource.attributes as T] as const;
+	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
+	function hydrateQuery(query: QueryInternal<T, any>): void {
+		query.results.clear();
+		for (const [key, value] of entries()) {
+			if (query.where(value)) {
+				const selected = selectValue(query, value);
+				query.results.set(key, selected);
+			}
+		}
+	}
+
+	function notifyQueries(
+		addEntries: ReadonlyArray<readonly [string, T]>,
+		updateEntries: ReadonlyArray<readonly [string, T]>,
+		deleteKeys: ReadonlyArray<string>,
+	): void {
+		if (queries.size === 0) return;
+		// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
+		const dirtyQueries = new Set<QueryInternal<T, any>>();
+
+		if (addEntries.length > 0) {
+			for (const [key, value] of addEntries) {
+				for (const query of queries) {
+					if (query.where(value)) {
+						const selected = selectValue(query, value);
+						query.results.set(key, selected);
+						dirtyQueries.add(query);
+					}
 				}
 			}
 		}
-		return iterator();
+
+		if (updateEntries.length > 0) {
+			for (const [key, value] of updateEntries) {
+				for (const query of queries) {
+					const matches = query.where(value);
+					const inResults = query.results.has(key);
+
+					if (matches && !inResults) {
+						const selected = selectValue(query, value);
+						query.results.set(key, selected);
+						dirtyQueries.add(query);
+					} else if (!matches && inResults) {
+						query.results.delete(key);
+						dirtyQueries.add(query);
+					} else if (matches && inResults) {
+						const selected = selectValue(query, value);
+						query.results.set(key, selected);
+						dirtyQueries.add(query);
+					}
+				}
+			}
+		}
+
+		if (deleteKeys.length > 0) {
+			for (const key of deleteKeys) {
+				for (const query of queries) {
+					if (query.results.delete(key)) {
+						dirtyQueries.add(query);
+					}
+				}
+			}
+		}
+
+		if (dirtyQueries.size > 0) {
+			runQueryCallbacks(dirtyQueries);
+		}
 	}
 
-	/**
-	 * Get the complete store state as a Document for persistence or sync.
-	 * @returns Document containing all documents and the latest eventstamp
-	 */
-	collection(): Document {
-		return this.#crdt.snapshot();
+	function emitMutations(
+		addEntries: ReadonlyArray<readonly [string, T]>,
+		updateEntries: ReadonlyArray<readonly [string, T]>,
+		deleteKeys: ReadonlyArray<string>,
+	): void {
+		notifyQueries(addEntries, updateEntries, deleteKeys);
+
+		if (addEntries.length > 0) {
+			for (const handler of onAddHandlers) {
+				handler(addEntries);
+			}
+		}
+		if (updateEntries.length > 0) {
+			for (const handler of onUpdateHandlers) {
+				handler(updateEntries);
+			}
+		}
+		if (deleteKeys.length > 0) {
+			for (const handler of onDeleteHandlers) {
+				handler(deleteKeys);
+			}
+		}
 	}
 
-	/**
-	 * Merge a document from storage or another replica using field-level LWW.
-	 * @param collection - Document from storage or another store instance
-	 */
-	merge(document: Document): void {
-		const currentCollection = this.collection();
+	function has(key: string): boolean {
+		const resource = crdt.get(key);
+		return resource != null && !resource.meta.deletedAt;
+	}
+
+	function get(key: string): T | null {
+		const current = crdt.get(key);
+		return decodeActive(current ?? null);
+	}
+
+	function* entries(): IterableIterator<readonly [string, T]> {
+		for (const [key, resource] of crdt.entries()) {
+			if (!resource.meta.deletedAt) {
+				yield [key, resource.attributes as T] as const;
+			}
+		}
+	}
+
+	function collection(): Document {
+		return crdt.snapshot();
+	}
+
+	function merge(document: Document): void {
+		const currentCollection = collection();
 		const result = mergeDocuments(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		this.#crdt = createResourceMapFromSnapshot<T>(result.document);
+		crdt = createResourceMapFromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
 			([key, doc]) => [key, doc.attributes as T] as const,
@@ -239,27 +362,11 @@ export class Store<T extends Record<string, unknown>> {
 			updateEntries.length > 0 ||
 			deleteKeys.length > 0
 		) {
-			this.#emitMutations(addEntries, updateEntries, deleteKeys);
+			emitMutations(addEntries, updateEntries, deleteKeys);
 		}
 	}
 
-	/**
-	 * Run multiple operations in a transaction with rollback support.
-	 *
-	 * @param callback - Function receiving a transaction context
-	 * @param opts - Optional config. Use `silent: true` to skip plugin hooks.
-	 * @returns The callback's return value
-	 *
-	 * @example
-	 * ```ts
-	 * const id = store.begin((tx) => {
-	 *   const newId = tx.add({ text: 'Buy milk' });
-	 *   tx.update(newId, { priority: 'high' });
-	 *   return newId; // Return value becomes begin()'s return value
-	 * });
-	 * ```
-	 */
-	begin<R = void>(
+	function begin<R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
 		opts?: { silent?: boolean },
 	): NotPromise<R> {
@@ -270,12 +377,12 @@ export class Store<T extends Record<string, unknown>> {
 		const deleteKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = createResourceMapFromSnapshot<T>(this.#crdt.snapshot());
+		const staging = createResourceMapFromSnapshot<T>(crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
 			add: (value, options) => {
-				const key = options?.withId ?? this.#getId();
+				const key = options?.withId ?? getId();
 				staging.set(key, value);
 				addEntries.push([key, value] as const);
 				return key;
@@ -294,7 +401,7 @@ export class Store<T extends Record<string, unknown>> {
 			},
 			get: (key) => {
 				const encoded = staging.cloneMap().get(key);
-				return this.#decodeActive(encoded ?? null);
+				return decodeActive(encoded ?? null);
 			},
 			rollback: () => {
 				rolledBack = true;
@@ -304,113 +411,69 @@ export class Store<T extends Record<string, unknown>> {
 		const result = callback(tx);
 
 		if (!rolledBack) {
-			this.#crdt = staging;
+			crdt = staging;
 			if (!silent) {
-				this.#emitMutations(addEntries, updateEntries, deleteKeys);
+				emitMutations(addEntries, updateEntries, deleteKeys);
 			}
 		}
 
 		return result as NotPromise<R>;
 	}
 
-	/**
-	 * Add a document to the store.
-	 * @returns The document's ID (generated or provided via options)
-	 */
-	add(value: T, options?: StoreAddOptions): string {
-		return this.begin((tx) => tx.add(value, options));
+	function add(value: T, options?: StoreAddOptions): string {
+		return begin((tx) => tx.add(value, options));
 	}
 
-	/**
-	 * Update a document with a partial value.
-	 *
-	 * Uses field-level merge - only specified fields are updated.
-	 */
-	update(key: string, value: DeepPartial<T>): void {
-		this.begin((tx) => tx.update(key, value));
+	function update(key: string, value: DeepPartial<T>): void {
+		begin((tx) => tx.update(key, value));
 	}
 
-	/**
-	 * Soft-delete a document.
-	 *
-	 * Deleted docs remain in snapshots for sync purposes but are
-	 * excluded from queries and reads.
-	 */
-	del(key: string): void {
-		this.begin((tx) => tx.del(key));
+	function del(key: string): void {
+		begin((tx) => tx.del(key));
 	}
 
-	/**
-	 * Register a plugin for persistence, analytics, etc.
-	 * @returns This store instance for chaining
-	 */
-	use(plugin: Plugin<T>): this {
-		this.#onInitHandlers.push(plugin.onInit);
-		this.#onDisposeHandlers.push(plugin.onDispose);
-		if (plugin.onAdd) this.#onAddHandlers.push(plugin.onAdd);
-		if (plugin.onUpdate) this.#onUpdateHandlers.push(plugin.onUpdate);
-		if (plugin.onDelete) this.#onDeleteHandlers.push(plugin.onDelete);
-		return this;
+	function use(plugin: Plugin<T>): Store<T> {
+		onInitHandlers.push(plugin.onInit);
+		onDisposeHandlers.push(plugin.onDispose);
+		if (plugin.onAdd) onAddHandlers.push(plugin.onAdd);
+		if (plugin.onUpdate) onUpdateHandlers.push(plugin.onUpdate);
+		if (plugin.onDelete) onDeleteHandlers.push(plugin.onDelete);
+		return store;
 	}
 
-	/**
-	 * Initialize the store and run plugin onInit hooks.
-	 *
-	 * Must be called before using the store. Runs plugin setup (hydrate
-	 * snapshots, start pollers, etc.) and hydrates existing queries.
-	 *
-	 * @returns This store instance for chaining
-	 */
-	async init(): Promise<this> {
-		for (const hook of this.#onInitHandlers) {
-			await hook(this);
+	async function init(): Promise<Store<T>> {
+		for (const hook of onInitHandlers) {
+			await hook(store);
 		}
 
-		for (const query of this.#queries) {
-			this.#hydrateQuery(query);
+		for (const query of queries) {
+			hydrateQuery(query);
 		}
 
-		return this;
+		return store;
 	}
 
-	/**
-	 * Dispose the store and run plugin cleanup.
-	 *
-	 * Flushes pending operations, clears queries, and runs plugin teardown.
-	 * Call when shutting down to avoid memory leaks.
-	 */
-	async dispose(): Promise<void> {
-		for (let i = this.#onDisposeHandlers.length - 1; i >= 0; i--) {
-			await this.#onDisposeHandlers[i]?.();
+	async function dispose(): Promise<void> {
+		for (let i = onDisposeHandlers.length - 1; i >= 0; i--) {
+			await onDisposeHandlers[i]?.();
 		}
 
-		for (const query of this.#queries) {
+		for (const query of queries) {
 			query.callbacks.clear();
 			query.results.clear();
 		}
 
-		this.#queries.clear();
+		queries.clear();
 
-		this.#onInitHandlers = [];
-		this.#onDisposeHandlers = [];
-		this.#onAddHandlers = [];
-		this.#onUpdateHandlers = [];
-		this.#onDeleteHandlers = [];
+		onInitHandlers.length = 0;
+		onDisposeHandlers.length = 0;
+		onAddHandlers.length = 0;
+		onUpdateHandlers.length = 0;
+		onDeleteHandlers.length = 0;
 	}
 
-	/**
-	 * Create a reactive query that auto-updates when matching docs change.
-	 *
-	 * @example
-	 * ```ts
-	 * const active = store.query({ where: (todo) => !todo.completed });
-	 * active.results(); // [[id, todo], ...]
-	 * active.onChange(() => console.log('Updated!'));
-	 * active.dispose(); // Clean up when done
-	 * ```
-	 */
-	query<U = T>(config: QueryConfig<T, U>): Query<U> {
-		const query: QueryInternal<T, U> = {
+	function query<U = T>(config: QueryConfig<T, U>): Query<U> {
+		const q: QueryInternal<T, U> = {
 			where: config.where,
 			...(config.select && { select: config.select }),
 			...(config.order && { order: config.order }),
@@ -418,138 +481,48 @@ export class Store<T extends Record<string, unknown>> {
 			callbacks: new Set(),
 		};
 
-		this.#queries.add(query);
-		this.#hydrateQuery(query);
+		queries.add(q);
+		hydrateQuery(q);
 
 		return {
 			results: () => {
-				if (query.order) {
-					return Array.from(query.results).sort(([, a], [, b]) =>
+				if (q.order) {
+					return Array.from(q.results).sort(([, a], [, b]) =>
 						// biome-ignore lint/style/noNonNullAssertion: <guard above>
-						query.order!(a, b),
+						q.order!(a, b),
 					);
 				}
-				return Array.from(query.results);
+				return Array.from(q.results);
 			},
 			onChange: (callback: () => void) => {
-				query.callbacks.add(callback);
+				q.callbacks.add(callback);
 				return () => {
-					query.callbacks.delete(callback);
+					q.callbacks.delete(callback);
 				};
 			},
 			dispose: () => {
-				this.#queries.delete(query);
-				query.callbacks.clear();
-				query.results.clear();
+				queries.delete(q);
+				q.callbacks.clear();
+				q.results.clear();
 			},
 		};
 	}
 
-	#decodeActive(doc: ResourceObject<T> | null): T | null {
-		if (!doc || doc.meta.deletedAt) return null;
-		return doc.attributes as T;
-	}
+	const store: Store<T> = {
+		has,
+		get,
+		entries,
+		collection,
+		merge,
+		begin,
+		add,
+		update,
+		del,
+		use,
+		init,
+		dispose,
+		query,
+	};
 
-	#emitMutations(
-		addEntries: ReadonlyArray<readonly [string, T]>,
-		updateEntries: ReadonlyArray<readonly [string, T]>,
-		deleteKeys: ReadonlyArray<string>,
-	): void {
-		this.#notifyQueries(addEntries, updateEntries, deleteKeys);
-
-		if (addEntries.length > 0) {
-			for (const handler of this.#onAddHandlers) {
-				handler(addEntries);
-			}
-		}
-		if (updateEntries.length > 0) {
-			for (const handler of this.#onUpdateHandlers) {
-				handler(updateEntries);
-			}
-		}
-		if (deleteKeys.length > 0) {
-			for (const handler of this.#onDeleteHandlers) {
-				handler(deleteKeys);
-			}
-		}
-	}
-
-	#notifyQueries(
-		addEntries: ReadonlyArray<readonly [string, T]>,
-		updateEntries: ReadonlyArray<readonly [string, T]>,
-		deleteKeys: ReadonlyArray<string>,
-	): void {
-		if (this.#queries.size === 0) return;
-		const dirtyQueries = new Set<QueryInternal<T, any>>();
-
-		if (addEntries.length > 0) {
-			for (const [key, value] of addEntries) {
-				for (const query of this.#queries) {
-					if (query.where(value)) {
-						const selected = this.#selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (updateEntries.length > 0) {
-			for (const [key, value] of updateEntries) {
-				for (const query of this.#queries) {
-					const matches = query.where(value);
-					const inResults = query.results.has(key);
-
-					if (matches && !inResults) {
-						const selected = this.#selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					} else if (!matches && inResults) {
-						query.results.delete(key);
-						dirtyQueries.add(query);
-					} else if (matches && inResults) {
-						const selected = this.#selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (deleteKeys.length > 0) {
-			for (const key of deleteKeys) {
-				for (const query of this.#queries) {
-					if (query.results.delete(key)) {
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (dirtyQueries.size > 0) {
-			this.#runQueryCallbacks(dirtyQueries);
-		}
-	}
-
-	#runQueryCallbacks(dirtyQueries: Set<QueryInternal<T, any>>): void {
-		for (const query of dirtyQueries) {
-			for (const callback of query.callbacks) {
-				callback();
-			}
-		}
-	}
-
-	#hydrateQuery(query: QueryInternal<T, any>): void {
-		query.results.clear();
-		for (const [key, value] of this.entries()) {
-			if (query.where(value)) {
-				const selected = this.#selectValue(query, value);
-				query.results.set(key, selected);
-			}
-		}
-	}
-
-	#selectValue<U>(query: QueryInternal<T, U>, value: T): U {
-		return query.select ? query.select(value) : (value as unknown as U);
-	}
+	return store;
 }

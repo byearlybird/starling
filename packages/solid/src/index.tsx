@@ -29,10 +29,10 @@ import {
  * @example
  * ```tsx
  * // In your store file
- * import { Store } from "@byearlybird/starling";
+ * import { createStore } from "@byearlybird/starling";
  * import { createStoreHooks } from "@byearlybird/starling-solid";
  *
- * export const taskStore = await new Store<Task>().init();
+ * export const taskStore = await createStore<Task>().init();
  *
  * export const { StoreProvider, useStore, useQuery } = createStoreHooks(taskStore);
  *

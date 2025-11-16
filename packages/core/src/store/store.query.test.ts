@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { Store } from "./store";
+import { createStore, type Store } from "./store";
 
 type User = {
 	name: string;
 	active: boolean;
 };
 
-const makeStore = () => new Store<User>().init();
+const makeStore = () => createStore<User>().init();
 
 describe("Store - Queries", () => {
 	let store: Awaited<ReturnType<typeof makeStore>>;
