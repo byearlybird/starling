@@ -137,9 +137,11 @@ export function mergeDocuments(
 				// Transitioned to deleted
 				deleted.add(id);
 			} else if (!isDeleted) {
-				// Not deleted, so this is an update
-				// (including updates that occur while resource is deleted, which merge silently)
-				updated.set(id, mergedDoc);
+				// Not deleted, so this is an update (but only if eventstamps differ)
+				// Compare meta.latest to avoid false positives when content is identical
+				if (intoDoc.meta.latest !== mergedDoc.meta.latest) {
+					updated.set(id, mergedDoc);
+				}
 			}
 			// If wasDeleted && isDeleted, resource stays deleted - no change tracking
 		}

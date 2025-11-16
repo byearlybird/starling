@@ -304,3 +304,41 @@ test("mergeResources returns newest eventstamp when adding new fields", () => {
 
 	expect(merged.meta.latest).toBe("2025-01-08T00:00:00.000Z|0000|m3n4");
 });
+
+test("mergeResources throws on schema mismatch (object vs primitive)", () => {
+	const doc1 = makeResource(
+		"users",
+		"doc-1",
+		{ settings: { theme: "dark", notifications: true } },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+	const doc2 = makeResource(
+		"users",
+		"doc-1",
+		{ settings: null },
+		"2025-01-02T00:00:00.000Z|0000|c3d4",
+	);
+
+	expect(() => mergeResources(doc1, doc2)).toThrow(
+		"Schema mismatch at field 'settings': cannot merge object with primitive",
+	);
+});
+
+test("mergeResources throws on schema mismatch in nested field", () => {
+	const doc1 = makeResource(
+		"users",
+		"doc-1",
+		{ profile: { personal: { name: "Alice" }, settings: { theme: "dark" } } },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+	const doc2 = makeResource(
+		"users",
+		"doc-1",
+		{ profile: { personal: "Alice Smith" } },
+		"2025-01-02T00:00:00.000Z|0000|c3d4",
+	);
+
+	expect(() => mergeResources(doc1, doc2)).toThrow(
+		"Schema mismatch at field 'profile.personal': cannot merge object with primitive",
+	);
+});

@@ -373,3 +373,41 @@ test("mergeDocuments field-level LWW for nested objects", () => {
 	expect(result.changes.updated.size).toBe(1);
 	expect(result.changes.updated.has("doc-1")).toBe(true);
 });
+
+test("mergeDocuments detects no changes when content is identical", () => {
+	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
+	const resource = makeResource(
+		"items",
+		"doc-1",
+		{ name: "Alice", age: 30 },
+		eventstamp,
+	);
+
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { eventstamp },
+		data: [resource],
+	};
+
+	// Create a copy of the document with identical content but different object reference
+	const fromResource = makeResource(
+		"items",
+		"doc-1",
+		{ name: "Alice", age: 30 },
+		eventstamp,
+	);
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { eventstamp },
+		data: [fromResource],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Should have 1 resource but no changes tracked
+	expect(result.document.data.length).toBe(1);
+	expect(result.changes.added.size).toBe(0);
+	expect(result.changes.updated.size).toBe(0);
+	expect(result.changes.deleted.size).toBe(0);
+});

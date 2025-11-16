@@ -81,6 +81,7 @@ export function makeResource<T extends Record<string, unknown>>(
 	};
 }
 
+// TODO: consider if meta.eventstamps should be flat, with path : eventstamp
 export function mergeResources<T extends Record<string, unknown>>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
@@ -96,6 +97,7 @@ export function mergeResources<T extends Record<string, unknown>>(
 		e2: Record<string, unknown>,
 		dataOutput: Record<string, unknown>,
 		eventstampOutput: Record<string, unknown>,
+		path: string = "",
 	) => {
 		// Collect all keys from both objects
 		const allKeys = new Set([...Object.keys(d1), ...Object.keys(d2)]);
@@ -105,6 +107,7 @@ export function mergeResources<T extends Record<string, unknown>>(
 			const value2 = d2[key];
 			const stamp1 = e1[key];
 			const stamp2 = e2[key];
+			const fieldPath = path ? `${path}.${key}` : key;
 
 			// Both have this key
 			if (value1 !== undefined && value2 !== undefined) {
@@ -124,6 +127,7 @@ export function mergeResources<T extends Record<string, unknown>>(
 						stamp2 as Record<string, unknown>,
 						dataOutput[key] as Record<string, unknown>,
 						eventstampOutput[key] as Record<string, unknown>,
+						fieldPath,
 					);
 				} else if (typeof stamp1 === "string" && typeof stamp2 === "string") {
 					// Both are leaf values - compare eventstamps
@@ -140,6 +144,11 @@ export function mergeResources<T extends Record<string, unknown>>(
 							greatestEventstamp = stamp2;
 						}
 					}
+				} else {
+					// Schema mismatch: one is object, other is primitive
+					throw new Error(
+						`Schema mismatch at field '${fieldPath}': cannot merge object with primitive`,
+					);
 				}
 			} else if (value1 !== undefined) {
 				// Only in first record
