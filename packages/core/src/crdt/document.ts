@@ -5,13 +5,7 @@ import {
 	mergeRecords,
 	processRecord,
 } from "./record";
-import { isEncodedValue, isObject } from "./utils";
-import {
-	decodeValue,
-	type EncodedValue,
-	encodeValue,
-	mergeValues,
-} from "./value";
+import type { EncodedValue } from "./value";
 
 /**
  * Top-level document structure with system metadata for tracking identity,
@@ -23,13 +17,13 @@ import {
 export type EncodedDocument = {
 	/** Unique identifier for this document */
 	"~id": string;
-	/** The document's data, either a primitive value or nested object structure */
-	"~data": EncodedValue<unknown> | EncodedRecord;
+	/** The document's data as a nested object structure */
+	"~data": EncodedRecord;
 	/** Eventstamp when this document was soft-deleted, or null if not deleted */
 	"~deletedAt": string | null;
 };
 
-export function encodeDoc<T>(
+export function encodeDoc<T extends Record<string, unknown>>(
 	id: string,
 	obj: T,
 	eventstamp: string,
@@ -37,23 +31,21 @@ export function encodeDoc<T>(
 ): EncodedDocument {
 	return {
 		"~id": id,
-		"~data": isObject(obj)
-			? encodeRecord(obj as Record<string, unknown>, eventstamp)
-			: encodeValue(obj, eventstamp),
+		"~data": encodeRecord(obj, eventstamp),
 		"~deletedAt": deletedAt,
 	};
 }
 
-export function decodeDoc<T>(doc: EncodedDocument): {
+export function decodeDoc<T extends Record<string, unknown>>(
+	doc: EncodedDocument,
+): {
 	"~id": string;
 	"~data": T;
 	"~deletedAt": string | null;
 } {
 	return {
 		"~id": doc["~id"],
-		"~data": (isEncodedValue(doc["~data"])
-			? decodeValue(doc["~data"] as EncodedValue<T>)
-			: decodeRecord(doc["~data"] as EncodedRecord)) as T,
+		"~data": decodeRecord(doc["~data"]) as T,
 		"~deletedAt": doc["~deletedAt"],
 	};
 }
@@ -62,24 +54,10 @@ export function mergeDocs(
 	into: EncodedDocument,
 	from: EncodedDocument,
 ): [EncodedDocument, string] {
-	const intoIsValue = isEncodedValue(into["~data"]);
-	const fromIsValue = isEncodedValue(from["~data"]);
-
-	// Type mismatch: cannot merge primitive with object
-	if (intoIsValue !== fromIsValue) {
-		throw new Error("Merge error: Incompatible types");
-	}
-
-	const [mergedData, dataEventstamp] =
-		intoIsValue && fromIsValue
-			? mergeValues(
-					into["~data"] as EncodedValue<unknown>,
-					from["~data"] as EncodedValue<unknown>,
-				)
-			: mergeRecords(
-					into["~data"] as EncodedRecord,
-					from["~data"] as EncodedRecord,
-				);
+	const [mergedData, dataEventstamp] = mergeRecords(
+		into["~data"],
+		from["~data"],
+	);
 
 	const mergedDeletedAt =
 		into["~deletedAt"] && from["~deletedAt"]
@@ -137,9 +115,7 @@ export function processDocument(
 	doc: EncodedDocument,
 	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
 ): EncodedDocument {
-	const processedData = isEncodedValue(doc["~data"])
-		? process(doc["~data"] as EncodedValue<unknown>)
-		: processRecord(doc["~data"] as EncodedRecord, process);
+	const processedData = processRecord(doc["~data"], process);
 
 	return {
 		"~id": doc["~id"],

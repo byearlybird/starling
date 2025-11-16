@@ -5,7 +5,6 @@ import {
 	mergeCollections,
 } from "./collection";
 import { encodeDoc } from "./document";
-import { encodeValue } from "./value";
 
 test("createCollection returns empty collection with given eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
@@ -320,36 +319,6 @@ test("mergeCollections field-level LWW for nested objects", () => {
 				{ email: "alice@new.com" },
 				"2025-01-01T00:05:00.000Z|0001|c3d4",
 			),
-		],
-		"~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4",
-	};
-
-	const result = mergeCollections(into, from);
-
-	expect(result.collection["~docs"].length).toBe(1);
-	expect(result.changes.updated.size).toBe(1);
-	expect(result.changes.updated.has("doc-1")).toBe(true);
-});
-
-test("mergeCollections with primitive values", () => {
-	const into: Collection = {
-		"~docs": [
-			{
-				"~id": "doc-1",
-				"~data": encodeValue("hello", "2025-01-01T00:00:00.000Z|0000|a1b2"),
-				"~deletedAt": null,
-			},
-		],
-		"~eventstamp": "2025-01-01T00:00:00.000Z|0000|a1b2",
-	};
-
-	const from: Collection = {
-		"~docs": [
-			{
-				"~id": "doc-1",
-				"~data": encodeValue("world", "2025-01-01T00:05:00.000Z|0001|c3d4"),
-				"~deletedAt": null,
-			},
 		],
 		"~eventstamp": "2025-01-01T00:05:00.000Z|0001|c3d4",
 	};
