@@ -14,7 +14,7 @@
 		"build:core": "cd packages/core && bun run build.ts",
 		"build:react": "cd packages/react && bun run build.ts",
 		"build:solid": "cd packages/solid && bun run build.ts",
-		"bench": "bun scripts/run-benchmarks.ts",
+		"bench": "cd packages/core && bun run bench.ts",
 		"demo:react": "bun scripts/demo-react.ts",
 		"demo:solid": "bun scripts/demo-solid.ts",
 		"version:core:patch": "cd packages/core && bun pm version patch",
