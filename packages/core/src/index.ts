@@ -1,6 +1,6 @@
 export type {
-	Collection,
-	EncodedDocument,
+	Document,
+	ResourceObject,
 	EncodedRecord,
 } from "./crdt";
 export * from "./store";

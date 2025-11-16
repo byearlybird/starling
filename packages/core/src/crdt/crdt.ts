@@ -1,8 +1,8 @@
 import { Clock } from "../clock";
-import type { Collection } from "./collection";
-import { mergeCollections } from "./collection";
-import type { EncodedDocument } from "./document";
-import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
+import type { Document } from "./document";
+import { mergeDocuments } from "./document";
+import type { ResourceObject } from "./resource";
+import { decodeResource, deleteResource, encodeResource, mergeResources } from "./resource";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -23,12 +23,12 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  * ```
  */
 export class CRDT<T extends Record<string, unknown>> {
-	#map: Map<string, EncodedDocument>;
+	#map: Map<string, ResourceObject>;
 	#clock: Clock;
 	#type: string;
 
 	constructor(
-		map: Map<string, EncodedDocument> = new Map(),
+		map: Map<string, ResourceObject> = new Map(),
 		type: string = "default",
 		eventstamp?: string,
 	) {
@@ -58,7 +58,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	get(id: string): T | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw.meta.deletedAt ? undefined : (decodeDoc(raw).data as T);
+		return raw.meta.deletedAt ? undefined : (decodeResource(raw).data as T);
 	}
 
 	/**
@@ -69,7 +69,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		function* iterator() {
 			for (const [key, doc] of self.#map.entries()) {
 				if (!doc.meta.deletedAt) {
-					const decoded = decodeDoc<T>(doc).data;
+					const decoded = decodeResource<T>(doc).data;
 					yield [key, decoded] as const;
 				}
 			}
@@ -83,7 +83,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeDoc(this.#type, id, object, this.#clock.now());
+		const encoded = encodeResource(this.#type, id, object, this.#clock.now());
 		this.#map.set(id, encoded);
 	}
 
@@ -94,10 +94,10 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeDoc(this.#type, id, object, this.#clock.now());
+		const encoded = encodeResource(this.#type, id, object, this.#clock.now());
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeDocs(current, encoded);
+			const [merged] = mergeResources(current, encoded);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, encoded);
@@ -107,7 +107,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	delete(id: string): void {
 		const current = this.#map.get(id);
 		if (current) {
-			const doc = deleteDoc(current, this.#clock.now());
+			const doc = deleteResource(current, this.#clock.now());
 			this.#map.set(id, doc);
 		}
 	}
@@ -115,11 +115,11 @@ export class CRDT<T extends Record<string, unknown>> {
 	/**
 	 * Clone the internal map of encoded resources.
 	 */
-	cloneMap(): Map<string, EncodedDocument> {
+	cloneMap(): Map<string, ResourceObject> {
 		return new Map(this.#map);
 	}
 
-	snapshot(): Collection {
+	snapshot(): Document {
 		return {
 			jsonapi: { version: "1.1" },
 			meta: {
@@ -133,18 +133,18 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * Merge another document into this CRDT using field-level Last-Write-Wins.
 	 * @param collection - Document from another replica or storage
 	 */
-	merge(collection: Collection): void {
+	merge(collection: Document): void {
 		const currentCollection = this.snapshot();
-		const result = mergeCollections(currentCollection, collection);
+		const result = mergeDocuments(currentCollection, collection);
 
-		this.#clock.forward(result.collection.meta.eventstamp);
+		this.#clock.forward(result.document.meta.eventstamp);
 		this.#map = new Map(
-			result.collection.data.map((doc) => [doc.id, doc]),
+			result.document.data.map((doc) => [doc.id, doc]),
 		);
 	}
 
 	static fromSnapshot<U extends Record<string, unknown>>(
-		collection: Collection,
+		collection: Document,
 		type: string = "default",
 	): CRDT<U> {
 		// Infer type from first resource if available, otherwise use provided type

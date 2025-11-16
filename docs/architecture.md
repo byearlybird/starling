@@ -8,7 +8,7 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `Collection`, `Clock`) with built-in reactive queries, plus unit tests |
+| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `Document`, `Clock`) with built-in reactive queries, plus unit tests |
 | `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
 | `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
 | `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
@@ -120,17 +120,17 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 
 ### Document Format
 
-The `Collection` type represents the complete persistent state of a store, containing API version information, metadata, and an array of resource objects:
+The `Document` type represents the complete persistent state of a store, containing API version information, metadata, and an array of resource objects:
 
 ```typescript
-export type Collection = {
+export type Document = {
   jsonapi: {
     version: "1.1";
   };
   meta: {
     eventstamp: string;
   };
-  data: EncodedDocument[];
+  data: ResourceObject[];
 };
 ```
 
@@ -174,7 +174,7 @@ Example document:
 Each resource in the `data` array follows this structure:
 
 ```typescript
-export type EncodedDocument = {
+export type ResourceObject = {
   type: string;
   id: string;
   attributes: Record<string, unknown>;
@@ -197,9 +197,9 @@ export type EncodedDocument = {
 
 ### Merging Documents
 
-The `mergeCollections(into, from)` function handles document-level merging with automatic change detection:
+The `mergeDocuments(into, from)` function handles document-level merging with automatic change detection:
 
-1. **Field-level LWW**: Each resource pair merges using `mergeDocs`, preserving the newest eventstamp for each field
+1. **Field-level LWW**: Each resource pair merges using `mergeResources`, preserving the newest eventstamp for each field
 2. **Clock forwarding**: The resulting document's eventstamp is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
 
@@ -280,8 +280,8 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`eventstamp.ts`](../packages/core/src/crdt/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings |
 | [`value.ts`](../packages/core/src/crdt/value.ts) | Wraps field values with eventstamps and merges values by comparing stamps |
 | [`record.ts`](../packages/core/src/crdt/record.ts) | Recursively encodes/decodes nested objects, merging each field independently |
-| [`document.ts`](../packages/core/src/crdt/document.ts) | Defines resource object structure (`type`, `id`, `attributes`, `meta`) and handles soft-deletion |
-| [`collection.ts`](../packages/core/src/crdt/collection.ts) | Manages documents containing resource objects with clock synchronization, provides field-level LWW merge logic via `mergeCollections`, and tracks changes for hook notifications |
+| [`resource.ts`](../packages/core/src/crdt/resource.ts) | Defines resource object structure (`type`, `id`, `attributes`, `meta`) and handles soft-deletion |
+| [`resource.ts`](../packages/core/src/crdt/resource.ts) | Manages documents containing resource objects with clock synchronization, provides field-level LWW merge logic via `mergeDocuments`, and tracks changes for hook notifications |
 | [`store.ts`](../packages/core/src/store.ts) | User-facing API, built-in reactive queries, plugin orchestration, transaction management, and internal map storage with transactional staging |
 
 ### Data Flow
@@ -297,7 +297,7 @@ User mutation → Store → Transaction staging → Commit → Plugin hooks
 
 **Document sync:**
 ```
-store.merge(snapshot) → mergeCollections(into, from) → Resource merge (mergeDocs)
+store.merge(snapshot) → mergeDocuments(into, from) → Resource merge (mergeResources)
                               ↓                              ↓
                       Clock forwarding                 Field-level LWW
                               ↓                              ↓
@@ -312,7 +312,7 @@ Starling ships as a monorepo with subpath exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `EncodedDocument`, `processDocument`  
+**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `ResourceObject`, `processResource`  
 **Dependencies**: Zero runtime dependencies
 
 Provides the core store implementation, built-in queries, and plugin hooks.

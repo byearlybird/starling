@@ -1,5 +1,5 @@
 import { Store } from "@byearlybird/starling";
-import { processDocument } from "@byearlybird/starling/crdt";
+import { processResource } from "@byearlybird/starling/crdt";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStoreHooks } from "@byearlybird/starling-solid";
 import { createStorage } from "unstorage";
@@ -58,7 +58,7 @@ const remoteStorage = unstoragePlugin<Task>(
 		onBeforeSet: (data) => ({
 			...data,
 			data: data.data.map((doc) =>
-				processDocument(doc, (value, eventstamp) => ({
+				processResource(doc, (value, eventstamp) => ({
 					value: pseudoEncrypt(value),
 					eventstamp,
 				})),
@@ -67,7 +67,7 @@ const remoteStorage = unstoragePlugin<Task>(
 		onAfterGet: (data) => ({
 			...data,
 			data: data.data.map((doc) =>
-				processDocument(doc, (value, eventstamp) => ({
+				processResource(doc, (value, eventstamp) => ({
 					value: pseudoDecrypt(value),
 					eventstamp,
 				})),

@@ -99,7 +99,7 @@ test("debounces storage writes when debounceMs is set", async () => {
 	let writeCount = 0;
 
 	const originalSet = debounceStorage.setItem;
-	debounceStorage.setItem = async (key: string, value: Collection) => {
+	debounceStorage.setItem = async (key: string, value: Document) => {
 		writeCount++;
 		return originalSet.call(debounceStorage, key, value);
 	};

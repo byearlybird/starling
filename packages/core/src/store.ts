@@ -1,5 +1,5 @@
-import type { Collection, EncodedDocument } from "./crdt";
-import { CRDT, decodeDoc, mergeCollections } from "./crdt";
+import type { Document, ResourceObject } from "./crdt";
+import { CRDT, decodeResource, mergeDocuments } from "./crdt";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -196,10 +196,10 @@ export class Store<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Get the complete store state as a Collection for persistence or sync.
-	 * @returns Collection containing all documents and the latest eventstamp
+	 * Get the complete store state as a Document for persistence or sync.
+	 * @returns Document containing all documents and the latest eventstamp
 	 */
-	collection(): Collection {
+	collection(): Document {
 		return this.#crdt.snapshot();
 	}
 
@@ -207,18 +207,18 @@ export class Store<T extends Record<string, unknown>> {
 	 * Merge a document from storage or another replica using field-level LWW.
 	 * @param collection - Document from storage or another store instance
 	 */
-	merge(collection: Collection): void {
+	merge(document: Document): void {
 		const currentCollection = this.collection();
-		const result = mergeCollections(currentCollection, collection);
+		const result = mergeDocuments(currentCollection, document);
 
 		// Replace the CRDT with the merged state
-		this.#crdt = CRDT.fromSnapshot<T>(result.collection);
+		this.#crdt = CRDT.fromSnapshot<T>(result.document);
 
 		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
+			([key, doc]) => [key, decodeResource<T>(doc).data] as const,
 		);
 		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, decodeDoc<T>(doc).data] as const,
+			([key, doc]) => [key, decodeResource<T>(doc).data] as const,
 		);
 		const deleteKeys = Array.from(result.changes.deleted);
 
@@ -433,9 +433,9 @@ export class Store<T extends Record<string, unknown>> {
 		};
 	}
 
-	#decodeActive(doc: EncodedDocument | null): T | null {
+	#decodeActive(doc: ResourceObject | null): T | null {
 		if (!doc || doc.meta.deletedAt) return null;
-		return decodeDoc<T>(doc).data;
+		return decodeResource<T>(doc).data;
 	}
 
 	#emitMutations(

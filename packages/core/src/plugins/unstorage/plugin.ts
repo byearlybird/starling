@@ -4,9 +4,9 @@ import type { Plugin, Store } from "../../store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet = (data: Collection) => MaybePromise<Collection>;
+type UnstorageOnBeforeSet = (data: Document) => MaybePromise<Collection>;
 
-type UnstorageOnAfterGet = (data: Collection) => MaybePromise<Collection>;
+type UnstorageOnAfterGet = (data: Document) => MaybePromise<Collection>;
 
 /**
  * Configuration options for the unstorage persistence plugin.
@@ -55,7 +55,7 @@ type UnstorageConfig = {
  */
 function unstoragePlugin<T>(
 	key: string,
-	storage: Storage<Collection>,
+	storage: Storage<Document>,
 	config: UnstorageConfig = {},
 ): Plugin<T> {
 	const {
@@ -108,7 +108,7 @@ function unstoragePlugin<T>(
 		if (!store) return;
 		if (skip?.()) return;
 
-		const persisted = await storage.get<Collection>(key);
+		const persisted = await storage.get<Document>(key);
 
 		if (!persisted) return;
 
