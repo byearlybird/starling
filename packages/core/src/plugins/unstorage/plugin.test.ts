@@ -61,7 +61,7 @@ test("persists put operation to storage", async () => {
 	expect(persisted).toBeDefined();
 	expect(persisted?.data.length).toBe(1);
 	expect(persisted?.data[0]?.id).toBe("todo1");
-	expect(persisted?.meta.eventstamp).toBeDefined();
+	expect(persisted?.meta.latest).toBeDefined();
 });
 
 test("persists patch operation to storage", async () => {
@@ -138,7 +138,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 
 	// Wait for persistence
 	await new Promise((resolve) => setTimeout(resolve, 10));
-	const persistedEventstamp = store1.collection().meta.eventstamp;
+	const persistedEventstamp = store1.collection().meta.latest;
 	await store1.dispose();
 
 	// Create a new store that loads the data
@@ -147,7 +147,7 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 		.init();
 
 	// The new store's clock should have been forwarded to at least the persisted eventstamp
-	const store2Latest = store2.collection().meta.eventstamp;
+	const store2Latest = store2.collection().meta.latest;
 	expect(store2Latest >= persistedEventstamp).toBe(true);
 
 	// New writes should have higher eventstamps than the loaded data
@@ -155,12 +155,12 @@ test("forwards store clock to persisted eventstamp on load", async () => {
 	store2.begin((tx) => {
 		tx.add({ label: "Task 2", completed: false }, { withId: "todo2" });
 	});
-	const afterTimestamp = store2.collection().meta.eventstamp;
+	const afterTimestamp = store2.collection().meta.latest;
 	expect(afterTimestamp > beforeTimestamp).toBe(true);
 
 	// Verify the persisted data included the eventstamp
 	const persisted = (await storage.getItem("todos")) as Document | null;
-	expect(persisted?.meta.eventstamp).toBeDefined();
+	expect(persisted?.meta.latest).toBeDefined();
 	expect(persisted?.data.length).toBe(2);
 
 	await store2.dispose();

@@ -1,6 +1,53 @@
 import { MIN_EVENTSTAMP } from "./eventstamp";
 import { isObject } from "./utils";
 
+function collectGreatestEventstamp(
+	tree: Record<string, unknown>,
+	fallback: string = MIN_EVENTSTAMP,
+): string {
+	let max = fallback;
+
+	const visit = (node: unknown): void => {
+		if (typeof node === "string") {
+			if (node > max) {
+				max = node;
+			}
+			return;
+		}
+
+		if (isObject(node)) {
+			const obj = node as Record<string, unknown>;
+			for (const key in obj) {
+				if (!Object.hasOwn(obj, key)) continue;
+				visit(obj[key]);
+			}
+		}
+	};
+
+	visit(tree);
+	return max;
+}
+
+/**
+ * Compute the latest eventstamp for a resource from its field eventstamps and deletedAt.
+ * Used internally and exported for testing/validation.
+ * @internal
+ */
+export function computeResourceLatest(
+	eventstamps: Record<string, unknown>,
+	deletedAt: string | null,
+	fallback?: string,
+): string {
+	const dataLatest = collectGreatestEventstamp(
+		eventstamps,
+		fallback ?? MIN_EVENTSTAMP,
+	);
+	if (deletedAt && deletedAt > dataLatest) {
+		return deletedAt;
+	}
+	return dataLatest;
+}
+
 /**
  * Resource object structure representing a single stored entity.
  * Resources are the primary unit of storage and synchronization in Starling.
@@ -67,7 +114,7 @@ export function makeResource<T extends Record<string, unknown>>(
 
 	step(obj, attributes, eventstamps);
 
-	const latest = deletedAt && deletedAt > eventstamp ? deletedAt : eventstamp;
+	const latest = computeResourceLatest(eventstamps, deletedAt, eventstamp);
 
 	return {
 		type,
@@ -88,7 +135,6 @@ export function mergeResources<T extends Record<string, unknown>>(
 ): ResourceObject<T> {
 	const resultData: Record<string, unknown> = {};
 	const resultEventstamps: Record<string, unknown> = {};
-	let greatestEventstamp: string = MIN_EVENTSTAMP;
 
 	const step = (
 		d1: Record<string, unknown>,
@@ -134,15 +180,9 @@ export function mergeResources<T extends Record<string, unknown>>(
 					if (stamp1 > stamp2) {
 						dataOutput[key] = value1;
 						eventstampOutput[key] = stamp1;
-						if (stamp1 > greatestEventstamp) {
-							greatestEventstamp = stamp1;
-						}
 					} else {
 						dataOutput[key] = value2;
 						eventstampOutput[key] = stamp2;
-						if (stamp2 > greatestEventstamp) {
-							greatestEventstamp = stamp2;
-						}
 					}
 				} else {
 					// Schema mismatch: one is object, other is primitive
@@ -172,14 +212,9 @@ export function mergeResources<T extends Record<string, unknown>>(
 	);
 
 	// Use the cached latest values from both records
-	const latestEventstamp =
+	const baseLatest =
 		into.meta.latest > from.meta.latest ? into.meta.latest : from.meta.latest;
-
-	// Also consider any new eventstamps from the merge
-	const dataLatest =
-		greatestEventstamp > latestEventstamp
-			? greatestEventstamp
-			: latestEventstamp;
+	const dataLatest = computeResourceLatest(resultEventstamps, null, baseLatest);
 
 	const mergedDeletedAt =
 		into.meta.deletedAt && from.meta.deletedAt
@@ -210,9 +245,11 @@ export function deleteResource<T extends Record<string, unknown>>(
 	resource: ResourceObject<T>,
 	eventstamp: string,
 ): ResourceObject<T> {
-	// The latest is the max of the data's latest and the deletion eventstamp
-	const latest =
-		eventstamp > resource.meta.latest ? eventstamp : resource.meta.latest;
+	// If resource isn't already deleted, meta.latest already contains the data's max eventstamp
+	const dataLatest = resource.meta.deletedAt
+		? computeResourceLatest(resource.meta.eventstamps, null)
+		: resource.meta.latest;
+	const latest = eventstamp > dataLatest ? eventstamp : dataLatest;
 
 	return {
 		type: resource.type,

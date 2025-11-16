@@ -15,6 +15,7 @@ This document covers the design and internals of Starling, including the state-b
 
 **Key points:**
 
+- Follows a Functional Core, Imperative Shell design—core packages stay pure/predictable while adapters handle IO, frameworks, and persistence
 - Core logic lives under `packages/core`; reactive queries are built into the `Store` class
 - Official plugins are co-located in `packages/core/src/plugins/*`
 - Framework integrations live in separate packages (`packages/react`, `packages/solid`)
@@ -128,7 +129,7 @@ export type Document = {
     version: "1.1";
   };
   meta: {
-    eventstamp: string;
+    latest: string;
   };
   data: ResourceObject[];
 };
@@ -137,7 +138,7 @@ export type Document = {
 **Design notes:**
 
 - **`jsonapi`**: Version information for the document structure
-- **`meta.eventstamp`**: The highest eventstamp observed by the document. When merging documents, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries
+- **`meta.latest`**: The highest eventstamp observed by the document. When merging documents, the clock forwards to the newest eventstamp to prevent collisions across sync boundaries
 - **`data`**: Array of resource objects, including soft-deleted items (those with `meta.deletedAt` set). This ensures deletion events propagate during sync
 
 Example document:
@@ -146,7 +147,7 @@ Example document:
 {
   jsonapi: { version: "1.1" },
   meta: {
-    eventstamp: "2025-10-26T10:00:00.000Z|0001|a7f2"
+    latest: "2025-10-26T10:00:00.000Z|0001|a7f2"
   },
   data: [
     {
@@ -200,7 +201,7 @@ export type ResourceObject = {
 The `mergeDocuments(into, from)` function handles document-level merging with automatic change detection:
 
 1. **Field-level LWW**: Each resource pair merges using `mergeResources`, preserving the newest eventstamp for each field
-2. **Clock forwarding**: The resulting document's eventstamp is the maximum of both input eventstamps
+2. **Clock forwarding**: The resulting document's latest value is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
 
 This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.

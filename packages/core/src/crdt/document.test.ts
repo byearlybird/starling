@@ -7,7 +7,7 @@ test("makeDocument returns empty collection with given eventstamp", () => {
 	const collection = makeDocument(eventstamp);
 
 	expect(collection.data).toEqual([]);
-	expect(collection.meta.eventstamp).toBe(eventstamp);
+	expect(collection.meta.latest).toBe(eventstamp);
 	expect(collection.jsonapi.version).toBe("1.1");
 });
 
@@ -18,7 +18,7 @@ test("mergeDocuments with empty collections", () => {
 	const result = mergeDocuments(into, from);
 
 	expect(result.document.data).toEqual([]);
-	expect(result.document.meta.eventstamp).toBe(
+	expect(result.document.meta.latest).toBe(
 		"2025-01-01T00:05:00.000Z|0001|c3d4",
 	);
 	expect(result.changes.added.size).toBe(0);
@@ -32,7 +32,7 @@ test("mergeDocuments forwards clock to newer eventstamp", () => {
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.meta.eventstamp).toBe(
+	expect(result.document.meta.latest).toBe(
 		"2025-01-01T00:10:00.000Z|0002|e5f6",
 	);
 });
@@ -43,7 +43,7 @@ test("mergeDocuments keeps older eventstamp when into is newer", () => {
 
 	const result = mergeDocuments(into, from);
 
-	expect(result.document.meta.eventstamp).toBe(
+	expect(result.document.meta.latest).toBe(
 		"2025-01-01T00:10:00.000Z|0002|e5f6",
 	);
 });
@@ -52,7 +52,7 @@ test("mergeDocuments adds new document from source", () => {
 	const into = makeDocument("2025-01-01T00:00:00.000Z|0000|a1b2");
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -76,7 +76,7 @@ test("mergeDocuments adds new document from source", () => {
 test("mergeDocuments updates existing document", () => {
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
 			makeResource(
 				"items",
@@ -88,7 +88,7 @@ test("mergeDocuments updates existing document", () => {
 	};
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -111,7 +111,7 @@ test("mergeDocuments updates existing document", () => {
 test("mergeDocuments marks document as deleted", () => {
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
 			makeResource(
 				"items",
@@ -132,7 +132,7 @@ test("mergeDocuments marks document as deleted", () => {
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [deletedDoc],
 	};
 
@@ -159,13 +159,13 @@ test("mergeDocuments keeps deleted document deleted on update", () => {
 
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:02:00.000Z|0001|b2c3" },
+		meta: { latest: "2025-01-01T00:02:00.000Z|0001|b2c3" },
 		data: [deletedDoc],
 	};
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0002|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0002|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -201,7 +201,7 @@ test("mergeDocuments does not track deleted documents as added", () => {
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [deletedDoc],
 	};
 
@@ -216,7 +216,7 @@ test("mergeDocuments does not track deleted documents as added", () => {
 test("mergeDocuments merges multiple documents with mixed operations", () => {
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
 			makeResource(
 				"items",
@@ -243,7 +243,7 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -275,7 +275,7 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 test("mergeDocuments preserves documents only in base collection", () => {
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
 			makeResource(
 				"items",
@@ -293,7 +293,7 @@ test("mergeDocuments preserves documents only in base collection", () => {
 	};
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -323,12 +323,12 @@ test("mergeDocuments does not mark unchanged documents as updated", () => {
 
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [doc],
 	};
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [doc],
 	};
 
@@ -343,7 +343,7 @@ test("mergeDocuments does not mark unchanged documents as updated", () => {
 test("mergeDocuments field-level LWW for nested objects", () => {
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
 			makeResource(
 				"items",
@@ -356,7 +356,7 @@ test("mergeDocuments field-level LWW for nested objects", () => {
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
 			makeResource(
 				"items",
@@ -385,7 +385,7 @@ test("mergeDocuments detects no changes when content is identical", () => {
 
 	const into: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp },
+		meta: { latest: eventstamp },
 		data: [resource],
 	};
 
@@ -399,7 +399,7 @@ test("mergeDocuments detects no changes when content is identical", () => {
 
 	const from: Document = {
 		jsonapi: { version: "1.1" },
-		meta: { eventstamp },
+		meta: { latest: eventstamp },
 		data: [fromResource],
 	};
 
@@ -410,4 +410,218 @@ test("mergeDocuments detects no changes when content is identical", () => {
 	expect(result.changes.added.size).toBe(0);
 	expect(result.changes.updated.size).toBe(0);
 	expect(result.changes.deleted.size).toBe(0);
+});
+
+// Document-level cache validation tests
+
+test("mergeDocuments: document meta.latest matches max of resource meta.latest values", () => {
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
+			makeResource(
+				"items",
+				"doc-2",
+				{ name: "Bob" },
+				"2025-01-01T00:02:00.000Z|0000|e5f6",
+			),
+		],
+	};
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+		data: [
+			makeResource(
+				"items",
+				"doc-3",
+				{ name: "Charlie" },
+				"2025-01-01T00:05:00.000Z|0001|c3d4",
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Compute max from all resources
+	const maxResourceLatest = result.document.data.reduce((max, resource) => {
+		return resource.meta.latest > max ? resource.meta.latest : max;
+	}, "");
+
+	expect(result.document.meta.latest).toBe(maxResourceLatest);
+	// Should be the newest resource eventstamp
+	expect(result.document.meta.latest).toBe("2025-01-01T00:05:00.000Z|0001|c3d4");
+});
+
+test("mergeDocuments: document meta.latest after adding new resource", () => {
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
+		],
+	};
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:10:00.000Z|0002|i9j0" },
+		data: [
+			makeResource(
+				"items",
+				"doc-2",
+				{ name: "Bob" },
+				"2025-01-01T00:10:00.000Z|0002|i9j0",
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Compute max from all resources
+	const maxResourceLatest = result.document.data.reduce((max, resource) => {
+		return resource.meta.latest > max ? resource.meta.latest : max;
+	}, "");
+
+	expect(result.document.meta.latest).toBe(maxResourceLatest);
+	expect(result.document.meta.latest).toBe("2025-01-01T00:10:00.000Z|0002|i9j0");
+});
+
+test("mergeDocuments: document meta.latest after update", () => {
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice", age: 30 },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
+		],
+	};
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:08:00.000Z|0001|g7h8" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ age: 31 },
+				"2025-01-01T00:08:00.000Z|0001|g7h8",
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Compute max from all resources
+	const maxResourceLatest = result.document.data.reduce((max, resource) => {
+		return resource.meta.latest > max ? resource.meta.latest : max;
+	}, "");
+
+	expect(result.document.meta.latest).toBe(maxResourceLatest);
+	expect(result.document.meta.latest).toBe("2025-01-01T00:08:00.000Z|0001|g7h8");
+});
+
+test("mergeDocuments: document meta.latest with deleted resource", () => {
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
+		],
+	};
+
+	const deletedDoc = makeResource(
+		"items",
+		"doc-1",
+		{ name: "Alice" },
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
+	deletedDoc.meta.deletedAt = "2025-01-01T00:12:00.000Z|0003|k1l2";
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:12:00.000Z|0003|k1l2" },
+		data: [deletedDoc],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Compute max from all resources (including deletedAt in resource meta.latest)
+	const maxResourceLatest = result.document.data.reduce((max, resource) => {
+		return resource.meta.latest > max ? resource.meta.latest : max;
+	}, "");
+
+	expect(result.document.meta.latest).toBe(maxResourceLatest);
+	// Should include the deletion eventstamp
+	expect(result.document.meta.latest).toBe("2025-01-01T00:12:00.000Z|0003|k1l2");
+});
+
+test("mergeDocuments: document meta.latest with multiple resources at different times", () => {
+	const into: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:03:00.000Z|0001|c3d4" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:01:00.000Z|0000|a1b2",
+			),
+			makeResource(
+				"items",
+				"doc-2",
+				{ name: "Bob" },
+				"2025-01-01T00:03:00.000Z|0001|c3d4",
+			),
+		],
+	};
+
+	const from: Document = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:07:00.000Z|0002|g7h8" },
+		data: [
+			makeResource(
+				"items",
+				"doc-3",
+				{ name: "Charlie" },
+				"2025-01-01T00:05:00.000Z|0001|e5f6",
+			),
+			makeResource(
+				"items",
+				"doc-4",
+				{ name: "Dave" },
+				"2025-01-01T00:07:00.000Z|0002|g7h8",
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Compute max from all resources
+	const maxResourceLatest = result.document.data.reduce((max, resource) => {
+		return resource.meta.latest > max ? resource.meta.latest : max;
+	}, "");
+
+	expect(result.document.meta.latest).toBe(maxResourceLatest);
+	// Should be the newest resource eventstamp across all resources
+	expect(result.document.meta.latest).toBe("2025-01-01T00:07:00.000Z|0002|g7h8");
 });

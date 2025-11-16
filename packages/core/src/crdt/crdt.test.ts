@@ -11,7 +11,7 @@ describe("CRDT", () => {
 			const collection = crdt.snapshot();
 
 			expect(collection.data).toHaveLength(0);
-			expect(collection.meta.eventstamp).toBeDefined();
+			expect(collection.meta.latest).toBeDefined();
 		});
 
 		test("creates CRDT with initial eventstamp and forwards clock", () => {
@@ -20,7 +20,7 @@ describe("CRDT", () => {
 			const collection = crdt.snapshot();
 
 			// Clock should be at least at the provided eventstamp
-			expect(collection.meta.eventstamp >= eventstamp).toBe(true);
+			expect(collection.meta.latest >= eventstamp).toBe(true);
 		});
 
 		test("creates CRDT with existing documents", () => {
@@ -186,7 +186,7 @@ describe("CRDT", () => {
 			const collection2 = crdt.snapshot();
 
 			// Collections should have different eventstamps due to second delete
-			expect(collection2.meta.eventstamp > collection1.meta.eventstamp).toBe(
+			expect(collection2.meta.latest > collection1.meta.latest).toBe(
 				true,
 			);
 		});
@@ -241,7 +241,7 @@ describe("CRDT", () => {
 			const collection = crdt.snapshot();
 
 			expect(collection.data).toHaveLength(2);
-			expect(collection.meta.eventstamp).toBeDefined();
+			expect(collection.meta.latest).toBeDefined();
 		});
 
 		test("includes deleted documents in collection", () => {
@@ -270,7 +270,7 @@ describe("CRDT", () => {
 
 			// Eventstamp should be from the delete operation, which is more recent
 			expect(
-				collection.meta.eventstamp > "2025-01-01T00:00:00.000Z|0001|abcd",
+				collection.meta.latest > "2025-01-01T00:00:00.000Z|0001|abcd",
 			).toBe(true);
 		});
 	});
@@ -279,7 +279,7 @@ describe("CRDT", () => {
 		test("creates CRDT from collection", () => {
 			const collection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: "2025-01-01T00:00:00.000Z|0001|abcd" },
+				meta: { latest: "2025-01-01T00:00:00.000Z|0001|abcd" },
 				data: [
 					makeResource("items", "id1", { name: "Alice" }, MIN_EVENTSTAMP),
 					makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP),
@@ -292,7 +292,7 @@ describe("CRDT", () => {
 			expect(crdt.has("id2")).toBe(true);
 			// Clock forwards to at least the provided eventstamp
 			expect(
-				crdt.snapshot().meta.eventstamp >= collection.meta.eventstamp,
+				crdt.snapshot().meta.latest >= collection.meta.latest,
 			).toBe(true);
 		});
 
@@ -307,7 +307,7 @@ describe("CRDT", () => {
 
 			const collection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: "2025-01-01T00:00:01.000Z|0001|abcd" },
+				meta: { latest: "2025-01-01T00:00:01.000Z|0001|abcd" },
 				data: [deletedDoc],
 			};
 
@@ -408,7 +408,7 @@ describe("CRDT", () => {
 		test("clock forwards when loading newer eventstamp", () => {
 			const collection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: "2025-01-01T00:00:10.000Z|0001|abcd" },
+				meta: { latest: "2025-01-01T00:00:10.000Z|0001|abcd" },
 				data: [],
 			};
 
@@ -419,7 +419,7 @@ describe("CRDT", () => {
 			restored.delete("id1");
 			const collectionAfter = restored.snapshot();
 			expect(
-				collectionAfter.meta.eventstamp >= collection.meta.eventstamp,
+				collectionAfter.meta.latest >= collection.meta.latest,
 			).toBe(true);
 		});
 	});
@@ -431,7 +431,7 @@ describe("CRDT", () => {
 
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: MIN_EVENTSTAMP },
+				meta: { latest: MIN_EVENTSTAMP },
 				data: [makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP)],
 			};
 
@@ -462,7 +462,7 @@ describe("CRDT", () => {
 			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: laterEventstamp },
+				meta: { latest: laterEventstamp },
 				data: [makeResource("items", "id1", { age: 31 }, laterEventstamp)],
 			};
 
@@ -488,7 +488,7 @@ describe("CRDT", () => {
 
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: deletionEventstamp },
+				meta: { latest: deletionEventstamp },
 				data: [deletedDoc],
 			};
 
@@ -510,7 +510,7 @@ describe("CRDT", () => {
 			const futureEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: futureEventstamp },
+				meta: { latest: futureEventstamp },
 				data: [],
 			};
 
@@ -521,7 +521,7 @@ describe("CRDT", () => {
 			const collection = crdt.snapshot();
 
 			// New eventstamp should be >= remote eventstamp
-			expect(collection.meta.eventstamp >= futureEventstamp).toBe(true);
+			expect(collection.meta.latest >= futureEventstamp).toBe(true);
 		});
 
 		test("merge is idempotent", () => {
@@ -530,7 +530,7 @@ describe("CRDT", () => {
 
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: MIN_EVENTSTAMP },
+				meta: { latest: MIN_EVENTSTAMP },
 				data: [
 					makeResource(
 						"items",
@@ -567,7 +567,7 @@ describe("CRDT", () => {
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			const remoteCollection: Document = {
 				jsonapi: { version: "1.1" },
-				meta: { eventstamp: olderEventstamp },
+				meta: { latest: olderEventstamp },
 				data: [makeResource("items", "id1", { name: "Bob" }, olderEventstamp)],
 			};
 

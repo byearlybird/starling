@@ -127,7 +127,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		return {
 			jsonapi: { version: "1.1" },
 			meta: {
-				eventstamp: this.#clock.latest(),
+				latest: this.#clock.latest(),
 			},
 			data: Array.from(this.#map.values()),
 		};
@@ -141,7 +141,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		const currentCollection = this.snapshot();
 		const result = mergeDocuments(currentCollection, collection);
 
-		this.#clock.forward(result.document.meta.eventstamp);
+		this.#clock.forward(result.document.meta.latest);
 		this.#map = new Map(
 			result.document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
 		);
@@ -156,7 +156,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		return new CRDT<U>(
 			new Map(collection.data.map((doc) => [doc.id, doc as ResourceObject<U>])),
 			inferredType,
-			collection.meta.eventstamp,
+			collection.meta.latest,
 		);
 	}
 }

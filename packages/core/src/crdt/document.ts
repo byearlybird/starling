@@ -17,7 +17,7 @@ export type Document = {
 	/** Document-level metadata */
 	meta: {
 		/** Latest eventstamp observed by this document for clock synchronization */
-		eventstamp: string;
+		latest: string;
 	};
 
 	/** Array of resource objects with eventstamps and metadata */
@@ -70,13 +70,13 @@ export type MergeDocumentsResult = {
  * ```typescript
  * const into = {
  *   jsonapi: { version: "1.1" },
- *   meta: { eventstamp: "2025-01-01T00:00:00.000Z|0001|a1b2" },
+ *   meta: { latest: "2025-01-01T00:00:00.000Z|0001|a1b2" },
  *   data: [{ type: "items", id: "doc1", attributes: {...}, meta: { deletedAt: null, latest: "..." } }]
  * };
  *
  * const from = {
  *   jsonapi: { version: "1.1" },
- *   meta: { eventstamp: "2025-01-01T00:05:00.000Z|0001|c3d4" },
+ *   meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
  *   data: [
  *     { type: "items", id: "doc1", attributes: {...}, meta: { deletedAt: null, latest: "..." } }, // updated
  *     { type: "items", id: "doc2", attributes: {...}, meta: { deletedAt: null, latest: "..." } }  // new
@@ -84,7 +84,7 @@ export type MergeDocumentsResult = {
  * };
  *
  * const result = mergeDocuments(into, from);
- * // result.document.meta.eventstamp === "2025-01-01T00:05:00.000Z|0001|c3d4"
+ * // result.document.meta.latest === "2025-01-01T00:05:00.000Z|0001|c3d4"
  * // result.changes.added has "doc2"
  * // result.changes.updated has "doc1"
  * ```
@@ -106,6 +106,8 @@ export function mergeDocuments(
 
 	// Start with base resources, will update/add as we process source
 	const mergedDocsById = new Map<string, ResourceObject>(intoDocsById);
+	let newestEventstamp =
+		into.meta.latest >= from.meta.latest ? into.meta.latest : from.meta.latest;
 
 	// Process each source resource
 	for (const fromDoc of from.data) {
@@ -118,6 +120,9 @@ export function mergeDocuments(
 			if (!fromDoc.meta.deletedAt) {
 				added.set(id, fromDoc);
 			}
+			if (fromDoc.meta.latest > newestEventstamp) {
+				newestEventstamp = fromDoc.meta.latest;
+			}
 		} else {
 			// Skip merge if resources are identical (same reference)
 			if (intoDoc === fromDoc) {
@@ -127,6 +132,9 @@ export function mergeDocuments(
 			// Merge existing resource using field-level LWW
 			const mergedDoc = mergeResources(intoDoc, fromDoc);
 			mergedDocsById.set(id, mergedDoc);
+			if (mergedDoc.meta.latest > newestEventstamp) {
+				newestEventstamp = mergedDoc.meta.latest;
+			}
 
 			// Track state transitions for hook notifications
 			const wasDeleted = intoDoc.meta.deletedAt !== null;
@@ -147,17 +155,11 @@ export function mergeDocuments(
 		}
 	}
 
-	// Forward clock to the newest eventstamp (eventstamps are lexicographically comparable)
-	const newestEventstamp =
-		into.meta.eventstamp >= from.meta.eventstamp
-			? into.meta.eventstamp
-			: from.meta.eventstamp;
-
 	return {
 		document: {
 			jsonapi: { version: "1.1" },
 			meta: {
-				eventstamp: newestEventstamp,
+				latest: newestEventstamp,
 			},
 			data: Array.from(mergedDocsById.values()),
 		},
@@ -185,7 +187,7 @@ export function makeDocument(eventstamp: string): Document {
 	return {
 		jsonapi: { version: "1.1" },
 		meta: {
-			eventstamp,
+			latest: eventstamp,
 		},
 		data: [],
 	};

@@ -19,7 +19,7 @@
  */
 
 import { bench, group, run, summary } from "mitata";
-import { decodeDoc, encodeDoc, generateNonce, mergeDocs } from "./src/crdt";
+import { generateNonce, makeResource, mergeResources } from "./src/crdt";
 import { Store } from "./src/store";
 
 // ============================================================================
@@ -289,21 +289,17 @@ summary(() => {
 	group("CRDT: Small documents (~100 bytes)", () => {
 		const doc = generateSmallDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateSmallDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
@@ -316,21 +312,17 @@ summary(() => {
 	group("CRDT: Medium documents (~1KB)", () => {
 		const doc = generateMediumDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateMediumDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
@@ -343,21 +335,17 @@ summary(() => {
 	group("CRDT: Large documents (~10KB)", () => {
 		const doc = generateLargeDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateLargeDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
