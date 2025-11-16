@@ -76,7 +76,7 @@ This approach balances simplicity and correctness:
 
 - **Simple mental model**: "Newest write wins" is easy to explain and reason about
 - **State-based, not operation-based**: Syncing sends document state, not edit histories. This eliminates the need to track, store, and replay operation logs
-- **Works with primitives**: No special data types required—just add an eventstamp to each field
+- **Works with plain objects**: No special data types required—just add an eventstamp to each field
 - **Handles clock stalls**: The hex counter increments when the wall clock doesn't advance, and a random nonce provides a final tie-breaker, effectively eliminating the risk of ties
 - **Embeddable**: Minimal overhead (~34 bytes per field for the eventstamp)
 

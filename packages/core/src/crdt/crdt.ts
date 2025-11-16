@@ -22,7 +22,7 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  * const doc = crdt.get("id1"); // { name: "Alice" }
  * ```
  */
-export class CRDT<T> {
+export class CRDT<T extends Record<string, unknown>> {
 	#map: Map<string, EncodedDocument>;
 	#clock: Clock;
 
@@ -137,7 +137,9 @@ export class CRDT<T> {
 		);
 	}
 
-	static fromSnapshot<U>(collection: Collection): CRDT<U> {
+	static fromSnapshot<U extends Record<string, unknown>>(
+		collection: Collection,
+	): CRDT<U> {
 		return new CRDT<U>(
 			new Map(collection["~docs"].map((doc) => [doc["~id"], doc])),
 			collection["~eventstamp"],

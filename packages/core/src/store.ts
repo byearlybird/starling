@@ -149,7 +149,7 @@ type QueryInternal<T, U> = {
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export class Store<T> {
+export class Store<T extends Record<string, unknown>> {
 	#crdt = new CRDT<T>();
 	#getId: () => string;
 

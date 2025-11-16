@@ -73,7 +73,7 @@ The `unstorage` plugin persists both documents and the latest eventstamp so fres
 
 ### Data Type Support
 
-Starling works best with **Records** and **Primitives**:
+Starling works with **Records** (plain JavaScript objects):
 
 ```typescript
 ✅ Good: { name: "Alice", settings: { theme: "dark", notifications: true } }
