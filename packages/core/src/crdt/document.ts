@@ -5,7 +5,6 @@ import {
 	mergeRecords,
 	processRecord,
 } from "./record";
-import type { EncodedValue } from "./value";
 
 /**
  * Top-level document structure with system metadata for tracking identity,
@@ -21,6 +20,8 @@ export type EncodedDocument = {
 	"~data": EncodedRecord;
 	/** Eventstamp when this document was soft-deleted, or null if not deleted */
 	"~deletedAt": string | null;
+	/** The greatest eventstamp in this document (including deletedAt if applicable) */
+	"~latest": string;
 };
 
 export function encodeDoc<T extends Record<string, unknown>>(
@@ -29,10 +30,15 @@ export function encodeDoc<T extends Record<string, unknown>>(
 	eventstamp: string,
 	deletedAt: string | null = null,
 ): EncodedDocument {
+	const encodedData = encodeRecord(obj, eventstamp);
+	const latest =
+		deletedAt && deletedAt > eventstamp ? deletedAt : eventstamp;
+
 	return {
 		"~id": id,
-		"~data": encodeRecord(obj, eventstamp),
+		"~data": encodedData,
 		"~deletedAt": deletedAt,
+		"~latest": latest,
 	};
 }
 
@@ -66,7 +72,7 @@ export function mergeDocs(
 				: from["~deletedAt"]
 			: into["~deletedAt"] || from["~deletedAt"] || null;
 
-	// Bubble up the greatest eventstamp from both data and deletion timestamp
+	// Calculate the greatest eventstamp from data and deletion timestamp
 	let greatestEventstamp: string = dataEventstamp;
 	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
 		greatestEventstamp = mergedDeletedAt;
@@ -77,6 +83,7 @@ export function mergeDocs(
 			"~id": into["~id"],
 			"~data": mergedData,
 			"~deletedAt": mergedDeletedAt,
+			"~latest": greatestEventstamp,
 		},
 		greatestEventstamp,
 	];
@@ -86,10 +93,17 @@ export function deleteDoc(
 	doc: EncodedDocument,
 	eventstamp: string,
 ): EncodedDocument {
+	// The latest is the max of the data's latest and the deletion eventstamp
+	const latest =
+		eventstamp > doc["~data"]["~latest"]
+			? eventstamp
+			: doc["~data"]["~latest"];
+
 	return {
 		"~id": doc["~id"],
 		"~data": doc["~data"],
 		"~deletedAt": eventstamp,
+		"~latest": latest,
 	};
 }
 
@@ -99,27 +113,34 @@ export function deleteDoc(
  * Useful for custom serialization in plugin hooks (encryption, compression, etc.)
  *
  * @param doc - Document to transform
- * @param process - Function to apply to each leaf value
+ * @param process - Function to apply to each leaf value (receives value and eventstamp, returns transformed value and eventstamp)
  * @returns New document with transformed values
  *
  * @example
  * ```ts
  * // Encrypt all values before persisting
- * const encrypted = processDocument(doc, (value) => ({
- *   ...value,
- *   "~value": encrypt(value["~value"])
+ * const encrypted = processDocument(doc, (value, eventstamp) => ({
+ *   value: encrypt(value),
+ *   eventstamp: eventstamp
  * }));
  * ```
  */
 export function processDocument(
 	doc: EncodedDocument,
-	process: (value: EncodedValue<unknown>) => EncodedValue<unknown>,
+	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
 ): EncodedDocument {
 	const processedData = processRecord(doc["~data"], process);
+
+	// Calculate latest from processed data and deletedAt
+	const latest =
+		doc["~deletedAt"] && doc["~deletedAt"] > processedData["~latest"]
+			? doc["~deletedAt"]
+			: processedData["~latest"];
 
 	return {
 		"~id": doc["~id"],
 		"~data": processedData,
 		"~deletedAt": doc["~deletedAt"],
+		"~latest": latest,
 	};
 }
