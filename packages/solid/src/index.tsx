@@ -8,6 +8,7 @@ import type { QueryConfig, Store } from "@byearlybird/starling";
 import {
 	createContext,
 	createEffect,
+	createMemo,
 	createSignal,
 	onCleanup,
 	type ParentComponent,
@@ -89,14 +90,20 @@ export function createStoreHooks<T>(store: Store<T>) {
 	 * Create and subscribe to a reactive query.
 	 *
 	 * Automatically creates a query with the provided config, subscribes to changes,
-	 * and cleans up when the component unmounts or config changes.
+	 * and cleans up when the component unmounts or config values actually change.
 	 *
-	 * **Note:** For best performance with dynamic queries, consider using `createMemo`
-	 * to stabilize the config object, or create queries at the module level.
+	 * The config is normalized using JSON.stringify to properly handle object identity,
+	 * so you can safely pass inline objects without worrying about unnecessary re-subscriptions.
 	 *
 	 * @template U - The type of selected/transformed results
 	 * @param config - Query configuration with `where`, optional `select`, and optional `order`
 	 * @returns A signal accessor returning an array of tuples containing [id, document] for matching documents
+	 *
+	 * @example
+	 * ```tsx
+	 * // Safe to use inline config - won't cause unnecessary re-subscriptions
+	 * const todos = useQuery(() => ({ where: (t) => !t.completed }));
+	 * ```
 	 */
 	function useQuery<U = T>(
 		config: QueryConfig<T, U>,
@@ -105,7 +112,16 @@ export function createStoreHooks<T>(store: Store<T>) {
 			[],
 		);
 
+		// Normalize config by value to avoid re-creating queries when just object identity changes.
+		// We use createMemo to establish configKey as the dependency, so we access it in the effect.
+		const configKey = createMemo(() => JSON.stringify(config));
+
 		createEffect(() => {
+			// Access configKey to make it a tracked dependency of this effect
+			// This allows config to change without recreating the query, as long as the stringified
+			// representation hasn't changed (i.e., the actual values are the same)
+			configKey();
+
 			// Create query for this config
 			const query = store.query(config);
 

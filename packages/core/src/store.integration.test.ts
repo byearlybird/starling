@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Collection } from "./crdt";
+import type { Document } from "./crdt";
 import { Store } from "./store";
 
 /**
@@ -30,7 +30,7 @@ type TestUser = {
  * @returns A new store containing the merged state
  */
 async function mergeStoreCollections<T extends Record<string, unknown>>(
-	collections: Collection[],
+	collections: Document[],
 ): Promise<Store<T>> {
 	const consolidated = new Store<T>();
 
@@ -119,12 +119,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// Note: The consolidated store's clock may be newer due to its initialization time
 		// (eventstamps are ISO8601 strings, so lexicographic comparison works)
 		const stamps = [
-			collectionA["~eventstamp"],
-			collectionB["~eventstamp"],
-			collectionC["~eventstamp"],
+			collectionA.meta.latest,
+			collectionB.meta.latest,
+			collectionC.meta.latest,
 		];
 		const maxRemoteStamp = stamps.sort().pop() || "";
-		const consolidatedStamp = consolidated.collection()["~eventstamp"];
+		const consolidatedStamp = consolidated.collection().meta.latest;
 		expect(consolidatedStamp >= maxRemoteStamp).toBe(true);
 	});
 
@@ -300,12 +300,10 @@ describe("Store Integration - Multi-Store Merging", () => {
 		// The document should be deleted (not appear in active entries)
 		expect(consolidated.get("user-1")).toBeNull();
 
-		// The collection should show the document as deleted (with ~deletedAt timestamp)
+		// The collection should show the document as deleted (with deletedAt timestamp)
 		const collection = consolidated.collection();
-		const deletedDoc = collection["~docs"].find(
-			(doc) => doc["~id"] === "user-1",
-		);
-		expect(deletedDoc?.["~deletedAt"]).toBeDefined();
+		const deletedDoc = collection.data.find((doc) => doc.id === "user-1");
+		expect(deletedDoc?.meta.deletedAt).toBeDefined();
 
 		// The consolidated store should have 0 active entries
 		const entries = Array.from(consolidated.entries());
@@ -313,9 +311,12 @@ describe("Store Integration - Multi-Store Merging", () => {
 	});
 
 	test("should merge empty snapshots gracefully", async () => {
-		const emptyCollection: Collection = {
-			"~docs": [],
-			"~eventstamp": "2025-01-01T00:00:00.000Z|0000|0000",
+		const emptyCollection: Document = {
+			jsonapi: { version: "1.1" },
+			meta: {
+				latest: "2025-01-01T00:00:00.000Z|0000|0000",
+			},
+			data: [],
 		};
 
 		const consolidated = await mergeStoreCollections<TestUser>([
@@ -418,13 +419,16 @@ describe("Store Integration - Multi-Store Merging", () => {
 		const isoString = new Date(futureMs).toISOString();
 		const futureTimestamp = `${isoString}|ffffffff|0000`;
 
-		const clockBeforeFwd = storeB.collection()["~eventstamp"];
+		const clockBeforeFwd = storeB.collection().meta.latest;
 		// Forward the clock by merging a snapshot with the future timestamp
 		storeB.merge({
-			"~docs": [],
-			"~eventstamp": futureTimestamp,
+			jsonapi: { version: "1.1" },
+			meta: {
+				latest: futureTimestamp,
+			},
+			data: [],
 		});
-		const clockAfterFwd = storeB.collection()["~eventstamp"];
+		const clockAfterFwd = storeB.collection().meta.latest;
 
 		// Verify the clock was indeed forwarded (it should now reflect the future timestamp)
 		expect(clockAfterFwd > clockBeforeFwd).toBe(true);
@@ -451,9 +455,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[collectionA2["~eventstamp"], collectionB2["~eventstamp"]].sort().pop() ||
-			"";
-		const consolidatedClock = consolidated.collection()["~eventstamp"];
+			[collectionA2.meta.latest, collectionB2.meta.latest].sort().pop() || "";
+		const consolidatedClock = consolidated.collection().meta.latest;
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 
 		// Now continue working: make new writes on both the consolidated store
@@ -496,7 +499,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the final merged store's clock is well past the forwarded time
 		// (since we made writes after forwarding)
-		const finalClock = finalMerged.collection()["~eventstamp"];
+		const finalClock = finalMerged.collection().meta.latest;
 		expect(finalClock).toBeDefined();
 		expect(finalClock.length > 0).toBe(true);
 	});

@@ -1,8 +1,8 @@
 import { Clock } from "../clock";
-import type { Collection } from "./collection";
-import { mergeCollections } from "./collection";
-import type { EncodedDocument } from "./document";
-import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
+import type { Document } from "./document";
+import { mergeDocuments } from "./document";
+import type { ResourceObject } from "./resource";
+import { deleteResource, makeResource, mergeResources } from "./resource";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -13,24 +13,27 @@ import { decodeDoc, deleteDoc, encodeDoc, mergeDocs } from "./document";
  *
  * The CRDT layer handles merge logic and I/O operations with a clean public
  * interface using plain JavaScript objects, while internally managing encoded
- * documents for merge tracking.
+ * resources for merge tracking.
  *
  * @example
  * ```typescript
- * const crdt = new CRDT(new Map());
+ * const crdt = new CRDT(new Map(), "default");
  * crdt.add("id1", { name: "Alice" });
  * const doc = crdt.get("id1"); // { name: "Alice" }
  * ```
  */
 export class CRDT<T extends Record<string, unknown>> {
-	#map: Map<string, EncodedDocument>;
+	#map: Map<string, ResourceObject<T>>;
 	#clock: Clock;
+	#type: string;
 
 	constructor(
-		map: Map<string, EncodedDocument> = new Map(),
+		map: Map<string, ResourceObject<T>> = new Map(),
+		type: string = "default",
 		eventstamp?: string,
 	) {
 		this.#map = map;
+		this.#type = type;
 		this.#clock = new Clock();
 		if (eventstamp) {
 			this.#clock.forward(eventstamp);
@@ -38,36 +41,35 @@ export class CRDT<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Check if a document exists by ID.
-	 * @param id - Document ID
+	 * Check if a resource exists by ID.
+	 * @param id - Resource ID
 	 * @param opts - Options object with includeDeleted flag
 	 */
 	has(id: string, opts: { includeDeleted?: boolean } = {}): boolean {
 		const raw = this.#map.get(id);
 		if (!raw) return false;
-		return opts.includeDeleted || !raw["~deletedAt"];
+		return opts.includeDeleted || !raw.meta.deletedAt;
 	}
 
 	/**
-	 * Get a document by ID.
-	 * @returns The decoded plain object, or undefined if not found or deleted
+	 * Get a resource by ID.
+	 * @returns The raw resource with metadata, or undefined if not found or deleted
 	 */
-	get(id: string): T | undefined {
+	get(id: string): ResourceObject<T> | undefined {
 		const raw = this.#map.get(id);
 		if (!raw) return undefined;
-		return raw["~deletedAt"] ? undefined : (decodeDoc(raw)["~data"] as T);
+		return raw.meta.deletedAt ? undefined : raw;
 	}
 
 	/**
-	 * Iterate over all non-deleted documents as [id, document] tuples.
+	 * Iterate over all non-deleted resources as [id, resource] tuples.
 	 */
-	entries(): IterableIterator<readonly [string, T]> {
+	entries(): IterableIterator<readonly [string, ResourceObject<T>]> {
 		const self = this;
 		function* iterator() {
 			for (const [key, doc] of self.#map.entries()) {
-				if (!doc["~deletedAt"]) {
-					const decoded = decodeDoc<T>(doc)["~data"];
-					yield [key, decoded] as const;
+				if (!doc.meta.deletedAt) {
+					yield [key, doc] as const;
 				}
 			}
 		}
@@ -75,26 +77,31 @@ export class CRDT<T extends Record<string, unknown>> {
 	}
 
 	/**
-	 * Add a new document with the given ID and data.
-	 * @param id - Document ID (provided by caller, not generated)
+	 * Add a new resource with the given ID and data.
+	 * @param id - Resource ID (provided by caller, not generated)
 	 * @param object - Plain JavaScript object to store
 	 */
 	add(id: string, object: T): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = makeResource(this.#type, id, object, this.#clock.now());
 		this.#map.set(id, encoded);
 	}
 
 	/**
-	 * Update an existing document with new data using field-level Last-Write-Wins merge.
-	 * If the document doesn't exist, it will be created.
-	 * @param id - Document ID
+	 * Update an existing resource with new data using field-level Last-Write-Wins merge.
+	 * If the resource doesn't exist, it will be created.
+	 * @param id - Resource ID
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeDoc(id, object, this.#clock.now());
+		const encoded = makeResource(
+			this.#type,
+			id,
+			object as T,
+			this.#clock.now(),
+		);
 		const current = this.#map.get(id);
 		if (current) {
-			const [merged] = mergeDocs(current, encoded);
+			const merged = mergeResources(current, encoded);
 			this.#map.set(id, merged);
 		} else {
 			this.#map.set(id, encoded);
@@ -104,45 +111,52 @@ export class CRDT<T extends Record<string, unknown>> {
 	delete(id: string): void {
 		const current = this.#map.get(id);
 		if (current) {
-			const doc = deleteDoc(current, this.#clock.now());
+			const doc = deleteResource(current, this.#clock.now());
 			this.#map.set(id, doc);
 		}
 	}
 
 	/**
-	 * Clone the internal map of encoded documents.
+	 * Clone the internal map of encoded resources.
 	 */
-	cloneMap(): Map<string, EncodedDocument> {
+	cloneMap(): Map<string, ResourceObject<T>> {
 		return new Map(this.#map);
 	}
 
-	snapshot(): Collection {
+	snapshot(): Document {
 		return {
-			"~eventstamp": this.#clock.latest(),
-			"~docs": Array.from(this.#map.values()),
+			jsonapi: { version: "1.1" },
+			meta: {
+				latest: this.#clock.latest(),
+			},
+			data: Array.from(this.#map.values()),
 		};
 	}
 
 	/**
-	 * Merge another collection into this CRDT using field-level Last-Write-Wins.
-	 * @param collection - Collection from another replica or storage
+	 * Merge another document into this CRDT using field-level Last-Write-Wins.
+	 * @param collection - Document from another replica or storage
 	 */
-	merge(collection: Collection): void {
+	merge(collection: Document): void {
 		const currentCollection = this.snapshot();
-		const result = mergeCollections(currentCollection, collection);
+		const result = mergeDocuments(currentCollection, collection);
 
-		this.#clock.forward(result.collection["~eventstamp"]);
+		this.#clock.forward(result.document.meta.latest);
 		this.#map = new Map(
-			result.collection["~docs"].map((doc) => [doc["~id"], doc]),
+			result.document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
 		);
 	}
 
 	static fromSnapshot<U extends Record<string, unknown>>(
-		collection: Collection,
+		collection: Document,
+		type: string = "default",
 	): CRDT<U> {
+		// Infer type from first resource if available, otherwise use provided type
+		const inferredType = collection.data[0]?.type ?? type;
 		return new CRDT<U>(
-			new Map(collection["~docs"].map((doc) => [doc["~id"], doc])),
-			collection["~eventstamp"],
+			new Map(collection.data.map((doc) => [doc.id, doc as ResourceObject<U>])),
+			inferredType,
+			collection.meta.latest,
 		);
 	}
 }

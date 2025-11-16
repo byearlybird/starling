@@ -7,6 +7,7 @@
 import type { QueryConfig, Store } from "@byearlybird/starling";
 import {
 	createContext,
+	type DependencyList,
 	type ReactNode,
 	useContext,
 	useEffect,
@@ -85,17 +86,28 @@ export function createStoreHooks<T>(store: Store<T>) {
 	 * Create and subscribe to a reactive query.
 	 *
 	 * Automatically creates a query with the provided config, subscribes to changes,
-	 * and cleans up when the component unmounts or config changes.
+	 * and cleans up when the component unmounts or config values actually change.
 	 *
-	 * **Note:** For best performance with dynamic queries, consider using `useMemo`
-	 * to stabilize the config object, or create queries at the module level.
+	 * Pass a dependency list (like React's useEffect) when the config depends on values
+	 * that change between renders. Inline config objects are safe—omit deps for static queries.
 	 *
 	 * @template U - The type of selected/transformed results
 	 * @param config - Query configuration with `where`, optional `select`, and optional `order`
+	 * @param deps - Optional dependency list that determines when the query should be recreated
 	 * @returns An array of tuples containing [id, document] for matching documents
+	 *
+	 * @example
+	 * ```tsx
+	 * // Static config - no deps needed
+	 * const todos = useQuery({ where: (t) => !t.completed });
+	 *
+	 * // Dynamic config - reruns when `status` changes
+	 * const filtered = useQuery({ where: (t) => t.status === status }, [status]);
+	 * ```
 	 */
 	function useQuery<U = T>(
 		config: QueryConfig<T, U>,
+		deps: DependencyList = [],
 	): Array<readonly [string, U]> {
 		const [snapshot, setSnapshot] = useState<Array<readonly [string, U]>>([]);
 
@@ -116,7 +128,7 @@ export function createStoreHooks<T>(store: Store<T>) {
 				unsubscribe();
 				query.dispose();
 			};
-		}, [store, config]); // Re-create query when config changes
+		}, [store, ...deps, config]);
 
 		return snapshot;
 	}

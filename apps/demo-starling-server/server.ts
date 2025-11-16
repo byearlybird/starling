@@ -1,4 +1,4 @@
-import type { Collection } from "@byearlybird/starling";
+import type { Document } from "@byearlybird/starling";
 import { Store } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
@@ -11,7 +11,7 @@ type Todo = {
 
 const fileStorage = unstoragePlugin<Todo>(
 	"tasks",
-	createStorage<Collection>({
+	createStorage<Document>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
 );
@@ -49,7 +49,7 @@ const server = Bun.serve({
 		// PUT /api/todos - Merge incoming collection data
 		if (url.pathname === "/api/tasks" && req.method === "PUT") {
 			try {
-				const incoming = (await req.json()) as Collection;
+				const incoming = (await req.json()) as Document;
 
 				store.merge(incoming);
 

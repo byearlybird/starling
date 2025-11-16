@@ -19,14 +19,8 @@
  */
 
 import { bench, group, run, summary } from "mitata";
+import { generateNonce, makeResource, mergeResources } from "./src/crdt";
 import { Store } from "./src/store";
-import {
-	decodeDoc,
-	type EncodedDocument,
-	encodeDoc,
-	generateNonce,
-	mergeDocs,
-} from "./src/crdt";
 
 // ============================================================================
 // DOCUMENT SIZE GENERATORS
@@ -151,7 +145,12 @@ type LargeDoc = {
 		}>;
 	};
 	content: {
-		posts: Array<{ id: string; title: string; content: string; tags: string[] }>;
+		posts: Array<{
+			id: string;
+			title: string;
+			content: string;
+			tags: string[];
+		}>;
 		comments: Array<{
 			id: string;
 			postId: string;
@@ -239,17 +238,19 @@ function generateLargeDoc(index: number): LargeDoc {
 			posts: Array.from({ length: 5 }, (_, i) => ({
 				id: `post-${i}`,
 				title: `Post ${i} - An interesting discussion about technology and innovation`,
-				content: `This is the full content of post ${i}. It contains detailed information and insights. `.repeat(
-					10,
-				),
+				content:
+					`This is the full content of post ${i}. It contains detailed information and insights. `.repeat(
+						10,
+					),
 				tags: ["tech", "innovation", "discussion", `topic-${i}`],
 			})),
 			comments: Array.from({ length: 15 }, (_, i) => ({
 				id: `comment-${i}`,
 				postId: `post-${i % 5}`,
-				content: `This is a thoughtful comment on the post. It adds valuable perspective. `.repeat(
-					3,
-				),
+				content:
+					`This is a thoughtful comment on the post. It adds valuable perspective. `.repeat(
+						3,
+					),
 				timestamp: `2025-01-15T${String(i).padStart(2, "0")}:30:00.000Z`,
 			})),
 		},
@@ -288,21 +289,17 @@ summary(() => {
 	group("CRDT: Small documents (~100 bytes)", () => {
 		const doc = generateSmallDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateSmallDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
@@ -315,21 +312,17 @@ summary(() => {
 	group("CRDT: Medium documents (~1KB)", () => {
 		const doc = generateMediumDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateMediumDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
@@ -342,21 +335,17 @@ summary(() => {
 	group("CRDT: Large documents (~10KB)", () => {
 		const doc = generateLargeDoc(0);
 		const eventstamp = generateEventstamp(0);
-		const encoded = encodeDoc("doc-0", doc, eventstamp);
+		const resource = makeResource("users", "doc-0", doc, eventstamp);
 		const doc2 = generateLargeDoc(1);
 		const eventstamp2 = generateEventstamp(1);
-		const encoded2 = encodeDoc("doc-0", doc2, eventstamp2);
+		const resource2 = makeResource("users", "doc-0", doc2, eventstamp2);
 
-		bench("encode", () => {
-			encodeDoc("doc-0", doc, eventstamp);
+		bench("makeResource", () => {
+			makeResource("users", "doc-0", doc, eventstamp);
 		});
 
-		bench("decode", () => {
-			decodeDoc(encoded);
-		});
-
-		bench("merge", () => {
-			mergeDocs(encoded, encoded2);
+		bench("mergeResources", () => {
+			mergeResources(resource, resource2);
 		});
 	});
 });
@@ -469,7 +458,9 @@ summary(() => {
 		const mediumDocs = Array.from({ length: 1000 }, (_, i) =>
 			generateMediumDoc(i),
 		);
-		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		const largeDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateLargeDoc(i),
+		);
 
 		bench("small (~100 bytes each)", () => {
 			const store = new Store<SmallDoc>();
@@ -527,7 +518,9 @@ summary(() => {
 		});
 
 		const largeStore = new Store<LargeDoc>();
-		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		const largeDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateLargeDoc(i),
+		);
 		largeStore.begin((tx) => {
 			largeDocs.forEach((doc, i) => {
 				tx.add(doc, { withId: `doc-${i}` });
@@ -535,23 +528,23 @@ summary(() => {
 		});
 
 		bench("small (~100 bytes each)", () => {
-			let count = 0;
+			let _count = 0;
 			for (const [,] of smallStore.entries()) {
-				count++;
+				_count++;
 			}
 		});
 
 		bench("medium (~1KB each)", () => {
-			let count = 0;
+			let _count = 0;
 			for (const [,] of mediumStore.entries()) {
-				count++;
+				_count++;
 			}
 		});
 
 		bench("large (~10KB each)", () => {
-			let count = 0;
+			let _count = 0;
 			for (const [,] of largeStore.entries()) {
-				count++;
+				_count++;
 			}
 		});
 	});
@@ -584,7 +577,9 @@ summary(() => {
 		});
 
 		const largeStore = new Store<LargeDoc>();
-		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		const largeDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateLargeDoc(i),
+		);
 		largeStore.begin((tx) => {
 			largeDocs.forEach((doc, i) => {
 				tx.add(doc, { withId: `doc-${i}` });
@@ -634,7 +629,9 @@ summary(() => {
 		const mediumCollection = mediumStore.collection();
 
 		const largeStore = new Store<LargeDoc>();
-		const largeDocs = Array.from({ length: 1000 }, (_, i) => generateLargeDoc(i));
+		const largeDocs = Array.from({ length: 1000 }, (_, i) =>
+			generateLargeDoc(i),
+		);
 		largeStore.begin((tx) => {
 			largeDocs.forEach((doc, i) => {
 				tx.add(doc, { withId: `doc-${i}` });
