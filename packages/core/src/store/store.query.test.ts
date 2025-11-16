@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { createStore, type Store } from "./store";
+import { queryPlugin } from "../plugins/query/plugin";
 
 type User = {
 	name: string;
 	active: boolean;
 };
 
-const makeStore = () => createStore<User>().init();
+const makeStore = () => createStore<User>().use(queryPlugin()).init();
 
 describe("Store - Queries", () => {
 	let store: Awaited<ReturnType<typeof makeStore>>;

@@ -378,9 +378,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onAdd: onAddMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onAdd: onAddMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -405,9 +407,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onUpdate: onUpdateMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onUpdate: onUpdateMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -437,9 +441,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onDelete: onDeleteMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onDelete: onDeleteMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -470,11 +476,13 @@ describe("Store - Plugin System - Hook Registration", () => {
 		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onAdd: onAddMock,
-			onUpdate: onUpdateMock,
-			onDelete: onDeleteMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onAdd: onAddMock,
+				onUpdate: onUpdateMock,
+				onDelete: onDeleteMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -494,9 +502,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onAdd: onAddMock,
-			onInit: () => {},
-			onDispose: () => {},
+			hooks: {
+				onAdd: onAddMock,
+				onInit: () => {},
+				onDispose: () => {},
+			},
 		});
 
 		store.begin(
@@ -516,8 +526,10 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const initMock = mock((_s: Store<TestUser>) => {});
 
 		store.use({
-			onInit: initMock,
-			onDispose: () => {},
+			hooks: {
+				onInit: initMock,
+				onDispose: () => {},
+			},
 		});
 
 		await store.init();
@@ -531,24 +543,30 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const callOrder: number[] = [];
 
 		store.use({
-			onInit: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {
+					callOrder.push(1);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		store.use({
-			onInit: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {
+					callOrder.push(2);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		store.use({
-			onInit: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {
+					callOrder.push(3);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		await store.init();
@@ -561,8 +579,10 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const disposeMock = mock(() => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: disposeMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: disposeMock,
+			},
 		});
 
 		await store.init();
@@ -576,23 +596,29 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const callOrder: number[] = [];
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(1);
+				},
 			},
 		});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(2);
+				},
 			},
 		});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(3);
+				},
 			},
 		});
 

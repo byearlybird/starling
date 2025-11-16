@@ -1,6 +1,6 @@
 import type { Storage } from "unstorage";
 import type { Document } from "../../document";
-import type { Plugin, Store } from "../../store/store";
+import type { Plugin, StoreCore } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -67,7 +67,7 @@ function unstoragePlugin<T>(
 	} = config;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
-	let store: Store<T> | null = null;
+	let store: StoreCore<T> | null = null;
 	let persistPromise: Promise<void> | null = null;
 
 	const persistSnapshot = async () => {
@@ -119,45 +119,47 @@ function unstoragePlugin<T>(
 	};
 
 	return {
-		onInit: async (s) => {
-			store = s;
+		hooks: {
+			onInit: async (s) => {
+				store = s;
 
-			// Initial load from storage
-			await pollStorage();
+				// Initial load from storage
+				await pollStorage();
 
-			// Start polling if configured
-			if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
-				pollInterval = setInterval(() => {
-					pollStorage();
-				}, pollIntervalMs);
-			}
-		},
-		onDispose: async () => {
-			// Flush any pending debounced write
-			if (debounceTimer !== null) {
-				clearTimeout(debounceTimer);
-				debounceTimer = null;
-				// Run the pending persist operation
-				await runPersist();
-			}
-			if (pollInterval !== null) {
-				clearInterval(pollInterval);
-				pollInterval = null;
-			}
-			// Wait for any remaining in-flight persistence to complete
-			if (persistPromise !== null) {
-				await persistPromise;
-			}
-			store = null;
-		},
-		onAdd: () => {
-			schedulePersist();
-		},
-		onUpdate: () => {
-			schedulePersist();
-		},
-		onDelete: () => {
-			schedulePersist();
+				// Start polling if configured
+				if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
+					pollInterval = setInterval(() => {
+						pollStorage();
+					}, pollIntervalMs);
+				}
+			},
+			onDispose: async () => {
+				// Flush any pending debounced write
+				if (debounceTimer !== null) {
+					clearTimeout(debounceTimer);
+					debounceTimer = null;
+					// Run the pending persist operation
+					await runPersist();
+				}
+				if (pollInterval !== null) {
+					clearInterval(pollInterval);
+					pollInterval = null;
+				}
+				// Wait for any remaining in-flight persistence to complete
+				if (persistPromise !== null) {
+					await persistPromise;
+				}
+				store = null;
+			},
+			onAdd: () => {
+				schedulePersist();
+			},
+			onUpdate: () => {
+				schedulePersist();
+			},
+			onDelete: () => {
+				schedulePersist();
+			},
 		},
 	};
 }
