@@ -190,8 +190,12 @@ group("mergeDocs - 100 items", () => {
 
 	bench("mergeDocs x100", () => {
 		let result = encodedDocs1[0];
+		if (!result) return;
 		for (let i = 1; i < 100; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			const doc2 = encodedDocs2[i];
+			if (!doc2) continue;
+			const [merged] = mergeDocs(result, doc2);
+			result = merged;
 		}
 	});
 });
@@ -202,8 +206,12 @@ group("mergeDocs - 5,000 items", () => {
 
 	bench("mergeDocs x5000", () => {
 		let result = encodedDocs1[0];
+		if (!result) return;
 		for (let i = 1; i < 5000; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			const doc2 = encodedDocs2[i];
+			if (!doc2) continue;
+			const [merged] = mergeDocs(result, doc2);
+			result = merged;
 		}
 	});
 });
@@ -214,8 +222,12 @@ group("mergeDocs - 100,000 items", () => {
 
 	bench("mergeDocs x100000", () => {
 		let result = encodedDocs1[0];
+		if (!result) return;
 		for (let i = 1; i < 100000; i++) {
-			result = mergeDocs(result!, encodedDocs2[i]!);
+			const doc2 = encodedDocs2[i];
+			if (!doc2) continue;
+			const [merged] = mergeDocs(result, doc2);
+			result = merged;
 		}
 	});
 });
