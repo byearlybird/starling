@@ -127,31 +127,6 @@ export function encodeRecord<T extends Record<string, unknown>>(
 	};
 }
 
-export function decodeRecord<T extends Record<string, unknown>>(
-	data: Record<string, unknown>,
-): T {
-	// Simply return a deep clone of the data portion
-	const result: Record<string, unknown> = {};
-
-	const step = (input: Record<string, unknown>, output: Record<string, unknown>) => {
-		for (const key in input) {
-			if (!Object.hasOwn(input, key)) continue;
-
-			const value = input[key];
-
-			if (isObject(value)) {
-				output[key] = {};
-				step(value as Record<string, unknown>, output[key] as Record<string, unknown>);
-			} else {
-				output[key] = value;
-			}
-		}
-	};
-
-	step(data, result);
-	return result as T;
-}
-
 export function mergeRecords(
 	data1: Record<string, unknown>,
 	eventstamps1: Record<string, unknown>,

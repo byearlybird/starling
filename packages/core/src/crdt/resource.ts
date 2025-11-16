@@ -1,5 +1,4 @@
 import {
-	decodeRecord,
 	type EncodedRecord,
 	encodeRecord,
 	mergeRecords,
@@ -69,7 +68,7 @@ export function decodeResource<T extends Record<string, unknown>>(
 	return {
 		type: resource.type,
 		id: resource.id,
-		data: decodeRecord(resource.attributes) as T,
+		data: resource.attributes,
 		deletedAt: resource.meta.deletedAt,
 	};
 }
