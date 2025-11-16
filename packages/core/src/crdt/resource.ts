@@ -1,8 +1,22 @@
-import {
-	type EncodedRecord,
-	encodeRecord,
-	mergeRecords,
-} from "./record";
+import { MIN_EVENTSTAMP } from "./eventstamp";
+import { isObject } from "./utils";
+
+/**
+ * Deep clone a value (object or primitive).
+ */
+function deepClone<T>(value: T): T {
+	if (!isObject(value)) {
+		return value;
+	}
+
+	const result: Record<string, unknown> = {};
+	for (const key in value as Record<string, unknown>) {
+		if (Object.hasOwn(value as Record<string, unknown>, key)) {
+			result[key] = deepClone((value as Record<string, unknown>)[key]);
+		}
+	}
+	return result as T;
+}
 
 /**
  * Resource object structure representing a single stored entity.
@@ -38,18 +52,46 @@ export function encodeResource<T extends Record<string, unknown>>(
 	eventstamp: string,
 	deletedAt: string | null = null,
 ): ResourceObject<T> {
-	const encoded = encodeRecord(obj, eventstamp);
-	const latest =
-		deletedAt && deletedAt > encoded.meta.latest
-			? deletedAt
-			: encoded.meta.latest;
+	const attributes: Record<string, unknown> = {};
+	const eventstamps: Record<string, unknown> = {};
+
+	const step = (
+		input: Record<string, unknown>,
+		dataOutput: Record<string, unknown>,
+		eventstampOutput: Record<string, unknown>,
+	) => {
+		for (const key in input) {
+			if (!Object.hasOwn(input, key)) continue;
+
+			const value = input[key];
+
+			if (isObject(value)) {
+				// Nested object - recurse and create mirrored structure
+				dataOutput[key] = {};
+				eventstampOutput[key] = {};
+				step(
+					value as Record<string, unknown>,
+					dataOutput[key] as Record<string, unknown>,
+					eventstampOutput[key] as Record<string, unknown>,
+				);
+			} else {
+				// Leaf value - store data and eventstamp separately
+				dataOutput[key] = value;
+				eventstampOutput[key] = eventstamp;
+			}
+		}
+	};
+
+	step(obj, attributes, eventstamps);
+
+	const latest = deletedAt && deletedAt > eventstamp ? deletedAt : eventstamp;
 
 	return {
 		type,
 		id,
-		attributes: encoded.data as T,
+		attributes: attributes as T,
 		meta: {
-			eventstamps: encoded.meta.eventstamps,
+			eventstamps,
 			latest,
 			deletedAt,
 		},
@@ -60,7 +102,99 @@ export function mergeResources<T extends Record<string, unknown>>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
 ): ResourceObject<T> {
-	const mergedRecord = mergeRecords(into, from);
+	const resultData: Record<string, unknown> = {};
+	const resultEventstamps: Record<string, unknown> = {};
+	let greatestEventstamp: string = MIN_EVENTSTAMP;
+
+	const step = (
+		d1: Record<string, unknown>,
+		e1: Record<string, unknown>,
+		d2: Record<string, unknown>,
+		e2: Record<string, unknown>,
+		dataOutput: Record<string, unknown>,
+		eventstampOutput: Record<string, unknown>,
+	) => {
+		// Collect all keys from both objects
+		const allKeys = new Set([
+			...Object.keys(d1),
+			...Object.keys(d2),
+		]);
+
+		for (const key of allKeys) {
+			const value1 = d1[key];
+			const value2 = d2[key];
+			const stamp1 = e1[key];
+			const stamp2 = e2[key];
+
+			// Both have this key
+			if (value1 !== undefined && value2 !== undefined) {
+				// Both are objects - need to recurse
+				if (isObject(value1) && isObject(value2) && isObject(stamp1) && isObject(stamp2)) {
+					dataOutput[key] = {};
+					eventstampOutput[key] = {};
+					step(
+						value1 as Record<string, unknown>,
+						stamp1 as Record<string, unknown>,
+						value2 as Record<string, unknown>,
+						stamp2 as Record<string, unknown>,
+						dataOutput[key] as Record<string, unknown>,
+						eventstampOutput[key] as Record<string, unknown>,
+					);
+				} else if (typeof stamp1 === "string" && typeof stamp2 === "string") {
+					// Both are leaf values - compare eventstamps
+					if (stamp1 > stamp2) {
+						dataOutput[key] = value1;
+						eventstampOutput[key] = stamp1;
+						if (stamp1 > greatestEventstamp) {
+							greatestEventstamp = stamp1;
+						}
+					} else {
+						dataOutput[key] = value2;
+						eventstampOutput[key] = stamp2;
+						if (stamp2 > greatestEventstamp) {
+							greatestEventstamp = stamp2;
+						}
+					}
+				}
+			} else if (value1 !== undefined) {
+				// Only in first record
+				dataOutput[key] = isObject(value1)
+					? deepClone(value1)
+					: value1;
+				eventstampOutput[key] = isObject(stamp1)
+					? deepClone(stamp1)
+					: stamp1;
+			} else if (value2 !== undefined) {
+				// Only in second record
+				dataOutput[key] = isObject(value2)
+					? deepClone(value2)
+					: value2;
+				eventstampOutput[key] = isObject(stamp2)
+					? deepClone(stamp2)
+					: stamp2;
+			}
+		}
+	};
+
+	step(
+		into.attributes,
+		into.meta.eventstamps,
+		from.attributes,
+		from.meta.eventstamps,
+		resultData,
+		resultEventstamps,
+	);
+
+	// Use the cached latest values from both records
+	const latestEventstamp = into.meta.latest > from.meta.latest
+		? into.meta.latest
+		: from.meta.latest;
+
+	// Also consider any new eventstamps from the merge
+	const dataLatest =
+		greatestEventstamp > latestEventstamp
+			? greatestEventstamp
+			: latestEventstamp;
 
 	const mergedDeletedAt =
 		into.meta.deletedAt && from.meta.deletedAt
@@ -70,18 +204,18 @@ export function mergeResources<T extends Record<string, unknown>>(
 			: into.meta.deletedAt || from.meta.deletedAt || null;
 
 	// Calculate the greatest eventstamp from data and deletion timestamp
-	let greatestEventstamp: string = mergedRecord.meta.latest;
-	if (mergedDeletedAt && mergedDeletedAt > greatestEventstamp) {
-		greatestEventstamp = mergedDeletedAt;
-	}
+	const finalLatest =
+		mergedDeletedAt && mergedDeletedAt > dataLatest
+			? mergedDeletedAt
+			: dataLatest;
 
 	return {
 		type: into.type,
 		id: into.id,
-		attributes: mergedRecord.attributes,
+		attributes: resultData as T,
 		meta: {
-			eventstamps: mergedRecord.meta.eventstamps,
-			latest: greatestEventstamp,
+			eventstamps: resultEventstamps,
+			latest: finalLatest,
 			deletedAt: mergedDeletedAt,
 		},
 	};

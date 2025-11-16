@@ -1,6 +1,32 @@
 import { expect, test } from "bun:test";
-import { encodeRecord, mergeRecords } from "./record";
-import { encodeResource } from "./resource";
+import { encodeResource, mergeResources } from "./resource";
+
+// Helper to create a simple resource for testing encoding
+function encodeRecord<T extends Record<string, unknown>>(obj: T, eventstamp: string) {
+	const resource = encodeResource("test", "test-id", obj, eventstamp);
+	return {
+		data: resource.attributes,
+		meta: {
+			eventstamps: resource.meta.eventstamps,
+			latest: resource.meta.latest,
+		},
+	};
+}
+
+// Helper to merge just the record parts (for testing)
+function mergeRecords<T extends Record<string, unknown>>(
+	r1: ReturnType<typeof encodeResource<T>>,
+	r2: ReturnType<typeof encodeResource<T>>,
+) {
+	const merged = mergeResources(r1, r2);
+	return {
+		attributes: merged.attributes,
+		meta: {
+			eventstamps: merged.meta.eventstamps,
+			latest: merged.meta.latest,
+		},
+	};
+}
 
 test("encode wraps all leaf values with eventstamp using mirrored structure", () => {
 	const obj = { name: "Alice", age: 30 };
