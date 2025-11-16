@@ -26,6 +26,7 @@ export function isEncodedRecord(value: unknown): boolean {
 		value !== null &&
 		"~data" in value &&
 		"~eventstamps" in value &&
-		Object.keys(value).length === 2
+		"~latest" in value &&
+		Object.keys(value).length === 3
 	);
 }

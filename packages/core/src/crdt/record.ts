@@ -15,7 +15,8 @@ import { isObject } from "./utils";
  * // Encoded as:
  * {
  *   "~data": { user: { name: "Alice", age: 30 } },
- *   "~eventstamps": { user: { name: "2025-...|0001|a1b2", age: "2025-...|0001|a1b2" } }
+ *   "~eventstamps": { user: { name: "2025-...|0001|a1b2", age: "2025-...|0001|a1b2" } },
+ *   "~latest": "2025-...|0001|a1b2"
  * }
  * ```
  */
@@ -24,6 +25,8 @@ export type EncodedRecord = {
 	"~data": Record<string, unknown>;
 	/** Mirrored structure containing eventstamps for each field */
 	"~eventstamps": Record<string, unknown>;
+	/** The greatest eventstamp in this record (cached for efficient merging) */
+	"~latest": string;
 };
 
 export function processRecord(
@@ -32,6 +35,7 @@ export function processRecord(
 ): EncodedRecord {
 	const resultData: Record<string, unknown> = {};
 	const resultEventstamps: Record<string, unknown> = {};
+	let latestEventstamp = MIN_EVENTSTAMP;
 
 	const step = (
 		dataInput: Record<string, unknown>,
@@ -60,6 +64,11 @@ export function processRecord(
 				const processed = process(value, eventstamp);
 				dataOutput[key] = processed.value;
 				eventstampOutput[key] = processed.eventstamp;
+
+				// Track the greatest eventstamp
+				if (processed.eventstamp > latestEventstamp) {
+					latestEventstamp = processed.eventstamp;
+				}
 			}
 		}
 	};
@@ -74,6 +83,7 @@ export function processRecord(
 	return {
 		"~data": resultData,
 		"~eventstamps": resultEventstamps,
+		"~latest": latestEventstamp,
 	};
 }
 
@@ -115,6 +125,7 @@ export function encodeRecord<T extends Record<string, unknown>>(
 	return {
 		"~data": data,
 		"~eventstamps": eventstamps,
+		"~latest": eventstamp,
 	};
 }
 
@@ -185,11 +196,6 @@ export function mergeRecords(
 						dataOutput[key] as Record<string, unknown>,
 						eventstampOutput[key] as Record<string, unknown>,
 					);
-					// Update greatest eventstamp from the merged nested structure
-					const nestedGreatest = findGreatestEventstamp(eventstampOutput[key]);
-					if (nestedGreatest > greatestEventstamp) {
-						greatestEventstamp = nestedGreatest;
-					}
 				} else if (typeof stamp1 === "string" && typeof stamp2 === "string") {
 					// Both are leaf values - compare eventstamps
 					if (stamp1 > stamp2) {
@@ -214,11 +220,6 @@ export function mergeRecords(
 				eventstampOutput[key] = isObject(stamp1)
 					? deepClone(stamp1)
 					: stamp1;
-				// Find the greatest eventstamp (handles both leaf and nested structures)
-				const keyGreatest = findGreatestEventstamp(stamp1);
-				if (keyGreatest > greatestEventstamp) {
-					greatestEventstamp = keyGreatest;
-				}
 			} else if (value2 !== undefined) {
 				// Only in second record
 				dataOutput[key] = isObject(value2)
@@ -227,11 +228,6 @@ export function mergeRecords(
 				eventstampOutput[key] = isObject(stamp2)
 					? deepClone(stamp2)
 					: stamp2;
-				// Find the greatest eventstamp (handles both leaf and nested structures)
-				const keyGreatest = findGreatestEventstamp(stamp2);
-				if (keyGreatest > greatestEventstamp) {
-					greatestEventstamp = keyGreatest;
-				}
 			}
 		}
 	};
@@ -245,12 +241,25 @@ export function mergeRecords(
 		resultEventstamps,
 	);
 
+	// Use the cached ~latest values from both records
+	const latestEventstamp =
+		into["~latest"] > from["~latest"]
+			? into["~latest"]
+			: from["~latest"];
+
+	// Also consider any new eventstamps from the merge
+	const finalLatest =
+		greatestEventstamp > latestEventstamp
+			? greatestEventstamp
+			: latestEventstamp;
+
 	return [
 		{
 			"~data": resultData,
 			"~eventstamps": resultEventstamps,
+			"~latest": finalLatest,
 		},
-		greatestEventstamp,
+		finalLatest,
 	];
 }
 
@@ -269,28 +278,4 @@ function deepClone<T>(value: T): T {
 		}
 	}
 	return result as T;
-}
-
-/**
- * Find the greatest eventstamp in a nested eventstamp structure.
- */
-function findGreatestEventstamp(eventstamps: unknown): string {
-	if (typeof eventstamps === "string") {
-		return eventstamps;
-	}
-
-	if (!isObject(eventstamps)) {
-		return MIN_EVENTSTAMP;
-	}
-
-	let greatest = MIN_EVENTSTAMP;
-	for (const key in eventstamps as Record<string, unknown>) {
-		if (Object.hasOwn(eventstamps as Record<string, unknown>, key)) {
-			const stamp = findGreatestEventstamp((eventstamps as Record<string, unknown>)[key]);
-			if (stamp > greatest) {
-				greatest = stamp;
-			}
-		}
-	}
-	return greatest;
 }
