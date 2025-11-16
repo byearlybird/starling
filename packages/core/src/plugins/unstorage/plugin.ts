@@ -1,12 +1,12 @@
 import type { Storage } from "unstorage";
-import type { Collection } from "../../crdt";
+import type { Document } from "../../crdt";
 import type { Plugin, Store } from "../../store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet = (data: Document) => MaybePromise<Collection>;
+type UnstorageOnBeforeSet = (data: Document) => MaybePromise<Document>;
 
-type UnstorageOnAfterGet = (data: Document) => MaybePromise<Collection>;
+type UnstorageOnAfterGet = (data: Document) => MaybePromise<Document>;
 
 /**
  * Configuration options for the unstorage persistence plugin.

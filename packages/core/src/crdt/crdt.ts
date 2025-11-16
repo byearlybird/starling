@@ -2,7 +2,12 @@ import { Clock } from "../clock";
 import type { Document } from "./document";
 import { mergeDocuments } from "./document";
 import type { ResourceObject } from "./resource";
-import { decodeResource, deleteResource, encodeResource, mergeResources } from "./resource";
+import {
+	decodeResource,
+	deleteResource,
+	encodeResource,
+	mergeResources,
+} from "./resource";
 
 /**
  * A CRDT collection implementing an Observed-Remove Map (OR-Map) with
@@ -23,12 +28,12 @@ import { decodeResource, deleteResource, encodeResource, mergeResources } from "
  * ```
  */
 export class CRDT<T extends Record<string, unknown>> {
-	#map: Map<string, ResourceObject>;
+	#map: Map<string, ResourceObject<T>>;
 	#clock: Clock;
 	#type: string;
 
 	constructor(
-		map: Map<string, ResourceObject> = new Map(),
+		map: Map<string, ResourceObject<T>> = new Map(),
 		type: string = "default",
 		eventstamp?: string,
 	) {
@@ -115,7 +120,7 @@ export class CRDT<T extends Record<string, unknown>> {
 	/**
 	 * Clone the internal map of encoded resources.
 	 */
-	cloneMap(): Map<string, ResourceObject> {
+	cloneMap(): Map<string, ResourceObject<T>> {
 		return new Map(this.#map);
 	}
 
@@ -138,9 +143,7 @@ export class CRDT<T extends Record<string, unknown>> {
 		const result = mergeDocuments(currentCollection, collection);
 
 		this.#clock.forward(result.document.meta.eventstamp);
-		this.#map = new Map(
-			result.document.data.map((doc) => [doc.id, doc]),
-		);
+		this.#map = new Map(result.document.data.map((doc) => [doc.id, doc]));
 	}
 
 	static fromSnapshot<U extends Record<string, unknown>>(

@@ -433,7 +433,7 @@ export class Store<T extends Record<string, unknown>> {
 		};
 	}
 
-	#decodeActive(doc: ResourceObject | null): T | null {
+	#decodeActive(doc: ResourceObject<T> | null): T | null {
 		if (!doc || doc.meta.deletedAt) return null;
 		return decodeResource<T>(doc).data;
 	}

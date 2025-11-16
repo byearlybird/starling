@@ -13,13 +13,15 @@ import {
  * Each resource has a type, unique identifier, attributes containing the data,
  * and metadata for tracking deletion state and eventstamps.
  */
-export type ResourceObject = {
+export type ResourceObject<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = {
 	/** Resource type identifier */
 	type: string;
 	/** Unique identifier for this resource */
 	id: string;
 	/** The resource's data as a nested object structure */
-	attributes: Record<string, unknown>;
+	attributes: T;
 	/** Metadata for tracking deletion and eventstamps */
 	meta: {
 		/** Mirrored structure containing eventstamps for each attribute field */
@@ -31,13 +33,31 @@ export type ResourceObject = {
 	};
 };
 
+/**
+ * Convert a ResourceObject to an EncodedRecord for use in merge/decode operations.
+ *
+ * @param resource - Resource to convert
+ * @returns EncodedRecord with data and metadata extracted from the resource
+ */
+function toEncodedRecord<T extends Record<string, unknown>>(
+	resource: ResourceObject<T>,
+): EncodedRecord {
+	return {
+		data: resource.attributes,
+		meta: {
+			eventstamps: resource.meta.eventstamps,
+			latest: resource.meta.latest,
+		},
+	};
+}
+
 export function encodeResource<T extends Record<string, unknown>>(
 	type: string,
 	id: string,
 	obj: T,
 	eventstamp: string,
 	deletedAt: string | null = null,
-): ResourceObject {
+): ResourceObject<T> {
 	const encoded = encodeRecord(obj, eventstamp);
 	const latest =
 		deletedAt && deletedAt > encoded.meta.latest
@@ -47,7 +67,7 @@ export function encodeResource<T extends Record<string, unknown>>(
 	return {
 		type,
 		id,
-		attributes: encoded.data,
+		attributes: encoded.data as T,
 		meta: {
 			eventstamps: encoded.meta.eventstamps,
 			latest,
@@ -57,51 +77,29 @@ export function encodeResource<T extends Record<string, unknown>>(
 }
 
 export function decodeResource<T extends Record<string, unknown>>(
-	resource: ResourceObject,
+	resource: ResourceObject<T>,
 ): {
 	type: string;
 	id: string;
 	data: T;
 	deletedAt: string | null;
 } {
-	const encodedRecord: EncodedRecord = {
-		data: resource.attributes,
-		meta: {
-			eventstamps: resource.meta.eventstamps,
-			latest: resource.meta.latest,
-		},
-	};
-
 	return {
 		type: resource.type,
 		id: resource.id,
-		data: decodeRecord(encodedRecord) as T,
+		data: decodeRecord(toEncodedRecord(resource)) as T,
 		deletedAt: resource.meta.deletedAt,
 	};
 }
 
-export function mergeResources(
-	into: ResourceObject,
-	from: ResourceObject,
-): [ResourceObject, string] {
-	// Reconstruct EncodedRecords for merging
-	const intoRecord: EncodedRecord = {
-		data: into.attributes,
-		meta: {
-			eventstamps: into.meta.eventstamps,
-			latest: into.meta.latest,
-		},
-	};
-
-	const fromRecord: EncodedRecord = {
-		data: from.attributes,
-		meta: {
-			eventstamps: from.meta.eventstamps,
-			latest: from.meta.latest,
-		},
-	};
-
-	const [mergedRecord, dataEventstamp] = mergeRecords(intoRecord, fromRecord);
+export function mergeResources<T extends Record<string, unknown>>(
+	into: ResourceObject<T>,
+	from: ResourceObject<T>,
+): [ResourceObject<T>, string] {
+	const [mergedRecord, dataEventstamp] = mergeRecords(
+		toEncodedRecord(into),
+		toEncodedRecord(from),
+	);
 
 	const mergedDeletedAt =
 		into.meta.deletedAt && from.meta.deletedAt
@@ -120,7 +118,7 @@ export function mergeResources(
 		{
 			type: into.type,
 			id: into.id,
-			attributes: mergedRecord.data,
+			attributes: mergedRecord.data as T,
 			meta: {
 				eventstamps: mergedRecord.meta.eventstamps,
 				latest: greatestEventstamp,
@@ -131,15 +129,13 @@ export function mergeResources(
 	];
 }
 
-export function deleteResource(
-	resource: ResourceObject,
+export function deleteResource<T extends Record<string, unknown>>(
+	resource: ResourceObject<T>,
 	eventstamp: string,
-): ResourceObject {
+): ResourceObject<T> {
 	// The latest is the max of the data's latest and the deletion eventstamp
 	const latest =
-		eventstamp > resource.meta.latest
-			? eventstamp
-			: resource.meta.latest;
+		eventstamp > resource.meta.latest ? eventstamp : resource.meta.latest;
 
 	return {
 		type: resource.type,
@@ -171,30 +167,26 @@ export function deleteResource(
  * }));
  * ```
  */
-export function processResource(
-	resource: ResourceObject,
-	process: (value: unknown, eventstamp: string) => { value: unknown; eventstamp: string },
-): ResourceObject {
-	const recordToProcess: EncodedRecord = {
-		data: resource.attributes,
-		meta: {
-			eventstamps: resource.meta.eventstamps,
-			latest: resource.meta.latest,
-		},
-	};
-
-	const processedRecord = processRecord(recordToProcess, process);
+export function processResource<T extends Record<string, unknown>>(
+	resource: ResourceObject<T>,
+	process: (
+		value: unknown,
+		eventstamp: string,
+	) => { value: unknown; eventstamp: string },
+): ResourceObject<T> {
+	const processedRecord = processRecord(toEncodedRecord(resource), process);
 
 	// Calculate latest from processed data and deletedAt
 	const latest =
-		resource.meta.deletedAt && resource.meta.deletedAt > processedRecord.meta.latest
+		resource.meta.deletedAt &&
+		resource.meta.deletedAt > processedRecord.meta.latest
 			? resource.meta.deletedAt
 			: processedRecord.meta.latest;
 
 	return {
 		type: resource.type,
 		id: resource.id,
-		attributes: processedRecord.data,
+		attributes: processedRecord.data as T,
 		meta: {
 			eventstamps: processedRecord.meta.eventstamps,
 			latest,
