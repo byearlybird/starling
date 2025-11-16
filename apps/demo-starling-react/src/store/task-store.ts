@@ -49,7 +49,10 @@ const mapLeafValues = (
 ): unknown => {
 	if (isObject(obj)) {
 		return Object.fromEntries(
-			Object.entries(obj).map(([key, value]) => [key, mapLeafValues(value, fn)]),
+			Object.entries(obj).map(([key, value]) => [
+				key,
+				mapLeafValues(value, fn),
+			]),
 		);
 	}
 	return fn(obj);

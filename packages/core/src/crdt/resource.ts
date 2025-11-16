@@ -98,10 +98,7 @@ export function mergeResources<T extends Record<string, unknown>>(
 		eventstampOutput: Record<string, unknown>,
 	) => {
 		// Collect all keys from both objects
-		const allKeys = new Set([
-			...Object.keys(d1),
-			...Object.keys(d2),
-		]);
+		const allKeys = new Set([...Object.keys(d1), ...Object.keys(d2)]);
 
 		for (const key of allKeys) {
 			const value1 = d1[key];
@@ -112,7 +109,12 @@ export function mergeResources<T extends Record<string, unknown>>(
 			// Both have this key
 			if (value1 !== undefined && value2 !== undefined) {
 				// Both are objects - need to recurse
-				if (isObject(value1) && isObject(value2) && isObject(stamp1) && isObject(stamp2)) {
+				if (
+					isObject(value1) &&
+					isObject(value2) &&
+					isObject(stamp1) &&
+					isObject(stamp2)
+				) {
 					dataOutput[key] = {};
 					eventstampOutput[key] = {};
 					step(
@@ -161,9 +163,8 @@ export function mergeResources<T extends Record<string, unknown>>(
 	);
 
 	// Use the cached latest values from both records
-	const latestEventstamp = into.meta.latest > from.meta.latest
-		? into.meta.latest
-		: from.meta.latest;
+	const latestEventstamp =
+		into.meta.latest > from.meta.latest ? into.meta.latest : from.meta.latest;
 
 	// Also consider any new eventstamps from the merge
 	const dataLatest =

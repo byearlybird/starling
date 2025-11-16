@@ -93,7 +93,12 @@ export class CRDT<T extends Record<string, unknown>> {
 	 * @param object - Partial object with fields to update
 	 */
 	update(id: string, object: Partial<T>): void {
-		const encoded = encodeResource(this.#type, id, object as T, this.#clock.now());
+		const encoded = encodeResource(
+			this.#type,
+			id,
+			object as T,
+			this.#clock.now(),
+		);
 		const current = this.#map.get(id);
 		if (current) {
 			const merged = mergeResources(current, encoded);

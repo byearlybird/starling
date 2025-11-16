@@ -1,4 +1,4 @@
-import { type ResourceObject, mergeResources } from "./resource";
+import { mergeResources, type ResourceObject } from "./resource";
 
 /**
  * A JSON:API document represents the complete state of a store:

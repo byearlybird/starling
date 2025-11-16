@@ -176,7 +176,12 @@ test("mergeResources merges attributes using object mergeRecords", () => {
 
 test("deleteResource marks document as deleted with eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const doc = encodeResource("users", "user-1", { name: "Alice", age: 30 }, eventstamp);
+	const doc = encodeResource(
+		"users",
+		"user-1",
+		{ name: "Alice", age: 30 },
+		eventstamp,
+	);
 	const deleteEventstamp = "2025-01-02T00:00:00.000Z|1";
 
 	const deleted = deleteResource(doc, deleteEventstamp);

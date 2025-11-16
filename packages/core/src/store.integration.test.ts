@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { Collection } from "./crdt";
 import { Store } from "./store";
 
 /**
@@ -302,9 +301,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// The collection should show the document as deleted (with deletedAt timestamp)
 		const collection = consolidated.collection();
-		const deletedDoc = collection.data.find(
-			(doc) => doc.id === "user-1",
-		);
+		const deletedDoc = collection.data.find((doc) => doc.id === "user-1");
 		expect(deletedDoc?.meta.deletedAt).toBeDefined();
 
 		// The consolidated store should have 0 active entries
@@ -457,8 +454,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Verify the consolidated store's clock is synchronized to the highest
 		const maxSnapshotClock =
-			[collectionA2.meta.eventstamp, collectionB2.meta.eventstamp].sort().pop() ||
-			"";
+			[collectionA2.meta.eventstamp, collectionB2.meta.eventstamp]
+				.sort()
+				.pop() || "";
 		const consolidatedClock = consolidated.collection().meta.eventstamp;
 		expect(consolidatedClock).toEqual(maxSnapshotClock);
 

@@ -128,7 +128,7 @@ export function createStoreHooks<T>(store: Store<T>) {
 				unsubscribe();
 				query.dispose();
 			};
-		}, [store, ...deps]);
+		}, [store, ...deps, config]);
 
 		return snapshot;
 	}

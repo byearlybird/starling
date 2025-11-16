@@ -258,9 +258,7 @@ describe("Store - Iteration & State", () => {
 		const collection = store.collection();
 		expect(collection.data.length).toBe(3);
 
-		const deletedDoc = collection.data.find(
-			(doc) => doc.id === "user-1",
-		);
+		const deletedDoc = collection.data.find((doc) => doc.id === "user-1");
 		expect(deletedDoc).toBeDefined();
 		expect(deletedDoc?.meta.deletedAt).toBeDefined();
 	});
