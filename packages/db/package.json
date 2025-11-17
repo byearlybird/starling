@@ -1,11 +1,13 @@
 {
 	"name": "@byearlybird/starling-db",
 	"version": "0.1.0",
-	"type": "module",
-	"license": "MIT",
-	"description": "Database utilities for Starling stores",
 	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"zod": "^4.1.12"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -13,17 +15,18 @@
 			"default": "./dist/index.js"
 		}
 	},
+	"description": "Database utilities for Starling stores",
 	"files": [
 		"dist"
 	],
+	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"build": "bun run build.ts",
 		"prepublishOnly": "bun run build.ts"
 	},
-	"peerDependencies": {
-		"@byearlybird/starling": "workspace:*"
-	},
-	"publishConfig": {
-		"access": "public"
-	}
+	"type": "module",
+	"types": "./dist/index.d.ts"
 }

@@ -2,6 +2,8 @@
 
 A todo list example demonstrating Starling's query plugin for filtered views and the unstorage plugin for persistence within a React application.
 
+> **Note:** This demo uses the Store implementation which is being moved from `@byearlybird/starling` core to `@byearlybird/starling-db`. The demo will be updated once the migration is complete.
+
 ## Getting Started
 
 ```bash

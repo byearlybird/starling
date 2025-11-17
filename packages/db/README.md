@@ -1,11 +1,12 @@
 # @byearlybird/starling-db
 
-Database utilities and extensions for Starling stores.
+Store implementation and database utilities for Starling.
 
 ## Purpose
 
-This package provides higher-level functionality that was removed from `@byearlybird/starling` core to keep the core store lightweight and minimal. The core store now provides only basic CRUD operations and event-based reactivity, while this package will implement:
+This package provides the Store implementation and higher-level functionality built on `@byearlybird/starling` core primitives. The core package now provides only CRDT primitives (ResourceMap, document merging, hybrid logical clocks), while this package implements:
 
+- **Store API** - CRUD operations with transactions and event-based reactivity
 - **Plugin system** - Extensible architecture for adding custom behavior
 - **Reactive queries** - Predicate-based queries that automatically update
 - **Persistence** - Storage adapters for various backends
@@ -13,13 +14,16 @@ This package provides higher-level functionality that was removed from `@byearly
 
 ## Background
 
-The core `@byearlybird/starling` package previously included:
+The core `@byearlybird/starling` package previously included a complete Store implementation with:
 
-1. A plugin system with lifecycle hooks
-2. A built-in query plugin for reactive queries
-3. An unstorage plugin for persistence
+1. CRUD operations (add, update, remove, get)
+2. Transactions with rollback support
+3. Event subscriptions (add, update, remove events)
+4. A plugin system with lifecycle hooks
+5. A built-in query plugin for reactive queries
+6. An unstorage plugin for persistence
 
-These features have been removed to simplify the core and will be reimplemented here with improvements based on lessons learned.
+The Store has been removed from core to better separate concerns: core provides low-level CRDT primitives, while this package builds higher-level store functionality on top.
 
 ## Removed Features (To Be Reimplemented)
 
@@ -120,9 +124,9 @@ const store = createStore<Todo>('todos')
 - Transform hooks for encryption/compression
 - Multiple storage instances (storage multiplexing)
 
-## Current Core Store API
+## Planned Store API
 
-The simplified core store now provides:
+This package will implement a Store built on core primitives:
 
 ```typescript
 type Store<T> = {
@@ -142,7 +146,7 @@ type Store<T> = {
   entries: () => IterableIterator<readonly [string, T]>;
 
   // Events
-  on: <E extends 'add' | 'update' | 'delete'>(
+  on: <E extends 'add' | 'update' | 'remove'>(
     event: E,
     listener: (data: ...) => void
   ) => () => void;
@@ -150,16 +154,18 @@ type Store<T> = {
 };
 ```
 
+The Store will be built using `ResourceMap` from the core package, providing a higher-level API with event subscriptions and transaction support.
+
 ## Development Status
 
 This package is in early development. Contributions welcome!
 
 ## Roadmap
 
+- [ ] Implement Store class with CRUD operations, transactions, and events
 - [ ] Implement plugin system
 - [ ] Port query functionality
 - [ ] Port persistence functionality
-- [ ] Add framework integrations (React, Solid, Vue)
 - [ ] Add additional storage adapters
 - [ ] Performance optimizations
 

@@ -57,7 +57,10 @@ describe("ResourceMap", () => {
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const crdt = new ResourceMap<{ name: string }>("items", new Map([[doc.id, doc]]));
+			const crdt = new ResourceMap<{ name: string }>(
+				"items",
+				new Map([[doc.id, doc]]),
+			);
 
 			expect(crdt.has("id1")).toBe(true);
 		});
@@ -77,7 +80,10 @@ describe("ResourceMap", () => {
 				{ name: "Alice" },
 				MIN_EVENTSTAMP,
 			);
-			const crdt = new ResourceMap<{ name: string }>("items", new Map([[doc.id, doc]]));
+			const crdt = new ResourceMap<{ name: string }>(
+				"items",
+				new Map([[doc.id, doc]]),
+			);
 
 			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 		});
@@ -209,10 +215,13 @@ describe("ResourceMap", () => {
 				{ name: "Bob" },
 				MIN_EVENTSTAMP,
 			);
-const crdt = new ResourceMap("items", new Map([
+			const crdt = new ResourceMap(
+				"items",
+				new Map([
 					[doc1.id, doc1],
 					[doc2.id, doc2],
-				]));
+				]),
+			);
 
 			const collection = crdt.toDocument();
 
@@ -233,7 +242,7 @@ const crdt = new ResourceMap("items", new Map([
 		});
 
 		test("eventstamp reflects latest operation", () => {
-const crdt = new ResourceMap<{ name: string }>("items", new Map());
+			const crdt = new ResourceMap<{ name: string }>("items", new Map());
 
 			crdt.set("id1", { name: "Alice" });
 			crdt.delete("id1");
@@ -258,12 +267,17 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 				],
 			};
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>("items", collection);
+			const crdt = ResourceMap.fromDocument<{ name: string }>(
+				"items",
+				collection,
+			);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			// Clock forwards to at least the provided eventstamp
-			expect(crdt.toDocument().meta.latest >= collection.meta.latest).toBe(true);
+			expect(crdt.toDocument().meta.latest >= collection.meta.latest).toBe(
+				true,
+			);
 		});
 
 		test("preserves deleted documents", () => {
@@ -281,7 +295,10 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 				data: [deletedDoc],
 			};
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>("items", collection);
+			const crdt = ResourceMap.fromDocument<{ name: string }>(
+				"items",
+				collection,
+			);
 
 			// ResourceMap returns deleted documents, just marks them with deletedAt
 			expect(crdt.has("id1")).toBe(true);
@@ -290,7 +307,10 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 		});
 
 		test("round-trip preserves data", () => {
-const original = new ResourceMap<{ name: string; age: number }>("items", new Map());
+			const original = new ResourceMap<{ name: string; age: number }>(
+				"items",
+				new Map(),
+			);
 			original.set("id1", { name: "Alice", age: 30 });
 
 			const collection = original.toDocument();
@@ -414,7 +434,10 @@ const original = new ResourceMap<{ name: string; age: number }>("items", new Map
 				{ name: "Alice", age: 30 },
 				localEventstamp,
 			);
-const crdt = new ResourceMap<{ name: string; age: number }>("items", new Map([["id1", localDoc]]));
+			const crdt = new ResourceMap<{ name: string; age: number }>(
+				"items",
+				new Map([["id1", localDoc]]),
+			);
 
 			// Create a remote document with a newer eventstamp for one field
 			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
@@ -466,7 +489,7 @@ const crdt = new ResourceMap<{ name: string; age: number }>("items", new Map([["
 		});
 
 		test("forwards clock to remote eventstamp during merge", () => {
-const crdt = new ResourceMap<{ name: string }>("items", new Map());
+			const crdt = new ResourceMap<{ name: string }>("items", new Map());
 
 			const futureEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
 			const remoteCollection: Document<AnyObject> = {
@@ -543,11 +566,15 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 
 		test("merge combines documents from multiple replicas", () => {
 			// Simulate two replicas that have diverged
-			const replica1 = new ResourceMap<{ text: string; completed: boolean }>("todos");
+			const replica1 = new ResourceMap<{ text: string; completed: boolean }>(
+				"todos",
+			);
 			replica1.set("todo1", { text: "Task 1", completed: false });
 			replica1.set("todo2", { text: "Task 2", completed: false });
 
-			const replica2 = new ResourceMap<{ text: string; completed: boolean }>("todos");
+			const replica2 = new ResourceMap<{ text: string; completed: boolean }>(
+				"todos",
+			);
 			replica2.set("todo3", { text: "Task 3", completed: false });
 			replica2.set("todo1", { completed: true }); // Update existing
 
