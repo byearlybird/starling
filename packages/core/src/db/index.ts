@@ -1,16 +1,17 @@
-export {
-	createDB,
-	type Collection,
-	type CollectionAddOptions,
-	type CollectionConfig,
-	type CollectionTransaction,
-	type Collections,
-	type DB,
-	type DBBase,
-	type DBConfig,
-	type DBPlugin,
-	type DBPluginAPI,
-	type DBPluginHooks,
-	type DBSchema,
-	type InferSchemaOutput,
-} from "./db";
+export { createDB } from "./db";
+export type {
+	Collection,
+	CollectionAddOptions,
+	CollectionConfig,
+	CollectionTransaction,
+	Collections,
+	DB,
+	DBBase,
+	DBConfig,
+	DBPlugin,
+	DBPluginAPI,
+	DBPluginHooks,
+	DBSchema,
+	DeepPartial,
+	InferSchemaOutput,
+} from "./types";
