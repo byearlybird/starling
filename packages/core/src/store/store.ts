@@ -1,9 +1,6 @@
 import type { AnyObject, JsonDocument } from "../document";
 import { mergeDocuments } from "../document";
-import {
-	createResourceMap,
-	createResourceMapFromDocument,
-} from "./resource-map";
+import { ResourceMap } from "./resource-map";
 import { decodeActive } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
@@ -153,7 +150,7 @@ export function createStore<T extends AnyObject>(
 	config: StoreConfig = {},
 ): Store<T> {
 	const type = config.type ?? collectionKey;
-	let crdt = createResourceMap<T>(new Map(), type);
+	let crdt = new ResourceMap<T>(type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
 	const addListeners = new Set<StoreEventListeners<T>["add"]>();
@@ -201,7 +198,7 @@ export function createStore<T extends AnyObject>(
 	}
 
 	function collection(): JsonDocument<T> {
-		return crdt.snapshot();
+		return crdt.toDocument();
 	}
 
 	function merge(document: JsonDocument<T>): void {
@@ -209,7 +206,7 @@ export function createStore<T extends AnyObject>(
 		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		crdt = createResourceMapFromDocument<T>(result.document);
+		crdt = ResourceMap.fromDocument<T>(result.document);
 
 		// Emit changes for each type
 		const addEntries: Array<readonly [string, T]> = [];
@@ -252,7 +249,7 @@ export function createStore<T extends AnyObject>(
 		const removeKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
+		const staging = ResourceMap.fromDocument<T>(crdt.toDocument());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
