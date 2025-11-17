@@ -49,12 +49,12 @@ Returns a Starling plugin that automatically persists store snapshots to storage
 
 **Parameters:**
 
-- `storage` – Any `Storage<Document<T>>` instance returned by `createStorage()`. Documents are persisted with their eventstamps.
+- `storage` – Any `Storage<JsonDocument<T>>` instance returned by `createStorage()`. Documents are persisted with their eventstamps.
 - `config.debounceMs` – Optional delay (in ms) used to collapse rapid mutations into a single persistence call. Defaults to `0` (write immediately).
 - `config.pollIntervalMs` – Optional interval (in ms) to poll storage for external changes. When set, the plugin will periodically check storage and merge any external updates. Useful for multi-process or shared storage scenarios.
 - `config.skip` – Optional function that returns `true` to skip persistence operations. Useful for conditional persistence (e.g., `skip: () => !navigator.onLine` to skip when offline).
-- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the Document object and must return the same structure. Use this for custom serialization or filtering.
-- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the Document object and must return the same structure. Use this to transform or validate loaded data.
+- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the JsonDocument object and must return the same structure. Use this for custom serialization or filtering.
+- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the JsonDocument object and must return the same structure. Use this to transform or validate loaded data.
 
 ## Behavior
 

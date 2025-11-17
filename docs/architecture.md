@@ -8,7 +8,7 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `Document`, `Eventstamp`, `Record`, `Value`, `Document`, `Clock`) with built-in reactive queries, plus unit tests |
+| `packages/core` | Core store implementation (`Store`, `JsonDocument`, `Eventstamp`, `Record`, `Value`, `Clock`) with built-in reactive queries, plus unit tests |
 | `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
 | `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
 | `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
@@ -121,10 +121,10 @@ Merged: { name: "Alice Smith", email: "alice@new.com" }
 
 ### Document Format
 
-The `Document` type represents the complete persistent state of a store, containing API version information, metadata, and an array of resource objects:
+The `JsonDocument` type represents the complete persistent state of a store, containing API version information, metadata, and an array of resource objects:
 
 ```typescript
-export type Document = {
+export type JsonDocument = {
   jsonapi: {
     version: "1.1";
   };
@@ -280,7 +280,7 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`clock/clock.ts`](../packages/core/src/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
 | [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
 | [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
-| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `Document` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
+| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
 | [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with reactive queries, transactions, plugin orchestration, and document sync helpers such as `merge()` and `collection()` |
 
 ### Data Flow
