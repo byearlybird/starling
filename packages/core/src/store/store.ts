@@ -286,13 +286,12 @@ export function createStore<T extends AnyObject>(
 		NonNullable<LifecycleEvents<T>["onDispose"]>
 	> = [];
 
-	// Mutation events handled by emitter - mirrors MutationEvents but wraps parameters
-	type MutationEmitterEvents = {
+	// Mutation events handled by emitter - wraps MutationEvents parameters in objects
+	const mutationEmitter = createEmitter<{
 		add: { collectionKey: string; entries: MutationEntries<T> };
 		update: { collectionKey: string; entries: MutationEntries<T> };
 		delete: { collectionKey: string; keys: MutationKeys };
-	};
-	const mutationEmitter = createEmitter<MutationEmitterEvents>();
+	}>();
 
 	function emitMutations(
 		addEntries: MutationEntries<T>,
