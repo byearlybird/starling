@@ -34,9 +34,6 @@ async function mergeStoreCollections<T extends Record<string, unknown>>(
 ): Promise<Store<T>> {
 	const consolidated = createStore<T>("test-collection");
 
-	// Initialize first (before merging) to avoid clock advancement after merge
-	await consolidated.init();
-
 	if (collections.length === 0) {
 		return consolidated;
 	}

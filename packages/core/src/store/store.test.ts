@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { createStore, type Store, type StoreBase } from "./store";
+import { createStore, type Store } from "./store";
 
 type TestUser = {
 	name: string;
@@ -370,20 +370,14 @@ describe("Store - Transaction Behavior - Transaction Isolation", () => {
 	});
 });
 
-describe("Store - Plugin System - Hook Registration", () => {
-	test("should call onAdd hooks with batched entries", () => {
+describe("Store - Event System", () => {
+	test("should call add event listeners with batched entries", () => {
 		const store = createStore<TestUser>("test-collection");
 		const onAddMock = mock(
 			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onAdd: onAddMock,
-			},
-		});
+		store.on("add", onAddMock);
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -391,10 +385,7 @@ describe("Store - Plugin System - Hook Registration", () => {
 		});
 
 		expect(onAddMock).toHaveBeenCalledTimes(1);
-		const calls = onAddMock.mock.calls[0];
-		const collectionKey = calls?.[0];
-		const entries = calls?.[1];
-		expect(collectionKey).toBe("test-collection");
+		const entries = onAddMock.mock.calls[0]?.[0];
 		expect(entries?.length).toBe(2);
 
 		const entriesMap = new Map(entries);
@@ -402,19 +393,13 @@ describe("Store - Plugin System - Hook Registration", () => {
 		expect(entriesMap.get("user-2")).toEqual({ name: "Bob" });
 	});
 
-	test("should call onUpdate hooks with merged values", () => {
+	test("should call update event listeners with merged values", () => {
 		const store = createStore<TestUser>("test-collection");
 		const onUpdateMock = mock(
 			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onUpdate: onUpdateMock,
-			},
-		});
+		store.on("update", onUpdateMock);
 
 		store.begin((tx) => {
 			tx.add(
@@ -428,9 +413,7 @@ describe("Store - Plugin System - Hook Registration", () => {
 		});
 
 		expect(onUpdateMock).toHaveBeenCalledTimes(1);
-		const collectionKey = onUpdateMock.mock.calls[0]?.[0];
-		const entries = onUpdateMock.mock.calls[0]?.[1];
-		expect(collectionKey).toBe("test-collection");
+		const entries = onUpdateMock.mock.calls[0]?.[0];
 		expect(entries?.length).toBe(1);
 		expect(entries?.[0]?.[0]).toBe("user-1");
 		expect(entries?.[0]?.[1]).toEqual({
@@ -440,17 +423,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		});
 	});
 
-	test("should call onDelete hooks with deleted keys", () => {
+	test("should call remove event listeners with removed keys", () => {
 		const store = createStore<TestUser>("test-collection");
-		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
+		const onRemoveMock = mock((_keys: ReadonlyArray<string>) => {});
 
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onDelete: onDeleteMock,
-			},
-		});
+		store.on("remove", onRemoveMock);
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -462,34 +439,20 @@ describe("Store - Plugin System - Hook Registration", () => {
 			tx.remove("user-2");
 		});
 
-		expect(onDeleteMock).toHaveBeenCalledTimes(1);
-		const collectionKey = onDeleteMock.mock.calls[0]?.[0];
-		const keys = onDeleteMock.mock.calls[0]?.[1];
-		expect(collectionKey).toBe("test-collection");
+		expect(onRemoveMock).toHaveBeenCalledTimes(1);
+		const keys = onRemoveMock.mock.calls[0]?.[0];
 		expect(keys?.length).toBe(2);
 		expect(keys).toContain("user-1");
 		expect(keys).toContain("user-2");
 	});
 
-	test("should batch multiple operations in single hook call", () => {
+	test("should batch multiple operations in single event call", () => {
 		const store = createStore<TestUser>("test-collection");
 		const onAddMock = mock(
 			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
-		const onUpdateMock = mock(
-			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
-		);
-		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {},
-				onAdd: onAddMock,
-				onUpdate: onUpdateMock,
-				onDelete: onDeleteMock,
-			},
-		});
+		store.on("add", onAddMock);
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -498,25 +461,17 @@ describe("Store - Plugin System - Hook Registration", () => {
 		});
 
 		expect(onAddMock).toHaveBeenCalledTimes(1);
-		const collectionKey = onAddMock.mock.calls[0]?.[0];
-		const entries = onAddMock.mock.calls[0]?.[1];
-		expect(collectionKey).toBe("test-collection");
+		const entries = onAddMock.mock.calls[0]?.[0];
 		expect(entries.length).toBe(3);
 	});
 
-	test("should not fire hooks when silent: true", () => {
+	test("should not fire events when silent: true", () => {
 		const store = createStore<TestUser>("test-collection");
 		const onAddMock = mock(
 			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
-		store.use({
-			hooks: {
-				onAdd: onAddMock,
-				onInit: () => {},
-				onDispose: () => {},
-			},
-		});
+		store.on("add", onAddMock);
 
 		store.begin(
 			(tx) => {
@@ -527,122 +482,35 @@ describe("Store - Plugin System - Hook Registration", () => {
 
 		expect(onAddMock).not.toHaveBeenCalled();
 	});
-});
 
-describe("Store - Plugin System - Lifecycle", () => {
-	test("should call plugin init() during store.init()", async () => {
+	test("should allow unsubscribing from events", () => {
 		const store = createStore<TestUser>("test-collection");
-		const initMock = mock(
-			(_collectionKey: string, _s: StoreBase<TestUser>) => {},
+		const onAddMock = mock(
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
 		);
 
-		store.use({
-			hooks: {
-				onInit: initMock,
-				onDispose: () => {},
-			},
-		});
+		const unsubscribe = store.on("add", onAddMock);
 
-		await store.init();
+		store.add({ name: "Alice" }, { withId: "user-1" });
+		expect(onAddMock).toHaveBeenCalledTimes(1);
 
-		expect(initMock).toHaveBeenCalledTimes(1);
-		// Verify the hook received the collection key and a StoreBase with core methods
-		const collectionKey = initMock.mock.calls[0]?.[0];
-		const receivedStore = initMock.mock.calls[0]?.[1];
-		expect(collectionKey).toBe("test-collection");
-		expect(receivedStore).toBeDefined();
-		expect(receivedStore?.has).toBeTypeOf("function");
-		expect(receivedStore?.get).toBeTypeOf("function");
-		expect(receivedStore?.add).toBeTypeOf("function");
+		unsubscribe();
+
+		store.add({ name: "Bob" }, { withId: "user-2" });
+		expect(onAddMock).toHaveBeenCalledTimes(1); // Still 1, not called again
 	});
 
-	test("should call multiple plugin inits in registration order", async () => {
+	test("should clear all listeners on dispose", () => {
 		const store = createStore<TestUser>("test-collection");
-		const callOrder: number[] = [];
+		const onAddMock = mock(
+			(_entries: ReadonlyArray<readonly [string, TestUser]>) => {},
+		);
 
-		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(1);
-				},
-				onDispose: () => {},
-			},
-		});
+		store.on("add", onAddMock);
+		store.dispose();
 
-		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(2);
-				},
-				onDispose: () => {},
-			},
-		});
-
-		store.use({
-			hooks: {
-				onInit: () => {
-					callOrder.push(3);
-				},
-				onDispose: () => {},
-			},
-		});
-
-		await store.init();
-
-		expect(callOrder).toEqual([1, 2, 3]);
-	});
-
-	test("should call plugin dispose() during store.dispose()", async () => {
-		const store = createStore<TestUser>("test-collection");
-		const disposeMock = mock(() => {});
-
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: disposeMock,
-			},
-		});
-
-		await store.init();
-		await store.dispose();
-
-		expect(disposeMock).toHaveBeenCalledTimes(1);
-	});
-
-	test("should call multiple plugin disposes in reverse order", async () => {
-		const store = createStore<TestUser>("test-collection");
-		const callOrder: number[] = [];
-
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(1);
-				},
-			},
-		});
-
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(2);
-				},
-			},
-		});
-
-		store.use({
-			hooks: {
-				onInit: () => {},
-				onDispose: () => {
-					callOrder.push(3);
-				},
-			},
-		});
-
-		await store.init();
-		await store.dispose();
-
-		expect(callOrder).toEqual([3, 2, 1]);
+		store.add({ name: "Alice" }, { withId: "user-1" });
+		expect(onAddMock).not.toHaveBeenCalled();
 	});
 });
+
