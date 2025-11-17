@@ -1,5 +1,9 @@
 import { createClock } from "../clock/clock";
-import type { AnyObject, JsonDocument } from "../document/document";
+import type {
+	AnyObject,
+	JsonDocument,
+	MergeDocumentsResult,
+} from "../document/document";
 import { mergeDocuments } from "../document/document";
 import type { ResourceObject } from "../document/resource";
 import {
@@ -143,8 +147,9 @@ export class ResourceMap<T extends AnyObject> {
 	/**
 	 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
 	 * @param document - JsonDocument from another replica or storage
+	 * @returns The merge result containing the merged document and tracked changes
 	 */
-	merge(document: JsonDocument<T>): void {
+	merge(document: JsonDocument<T>): MergeDocumentsResult<T> {
 		const currentDocument = this.toDocument();
 		const result = mergeDocuments(currentDocument, document);
 
@@ -152,5 +157,7 @@ export class ResourceMap<T extends AnyObject> {
 		this.internalMap = new Map(
 			result.document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
 		);
+
+		return result;
 	}
 }

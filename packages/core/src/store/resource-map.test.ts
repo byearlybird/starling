@@ -393,12 +393,16 @@ const original = new ResourceMap<{ name: string; age: number }>("items", new Map
 				data: [makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP)],
 			};
 
-			crdt.merge(remoteCollection);
+			const result = crdt.merge(remoteCollection);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
 			expect(crdt.get("id1")?.attributes).toEqual({ name: "Alice" });
 			expect(crdt.get("id2")?.attributes).toEqual({ name: "Bob" });
+
+			// Check merge result
+			expect(result.changes.added.has("id2")).toBe(true);
+			expect(result.changes.updated.size).toBe(0);
 		});
 
 		test("applies field-level last-write-wins during merge", () => {
@@ -420,11 +424,15 @@ const crdt = new ResourceMap<{ name: string; age: number }>("items", new Map([["
 				data: [makeResource("items", "id1", { age: 31 }, laterEventstamp)],
 			};
 
-			crdt.merge(remoteCollection);
+			const result = crdt.merge(remoteCollection);
 
 			const merged = crdt.get("id1")?.attributes;
 			expect(merged?.name).toBe("Alice"); // Local value preserved
 			expect(merged?.age).toBe(31); // Remote value wins (later eventstamp)
+
+			// Check merge result - should be an update since id1 already existed
+			expect(result.changes.updated.has("id1")).toBe(true);
+			expect(result.changes.added.size).toBe(0);
 		});
 
 		test("handles deleted documents in remote collection", () => {
@@ -446,12 +454,15 @@ const crdt = new ResourceMap<{ name: string; age: number }>("items", new Map([["
 				data: [deletedDoc],
 			};
 
-			crdt.merge(remoteCollection);
+			const result = crdt.merge(remoteCollection);
 
 			// Document is soft-deleted
 			const collection = crdt.toDocument();
 			const doc = collection.data.find((d) => d.id === "id1");
 			expect(doc?.meta.deletedAt).not.toBeNull();
+
+			// Check merge result - deletion is tracked in deleted set
+			expect(result.changes.deleted.has("id1")).toBe(true);
 		});
 
 		test("forwards clock to remote eventstamp during merge", () => {
@@ -464,7 +475,10 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 				data: [],
 			};
 
-			crdt.merge(remoteCollection);
+			const result = crdt.merge(remoteCollection);
+
+			// Check merge result has forwarded clock
+			expect(result.document.meta.latest >= futureEventstamp).toBe(true);
 
 			// Add a new document after merge
 			crdt.set("id1", { name: "Alice" });
