@@ -1,4 +1,4 @@
-import { createClock } from "../clock/clock";
+import { Clock } from "../clock/clock";
 import type {
 	AnyObject,
 	JsonDocument,
@@ -35,7 +35,7 @@ import {
  */
 export class ResourceMap<T extends AnyObject> {
 	private internalMap: Map<string, ResourceObject<T>>;
-	private clock: ReturnType<typeof createClock>;
+	private clock: Clock;
 	private resourceType: string;
 
 	constructor(
@@ -45,7 +45,7 @@ export class ResourceMap<T extends AnyObject> {
 	) {
 		this.resourceType = resourceType;
 		this.internalMap = map;
-		this.clock = createClock();
+		this.clock = new Clock();
 
 		if (eventstamp) {
 			this.clock.forward(eventstamp);
