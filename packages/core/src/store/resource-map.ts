@@ -35,7 +35,7 @@ export class ResourceMap<T extends AnyObject> {
 	private resourceType: string;
 
 	constructor(
-		resourceType: string = "default",
+		resourceType: string,
 		map: Map<string, ResourceObject<T>> = new Map(),
 		eventstamp?: string,
 	) {
@@ -50,19 +50,17 @@ export class ResourceMap<T extends AnyObject> {
 
 	/**
 	 * Create a ResourceMap from a JsonDocument snapshot.
+	 * @param type - Resource type identifier
 	 * @param document - JsonDocument containing resource data
-	 * @param type - Resource type identifier (defaults to "default")
 	 */
 	static fromDocument<U extends AnyObject>(
+		type: string,
 		document: JsonDocument<U>,
-		type: string = "default",
 	): ResourceMap<U> {
-		// Infer type from first resource if available, otherwise use provided type
-		const inferredType = document.data[0]?.type ?? type;
 		const map = new Map(
 			document.data.map((doc) => [doc.id, doc as ResourceObject<U>]),
 		);
-		return new ResourceMap<U>(inferredType, map, document.meta.latest);
+		return new ResourceMap<U>(type, map, document.meta.latest);
 	}
 
 	/**

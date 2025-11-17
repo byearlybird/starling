@@ -206,7 +206,7 @@ export function createStore<T extends AnyObject>(
 		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		crdt = ResourceMap.fromDocument<T>(result.document);
+		crdt = ResourceMap.fromDocument<T>(type, result.document);
 
 		// Emit changes for each type
 		const addEntries: Array<readonly [string, T]> = [];
@@ -249,7 +249,7 @@ export function createStore<T extends AnyObject>(
 		const removeKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = ResourceMap.fromDocument<T>(crdt.toDocument());
+		const staging = ResourceMap.fromDocument<T>(type, crdt.toDocument());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {

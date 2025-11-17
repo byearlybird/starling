@@ -258,7 +258,7 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 				],
 			};
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>(collection);
+			const crdt = ResourceMap.fromDocument<{ name: string }>("items", collection);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
@@ -281,7 +281,7 @@ const crdt = new ResourceMap<{ name: string }>("items", new Map());
 				data: [deletedDoc],
 			};
 
-			const crdt = ResourceMap.fromDocument<{ name: string }>(collection);
+			const crdt = ResourceMap.fromDocument<{ name: string }>("items", collection);
 
 			// ResourceMap returns deleted documents, just marks them with deletedAt
 			expect(crdt.has("id1")).toBe(true);
@@ -297,7 +297,7 @@ const original = new ResourceMap<{ name: string; age: number }>("items", new Map
 			const restored = ResourceMap.fromDocument<{
 				name: string;
 				age: number;
-			}>(collection);
+			}>("items", collection);
 
 			expect(restored.has("id1")).toBe(true);
 			expect(restored.get("id1")?.attributes).toEqual({
@@ -370,6 +370,7 @@ const original = new ResourceMap<{ name: string; age: number }>("items", new Map
 			};
 
 			const restored = ResourceMap.fromDocument<{ name: string }>(
+				"items",
 				collection,
 			);
 			restored.set("id1", { name: "Alice" });
