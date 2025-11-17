@@ -423,11 +423,11 @@ describe("Store - Event System", () => {
 		});
 	});
 
-	test("should call delete event listeners with deleted keys", () => {
+	test("should call remove event listeners with removed keys", () => {
 		const store = createStore<TestUser>("test-collection");
-		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
+		const onRemoveMock = mock((_keys: ReadonlyArray<string>) => {});
 
-		store.on("delete", onDeleteMock);
+		store.on("remove", onRemoveMock);
 
 		store.begin((tx) => {
 			tx.add({ name: "Alice" }, { withId: "user-1" });
@@ -439,8 +439,8 @@ describe("Store - Event System", () => {
 			tx.remove("user-2");
 		});
 
-		expect(onDeleteMock).toHaveBeenCalledTimes(1);
-		const keys = onDeleteMock.mock.calls[0]?.[0];
+		expect(onRemoveMock).toHaveBeenCalledTimes(1);
+		const keys = onRemoveMock.mock.calls[0]?.[0];
 		expect(keys?.length).toBe(2);
 		expect(keys).toContain("user-1");
 		expect(keys).toContain("user-2");

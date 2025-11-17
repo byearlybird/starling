@@ -183,10 +183,10 @@ const unsubscribeUpdate = store.on('update', (entries) => {
   }
 });
 
-// Subscribe to delete events
-const unsubscribeDelete = store.on('delete', (ids) => {
+// Subscribe to remove events
+const unsubscribeRemove = store.on('remove', (ids) => {
   for (const id of ids) {
-    console.log(`Deleted user ${id}`);
+    console.log(`Removed user ${id}`);
   }
 });
 
@@ -198,7 +198,7 @@ store.remove("user-1");
 // Clean up
 unsubscribeAdd();
 unsubscribeUpdate();
-unsubscribeDelete();
+unsubscribeRemove();
 store.dispose();
 ```
 
@@ -242,7 +242,7 @@ function createQuery<T>(
     }
   });
 
-  const unsubDelete = store.on('delete', (ids) => {
+  const unsubRemove = store.on('remove', (ids) => {
     for (const id of ids) {
       results.delete(id);
     }
@@ -253,7 +253,7 @@ function createQuery<T>(
     dispose: () => {
       unsubAdd();
       unsubUpdate();
-      unsubDelete();
+      unsubRemove();
       results.clear();
     }
   };

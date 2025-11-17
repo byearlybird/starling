@@ -69,8 +69,8 @@ export type StoreEventListeners<T extends AnyObject> = {
 	add: (entries: ReadonlyArray<readonly [string, T]>) => void;
 	/** Called after documents are updated (batched per transaction) */
 	update: (entries: ReadonlyArray<readonly [string, T]>) => void;
-	/** Called after documents are deleted (batched per transaction) */
-	delete: (keys: ReadonlyArray<string>) => void;
+	/** Called after documents are removed (batched per transaction) */
+	remove: (keys: ReadonlyArray<string>) => void;
 };
 
 /**
@@ -158,12 +158,12 @@ export function createStore<T extends AnyObject>(
 
 	const addListeners = new Set<StoreEventListeners<T>["add"]>();
 	const updateListeners = new Set<StoreEventListeners<T>["update"]>();
-	const deleteListeners = new Set<StoreEventListeners<T>["delete"]>();
+	const removeListeners = new Set<StoreEventListeners<T>["remove"]>();
 
 	function emitMutations(
 		addEntries: ReadonlyArray<readonly [string, T]>,
 		updateEntries: ReadonlyArray<readonly [string, T]>,
-		deleteKeys: ReadonlyArray<string>,
+		removeKeys: ReadonlyArray<string>,
 	): void {
 		if (addEntries.length > 0) {
 			for (const listener of addListeners) {
@@ -175,9 +175,9 @@ export function createStore<T extends AnyObject>(
 				listener(updateEntries);
 			}
 		}
-		if (deleteKeys.length > 0) {
-			for (const listener of deleteListeners) {
-				listener(deleteKeys);
+		if (removeKeys.length > 0) {
+			for (const listener of removeListeners) {
+				listener(removeKeys);
 			}
 		}
 	}
@@ -214,7 +214,7 @@ export function createStore<T extends AnyObject>(
 		// Emit changes for each type
 		const addEntries: Array<readonly [string, T]> = [];
 		const updateEntries: Array<readonly [string, T]> = [];
-		const deleteKeys: Array<string> = [];
+		const removeKeys: Array<string> = [];
 
 		// Convert added resources to entries
 		for (const [id, resource] of result.changes.added) {
@@ -230,14 +230,14 @@ export function createStore<T extends AnyObject>(
 			}
 		}
 
-		// Convert deleted resource IDs
+		// Convert removed resource IDs
 		for (const id of result.changes.deleted) {
-			deleteKeys.push(id);
+			removeKeys.push(id);
 		}
 
 		// Emit mutations if there are any changes
-		if (addEntries.length > 0 || updateEntries.length > 0 || deleteKeys.length > 0) {
-			emitMutations(addEntries, updateEntries, deleteKeys);
+		if (addEntries.length > 0 || updateEntries.length > 0 || removeKeys.length > 0) {
+			emitMutations(addEntries, updateEntries, removeKeys);
 		}
 	}
 
@@ -249,7 +249,7 @@ export function createStore<T extends AnyObject>(
 
 		const addEntries: Array<readonly [string, T]> = [];
 		const updateEntries: Array<readonly [string, T]> = [];
-		const deleteKeys: Array<string> = [];
+		const removeKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
 		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
@@ -272,7 +272,7 @@ export function createStore<T extends AnyObject>(
 			remove: (key) => {
 				if (!staging.has(key)) return;
 				staging.delete(key);
-				deleteKeys.push(key);
+				removeKeys.push(key);
 			},
 			get: (key) => {
 				const encoded = staging.get(key);
@@ -287,7 +287,7 @@ export function createStore<T extends AnyObject>(
 		if (!rolledBack) {
 			crdt = staging;
 			if (!silent) {
-				emitMutations(addEntries, updateEntries, deleteKeys);
+				emitMutations(addEntries, updateEntries, removeKeys);
 			}
 		}
 
@@ -319,10 +319,10 @@ export function createStore<T extends AnyObject>(
 			return () =>
 				updateListeners.delete(listener as StoreEventListeners<T>["update"]);
 		}
-		if (event === "delete") {
-			deleteListeners.add(listener as StoreEventListeners<T>["delete"]);
+		if (event === "remove") {
+			removeListeners.add(listener as StoreEventListeners<T>["remove"]);
 			return () =>
-				deleteListeners.delete(listener as StoreEventListeners<T>["delete"]);
+				removeListeners.delete(listener as StoreEventListeners<T>["remove"]);
 		}
 		throw new Error(`Unknown event type: ${event}`);
 	}
@@ -330,7 +330,7 @@ export function createStore<T extends AnyObject>(
 	function dispose(): void {
 		addListeners.clear();
 		updateListeners.clear();
-		deleteListeners.clear();
+		removeListeners.clear();
 	}
 
 	const store: Store<T> = {

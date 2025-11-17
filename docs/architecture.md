@@ -235,7 +235,7 @@ The core store provides a simple event subscription system for reactivity:
 type StoreEventListeners<T> = {
   add: (entries: ReadonlyArray<readonly [string, T]>) => void;
   update: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  delete: (keys: ReadonlyArray<string>) => void;
+  remove: (keys: ReadonlyArray<string>) => void;
 };
 ```
 
