@@ -1,15 +1,10 @@
 import { expect, test } from "bun:test";
-import {
-	type AnyObject,
-	type Document,
-	makeDocument,
-	mergeDocuments,
-} from "./document";
+import { type Document, makeDocument, mergeDocuments } from "./document";
 import { makeResource } from "./resource";
 
 test("makeDocument returns empty collection with given eventstamp", () => {
 	const eventstamp = "2025-01-01T00:00:00.000Z|0000|a1b2";
-	const collection = makeDocument<AnyObject>(eventstamp);
+	const collection = makeDocument<Record<string, unknown>>(eventstamp);
 
 	expect(collection.data).toEqual([]);
 	expect(collection.meta.latest).toBe(eventstamp);
@@ -17,8 +12,8 @@ test("makeDocument returns empty collection with given eventstamp", () => {
 });
 
 test("mergeDocuments with empty collections", () => {
-	const into = makeDocument<AnyObject>("2025-01-01T00:00:00.000Z|0000|a1b2");
-	const from = makeDocument<AnyObject>("2025-01-01T00:05:00.000Z|0001|c3d4");
+	const into = makeDocument<Record<string, unknown>>("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from = makeDocument<Record<string, unknown>>("2025-01-01T00:05:00.000Z|0001|c3d4");
 
 	const result = mergeDocuments(into, from);
 
@@ -32,8 +27,8 @@ test("mergeDocuments with empty collections", () => {
 });
 
 test("mergeDocuments forwards clock to newer eventstamp", () => {
-	const into = makeDocument<AnyObject>("2025-01-01T00:00:00.000Z|0000|a1b2");
-	const from = makeDocument<AnyObject>("2025-01-01T00:10:00.000Z|0002|e5f6");
+	const into = makeDocument<Record<string, unknown>>("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from = makeDocument<Record<string, unknown>>("2025-01-01T00:10:00.000Z|0002|e5f6");
 
 	const result = mergeDocuments(into, from);
 
@@ -43,8 +38,8 @@ test("mergeDocuments forwards clock to newer eventstamp", () => {
 });
 
 test("mergeDocuments keeps older eventstamp when into is newer", () => {
-	const into = makeDocument<AnyObject>("2025-01-01T00:10:00.000Z|0002|e5f6");
-	const from = makeDocument<AnyObject>("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const into = makeDocument<Record<string, unknown>>("2025-01-01T00:10:00.000Z|0002|e5f6");
+	const from = makeDocument<Record<string, unknown>>("2025-01-01T00:00:00.000Z|0000|a1b2");
 
 	const result = mergeDocuments(into, from);
 
@@ -54,8 +49,8 @@ test("mergeDocuments keeps older eventstamp when into is newer", () => {
 });
 
 test("mergeDocuments adds new document from source", () => {
-	const into = makeDocument<AnyObject>("2025-01-01T00:00:00.000Z|0000|a1b2");
-	const from: Document<AnyObject> = {
+	const into = makeDocument<Record<string, unknown>>("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -79,7 +74,7 @@ test("mergeDocuments adds new document from source", () => {
 });
 
 test("mergeDocuments updates existing document", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -91,7 +86,7 @@ test("mergeDocuments updates existing document", () => {
 			),
 		],
 	};
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -114,7 +109,7 @@ test("mergeDocuments updates existing document", () => {
 });
 
 test("mergeDocuments marks document as deleted", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -135,7 +130,7 @@ test("mergeDocuments marks document as deleted", () => {
 	);
 	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [deletedDoc],
@@ -162,13 +157,13 @@ test("mergeDocuments keeps deleted document deleted on update", () => {
 	);
 	deletedDoc.meta.deletedAt = "2025-01-01T00:02:00.000Z|0001|b2c3";
 
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:02:00.000Z|0001|b2c3" },
 		data: [deletedDoc],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0002|c3d4" },
 		data: [
@@ -194,7 +189,7 @@ test("mergeDocuments keeps deleted document deleted on update", () => {
 });
 
 test("mergeDocuments does not track deleted documents as added", () => {
-	const into = makeDocument<AnyObject>("2025-01-01T00:00:00.000Z|0000|a1b2");
+	const into = makeDocument<Record<string, unknown>>("2025-01-01T00:00:00.000Z|0000|a1b2");
 
 	const deletedDoc = makeResource(
 		"items",
@@ -204,7 +199,7 @@ test("mergeDocuments does not track deleted documents as added", () => {
 	);
 	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [deletedDoc],
@@ -219,7 +214,7 @@ test("mergeDocuments does not track deleted documents as added", () => {
 });
 
 test("mergeDocuments merges multiple documents with mixed operations", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -246,7 +241,7 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 	);
 	deletedDoc.meta.deletedAt = "2025-01-01T00:05:00.000Z|0001|c3d4";
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -278,7 +273,7 @@ test("mergeDocuments merges multiple documents with mixed operations", () => {
 });
 
 test("mergeDocuments preserves documents only in base collection", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -296,7 +291,7 @@ test("mergeDocuments preserves documents only in base collection", () => {
 			),
 		],
 	};
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -326,12 +321,12 @@ test("mergeDocuments does not mark unchanged documents as updated", () => {
 		"2025-01-01T00:00:00.000Z|0000|a1b2",
 	);
 
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [doc],
 	};
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [doc],
@@ -346,7 +341,7 @@ test("mergeDocuments does not mark unchanged documents as updated", () => {
 });
 
 test("mergeDocuments field-level LWW for nested objects", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -359,7 +354,7 @@ test("mergeDocuments field-level LWW for nested objects", () => {
 		],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -388,7 +383,7 @@ test("mergeDocuments detects no changes when content is identical", () => {
 		eventstamp,
 	);
 
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: eventstamp },
 		data: [resource],
@@ -402,7 +397,7 @@ test("mergeDocuments detects no changes when content is identical", () => {
 		eventstamp,
 	);
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: eventstamp },
 		data: [fromResource],
@@ -420,7 +415,7 @@ test("mergeDocuments detects no changes when content is identical", () => {
 // Document-level cache validation tests
 
 test("mergeDocuments: document meta.latest matches max of resource meta.latest values", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -439,7 +434,7 @@ test("mergeDocuments: document meta.latest matches max of resource meta.latest v
 		],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:05:00.000Z|0001|c3d4" },
 		data: [
@@ -467,7 +462,7 @@ test("mergeDocuments: document meta.latest matches max of resource meta.latest v
 });
 
 test("mergeDocuments: document meta.latest after adding new resource", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -480,7 +475,7 @@ test("mergeDocuments: document meta.latest after adding new resource", () => {
 		],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:10:00.000Z|0002|i9j0" },
 		data: [
@@ -507,7 +502,7 @@ test("mergeDocuments: document meta.latest after adding new resource", () => {
 });
 
 test("mergeDocuments: document meta.latest after update", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -520,7 +515,7 @@ test("mergeDocuments: document meta.latest after update", () => {
 		],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:08:00.000Z|0001|g7h8" },
 		data: [
@@ -547,7 +542,7 @@ test("mergeDocuments: document meta.latest after update", () => {
 });
 
 test("mergeDocuments: document meta.latest with deleted resource", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
 		data: [
@@ -568,7 +563,7 @@ test("mergeDocuments: document meta.latest with deleted resource", () => {
 	);
 	deletedDoc.meta.deletedAt = "2025-01-01T00:12:00.000Z|0003|k1l2";
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:12:00.000Z|0003|k1l2" },
 		data: [deletedDoc],
@@ -589,7 +584,7 @@ test("mergeDocuments: document meta.latest with deleted resource", () => {
 });
 
 test("mergeDocuments: document meta.latest with multiple resources at different times", () => {
-	const into: Document<AnyObject> = {
+	const into: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:03:00.000Z|0001|c3d4" },
 		data: [
@@ -608,7 +603,7 @@ test("mergeDocuments: document meta.latest with multiple resources at different 
 		],
 	};
 
-	const from: Document<AnyObject> = {
+	const from: Document<Record<string, unknown>> = {
 		jsonapi: { version: "1.1" },
 		meta: { latest: "2025-01-01T00:07:00.000Z|0002|g7h8" },
 		data: [

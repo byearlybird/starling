@@ -1,5 +1,4 @@
 import { MIN_EVENTSTAMP } from "../clock/eventstamp";
-import type { AnyObject } from "./document";
 import { isObject } from "./utils";
 
 function collectGreatestEventstamp(
@@ -56,7 +55,7 @@ export function computeResourceLatest(
  * Each resource has a type, unique identifier, attributes containing the data,
  * and metadata for tracking deletion state and eventstamps.
  */
-export type ResourceObject<T extends AnyObject> = {
+export type ResourceObject<T extends Record<string, unknown>> = {
 	/** Resource type identifier */
 	type: string;
 	/** Unique identifier for this resource */
@@ -74,7 +73,7 @@ export type ResourceObject<T extends AnyObject> = {
 	};
 };
 
-export function makeResource<T extends AnyObject>(
+export function makeResource<T extends Record<string, unknown>>(
 	type: string,
 	id: string,
 	obj: T,
@@ -128,7 +127,7 @@ export function makeResource<T extends AnyObject>(
 }
 
 // TODO: consider if meta.eventstamps should be flat, with path : eventstamp
-export function mergeResources<T extends AnyObject>(
+export function mergeResources<T extends Record<string, unknown>>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
 ): ResourceObject<T> {
@@ -240,7 +239,7 @@ export function mergeResources<T extends AnyObject>(
 	};
 }
 
-export function deleteResource<T extends AnyObject>(
+export function deleteResource<T extends Record<string, unknown>>(
 	resource: ResourceObject<T>,
 	eventstamp: string,
 ): ResourceObject<T> {

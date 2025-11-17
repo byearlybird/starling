@@ -1,5 +1,4 @@
 export type {
-	AnyObject,
 	Document,
 	ResourceObject,
 } from "./document";
