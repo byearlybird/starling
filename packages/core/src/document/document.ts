@@ -21,7 +21,7 @@ export type Document = {
 	};
 
 	/** Array of resource objects with eventstamps and metadata */
-	data: ResourceObject[];
+	data: ResourceObject<Record<string, unknown>>[];
 };
 
 /**
@@ -30,10 +30,10 @@ export type Document = {
  */
 export type DocumentChanges = {
 	/** Resources that were newly added (didn't exist before or were previously deleted) */
-	added: Map<string, ResourceObject>;
+	added: Map<string, ResourceObject<Record<string, unknown>>>;
 
 	/** Resources that were modified (existed before and changed) */
-	updated: Map<string, ResourceObject>;
+	updated: Map<string, ResourceObject<Record<string, unknown>>>;
 
 	/** Resources that were deleted (newly marked with deletedAt) */
 	deleted: Set<string>;
