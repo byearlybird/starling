@@ -1,4 +1,5 @@
 import { createStore } from "@byearlybird/starling";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStoreHooks } from "@byearlybird/starling-react";
 import { createStorage } from "unstorage";
@@ -92,6 +93,7 @@ const remoteStorage = unstoragePlugin<Task>(
 
 // Create Starling store with local storage and HTTP Sync
 export const taskStore = await createStore<Task>()
+	.use(queryPlugin())
 	.use(localStorage)
 	.use(remoteStorage)
 	.init();
