@@ -12,6 +12,11 @@
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
+		"./db": {
+			"types": "./dist/db/index.d.ts",
+			"import": "./dist/db/index.js",
+			"default": "./dist/db/index.js"
+		},
 		"./plugin-query": {
 			"types": "./dist/plugins/query/plugin.d.ts",
 			"import": "./dist/plugins/query/plugin.js",
