@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { createStore, type Store } from "./store";
+import { createStore, type Store, type StoreBase } from "./store";
 
 type TestUser = {
 	name: string;
@@ -378,9 +378,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onAdd: onAddMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onAdd: onAddMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -405,9 +407,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onUpdate: onUpdateMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onUpdate: onUpdateMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -437,9 +441,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onDelete: onDeleteMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onDelete: onDeleteMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -470,11 +476,13 @@ describe("Store - Plugin System - Hook Registration", () => {
 		const onDeleteMock = mock((_keys: ReadonlyArray<string>) => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {},
-			onAdd: onAddMock,
-			onUpdate: onUpdateMock,
-			onDelete: onDeleteMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {},
+				onAdd: onAddMock,
+				onUpdate: onUpdateMock,
+				onDelete: onDeleteMock,
+			},
 		});
 
 		store.begin((tx) => {
@@ -494,9 +502,11 @@ describe("Store - Plugin System - Hook Registration", () => {
 		);
 
 		store.use({
-			onAdd: onAddMock,
-			onInit: () => {},
-			onDispose: () => {},
+			hooks: {
+				onAdd: onAddMock,
+				onInit: () => {},
+				onDispose: () => {},
+			},
 		});
 
 		store.begin(
@@ -513,17 +523,24 @@ describe("Store - Plugin System - Hook Registration", () => {
 describe("Store - Plugin System - Lifecycle", () => {
 	test("should call plugin init() during store.init()", async () => {
 		const store = createStore<TestUser>();
-		const initMock = mock((_s: Store<TestUser>) => {});
+		const initMock = mock((_s: StoreBase<TestUser>) => {});
 
 		store.use({
-			onInit: initMock,
-			onDispose: () => {},
+			hooks: {
+				onInit: initMock,
+				onDispose: () => {},
+			},
 		});
 
 		await store.init();
 
 		expect(initMock).toHaveBeenCalledTimes(1);
-		expect(initMock.mock.calls[0]?.[0]).toBe(store);
+		// Verify the hook received a StoreBase with core methods
+		const receivedStore = initMock.mock.calls[0]?.[0];
+		expect(receivedStore).toBeDefined();
+		expect(receivedStore?.has).toBeTypeOf("function");
+		expect(receivedStore?.get).toBeTypeOf("function");
+		expect(receivedStore?.add).toBeTypeOf("function");
 	});
 
 	test("should call multiple plugin inits in registration order", async () => {
@@ -531,24 +548,30 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const callOrder: number[] = [];
 
 		store.use({
-			onInit: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {
+					callOrder.push(1);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		store.use({
-			onInit: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {
+					callOrder.push(2);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		store.use({
-			onInit: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {
+					callOrder.push(3);
+				},
+				onDispose: () => {},
 			},
-			onDispose: () => {},
 		});
 
 		await store.init();
@@ -561,8 +584,10 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const disposeMock = mock(() => {});
 
 		store.use({
-			onInit: () => {},
-			onDispose: disposeMock,
+			hooks: {
+				onInit: () => {},
+				onDispose: disposeMock,
+			},
 		});
 
 		await store.init();
@@ -576,23 +601,29 @@ describe("Store - Plugin System - Lifecycle", () => {
 		const callOrder: number[] = [];
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(1);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(1);
+				},
 			},
 		});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(2);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(2);
+				},
 			},
 		});
 
 		store.use({
-			onInit: () => {},
-			onDispose: () => {
-				callOrder.push(3);
+			hooks: {
+				onInit: () => {},
+				onDispose: () => {
+					callOrder.push(3);
+				},
 			},
 		});
 

@@ -4,7 +4,11 @@
  * Use `createStoreHooks()` to generate typed Context-based hooks for your store.
  */
 
-import type { QueryConfig, Store } from "@byearlybird/starling";
+import type { Store } from "@byearlybird/starling";
+import type {
+	QueryConfig,
+	QueryMethods,
+} from "@byearlybird/starling/plugin-query";
 import {
 	createContext,
 	createEffect,
@@ -53,8 +57,12 @@ import {
  * }
  * ```
  */
-export function createStoreHooks<T>(store: Store<T>) {
-	const StoreContext = createContext<Store<T> | null>(null);
+export function createStoreHooks<
+	T extends Record<string, unknown>,
+	TCustomMethods extends Record<string, unknown> = {},
+>(store: Store<T, QueryMethods<T> & TCustomMethods>) {
+	type StoreWithQuery = Store<T, QueryMethods<T> & TCustomMethods>;
+	const StoreContext = createContext<StoreWithQuery | null>(null);
 
 	/**
 	 * Provides the Starling store to child components via SolidJS Context.
@@ -78,7 +86,7 @@ export function createStoreHooks<T>(store: Store<T>) {
 	 *
 	 * @returns The store instance, fully typed
 	 */
-	function useStore(): Store<T> {
+	function useStore(): StoreWithQuery {
 		const ctx = useContext(StoreContext);
 		if (!ctx) {
 			throw new Error("useStore must be used within StoreProvider");

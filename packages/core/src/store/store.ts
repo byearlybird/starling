@@ -1,15 +1,23 @@
-import type { Document, ResourceObject } from "../document";
+import type { Document } from "../document";
 import { mergeDocuments } from "../document";
 import {
+	emitMutations as emitMutationsFn,
+	executeDisposeHooks,
+	executeInitHooks,
+} from "./plugin-manager";
+import {
 	createResourceMap,
-	createResourceMapFromSnapshot,
+	createResourceMapFromDocument,
 } from "./resource-map";
+import { decodeActive, hasChanges, mapChangesToEntries } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
-type DeepPartial<T> = T extends object
-	? { [P in keyof T]?: DeepPartial<T[P]> }
-	: T;
+type DeepPartial<T> = T extends Array<infer U>
+	? Array<DeepPartial<U>>
+	: T extends object
+		? { [P in keyof T]?: DeepPartial<T[P]> }
+		: T;
 
 /**
  * Options for adding documents to the store.
@@ -59,12 +67,20 @@ export type StoreSetTransaction<T> = {
 };
 
 /**
- * A store instance with methods for mutations, queries, and sync.
+ * Core CRUD operations available to all stores and plugins.
  *
- * Stores are created via createStore() and provide a consistent API for
- * managing collections of documents with field-level Last-Write-Wins merging.
+ * This is the stable API surface that plugins can rely on. It provides:
+ * - **Read operations**: `has`, `get`, `entries`
+ * - **Write operations**: `add`, `update`, `del`
+ * - **Transactions**: `begin`
+ * - **Sync operations**: `collection`, `merge`
+ *
+ * This type excludes plugin-specific methods and lifecycle functions,
+ * ensuring plugins only depend on the core store functionality.
+ *
+ * @template T - The type of documents stored in this collection
  */
-export type Store<T extends Record<string, unknown>> = {
+export type StoreBase<T extends Record<string, unknown>> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -72,9 +88,9 @@ export type Store<T extends Record<string, unknown>> = {
 	/** Iterate over all non-deleted documents as [id, document] tuples */
 	entries: () => IterableIterator<readonly [string, T]>;
 	/** Get the complete store state as a Document for persistence or sync */
-	collection: () => Document;
+	collection: () => Document<T>;
 	/** Merge a document from storage or another replica using field-level LWW */
-	merge: (document: Document) => void;
+	merge: (document: Document<T>) => void;
 	/** Run multiple operations in a transaction with rollback support */
 	begin: <R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
@@ -86,36 +102,83 @@ export type Store<T extends Record<string, unknown>> = {
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
 	del: (key: string) => void;
-	/** Register a plugin for persistence, analytics, etc. */
-	use: (plugin: Plugin<T>) => Store<T>;
-	/** Initialize the store and run plugin onInit hooks */
-	init: () => Promise<Store<T>>;
-	/** Dispose the store and run plugin cleanup */
-	dispose: () => Promise<void>;
-	/** Create a reactive query that auto-updates when matching docs change */
-	query: <U = T>(config: QueryConfig<T, U>) => Query<U>;
 };
 
 /**
- * Plugin interface for extending store behavior with persistence, analytics, etc.
+ * Plugin system methods for extending the store.
+ *
+ * These methods manage the plugin lifecycle and enable type-safe
+ * method accumulation across multiple plugins.
+ *
+ * @template T - The type of documents stored in this collection
+ * @template TMethods - Accumulated plugin methods from all registered plugins
+ */
+export type StorePluginAPI<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = {
+	/** Register a plugin that can add hooks and methods to the store */
+	use: <TNewMethods extends Record<string, any>>(
+		plugin: Plugin<T, TNewMethods>,
+	) => Store<T, TMethods & TNewMethods>;
+	/** Initialize the store and run plugin onInit hooks */
+	init: () => Promise<Store<T, TMethods>>;
+	/** Dispose the store and run plugin cleanup */
+	dispose: () => Promise<void>;
+};
+
+/**
+ * Complete store instance with CRUD operations, plugin system, and accumulated plugin methods.
+ *
+ * ## Type System Architecture
+ *
+ * The store type system is composed of three layers:
+ *
+ * ```
+ * StoreBase<T>              Core CRUD operations (has, get, add, update, del, etc.)
+ *      +
+ * StorePluginAPI<T, M>      Plugin lifecycle (use, init, dispose)
+ *      +
+ * TMethods                  Accumulated methods from plugins
+ *      =
+ * Store<T, TMethods>        Complete store API
+ * ```
+ *
+ * ## Type Flow Example
+ *
+ * ```typescript
+ * createStore<Todo>()                    // Store<Todo, {}>
+ *   .use(queryPlugin())                   // Store<Todo, { query: ... }>
+ *   .use(customPlugin())                  // Store<Todo, { query: ..., custom: ... }>
+ *   .init()                               // Promise<Store<Todo, { query: ..., custom: ... }>>
+ * ```
+ *
+ * ## Plugin Method Accumulation
+ *
+ * Each call to `.use()` adds new methods to the store type:
+ * - Methods are type-safe and auto-complete in IDEs
+ * - Method conflicts are detected at runtime
+ * - Type accumulates through the chain: `TMethods & TNewMethods`
+ *
+ * @template T - The type of documents stored in this collection
+ * @template TMethods - Accumulated plugin methods (default: {})
+ */
+export type Store<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
+
+/**
+ * Plugin lifecycle and mutation hooks.
  *
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
- *
- * @example
- * ```ts
- * const loggingPlugin: Plugin<Todo> = {
- *   onInit: async () => console.log('Store initialized'),
- *   onAdd: (entries) => console.log('Added:', entries.length),
- *   onDispose: async () => console.log('Store disposed')
- * };
- * ```
  */
-export type Plugin<T extends Record<string, unknown>> = {
+export type PluginHooks<T extends Record<string, unknown>> = {
 	/** Called once when store.init() runs */
-	onInit: (store: Store<T>) => Promise<void> | void;
+	onInit?: (store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
-	onDispose: () => Promise<void> | void;
+	onDispose?: () => Promise<void> | void;
 	/** Called after documents are added (batched per transaction) */
 	onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
 	/** Called after documents are updated (batched per transaction) */
@@ -125,52 +188,40 @@ export type Plugin<T extends Record<string, unknown>> = {
 };
 
 /**
- * Configuration for creating a reactive query.
+ * Plugin interface for extending store behavior with hooks and methods.
  *
- * Queries automatically update when matching documents change.
+ * Plugins can provide lifecycle hooks for side effects and methods to extend
+ * the store's API. Methods receive the core store API and return an object
+ * of functions to attach to the store instance.
  *
  * @example
  * ```ts
- * const config: QueryConfig<Todo> = {
- *   where: (todo) => !todo.completed,
- *   select: (todo) => todo.text,
- *   order: (a, b) => a.localeCompare(b)
- * };
+ * const loggingPlugin = <T>(): Plugin<T, { logState: () => void }> => ({
+ *   hooks: {
+ *     onInit: async () => console.log('Store initialized'),
+ *     onAdd: (entries) => console.log('Added:', entries.length),
+ *   },
+ *   methods: (store) => ({
+ *     logState: () => console.log('Entries:', Array.from(store.entries()))
+ *   })
+ * });
+ *
+ * const store = createStore<Todo>().use(loggingPlugin());
+ * store.logState(); // Method from plugin
  * ```
  */
-export type QueryConfig<T, U = T> = {
-	/** Filter predicate - return true to include document in results */
-	where: (data: T) => boolean;
-	/** Optional projection - transform documents before returning */
-	select?: (data: T) => U;
-	/** Optional comparator for stable ordering of results */
-	order?: (a: U, b: U) => number;
+export type Plugin<
+	T extends Record<string, unknown>,
+	TMethods extends Record<string, any> = {},
+> = {
+	/** Lifecycle and mutation hooks */
+	hooks?: PluginHooks<T>;
+	/** Factory function that returns methods to attach to the store */
+	methods?: (store: StoreBase<T>) => TMethods;
 };
 
 /**
- * A reactive query handle that tracks matching documents and notifies on changes.
- *
- * Call `dispose()` when done to clean up listeners and remove from the store.
- */
-export type Query<U> = {
-	/** Get current matching documents as [id, document] tuples */
-	results: () => Array<readonly [string, U]>;
-	/** Register a change listener. Returns unsubscribe function. */
-	onChange: (callback: () => void) => () => void;
-	/** Remove this query from the store and clear all listeners */
-	dispose: () => void;
-};
-
-type QueryInternal<T, U> = {
-	where: (data: T) => boolean;
-	select?: (data: T) => U;
-	order?: (a: U, b: U) => number;
-	results: Map<string, U>;
-	callbacks: Set<() => void>;
-};
-
-/**
- * Create a lightweight local-first data store with built-in sync and reactive queries.
+ * Create a lightweight local-first data store with built-in sync.
  *
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
@@ -179,7 +230,12 @@ type QueryInternal<T, U> = {
  *
  * @example
  * ```ts
+ * import { createStore } from '@byearlybird/starling';
+ * import { queryPlugin } from '@byearlybird/starling/plugin-query';
+ * import { unstoragePlugin } from '@byearlybird/starling/plugin-unstorage';
+ *
  * const store = await createStore<{ text: string; completed: boolean }>()
+ *   .use(queryPlugin())
  *   .use(unstoragePlugin('todos', storage))
  *   .init();
  *
@@ -188,7 +244,7 @@ type QueryInternal<T, U> = {
  * store.update(id, { completed: true });
  * store.del(id);
  *
- * // Reactive queries
+ * // Reactive queries (from queryPlugin)
  * const activeTodos = store.query({ where: (todo) => !todo.completed });
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
@@ -200,124 +256,25 @@ export function createStore<T extends Record<string, unknown>>(
 	let crdt = createResourceMap<T>(new Map(), type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
-	const onInitHandlers: Array<Plugin<T>["onInit"]> = [];
-	const onDisposeHandlers: Array<Plugin<T>["onDispose"]> = [];
-	const onAddHandlers: Array<NonNullable<Plugin<T>["onAdd"]>> = [];
-	const onUpdateHandlers: Array<NonNullable<Plugin<T>["onUpdate"]>> = [];
-	const onDeleteHandlers: Array<NonNullable<Plugin<T>["onDelete"]>> = [];
-
-	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-	const queries = new Set<QueryInternal<T, any>>();
-
-	function decodeActive(doc: ResourceObject<T> | null): T | null {
-		if (!doc || doc.meta.deletedAt) return null;
-		return doc.attributes as T;
-	}
-
-	function selectValue<U>(query: QueryInternal<T, U>, value: T): U {
-		return query.select ? query.select(value) : (value as unknown as U);
-	}
-
-	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-	function runQueryCallbacks(dirtyQueries: Set<QueryInternal<T, any>>): void {
-		for (const query of dirtyQueries) {
-			for (const callback of query.callbacks) {
-				callback();
-			}
-		}
-	}
-
-	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-	function hydrateQuery(query: QueryInternal<T, any>): void {
-		query.results.clear();
-		for (const [key, value] of entries()) {
-			if (query.where(value)) {
-				const selected = selectValue(query, value);
-				query.results.set(key, selected);
-			}
-		}
-	}
-
-	function notifyQueries(
-		addEntries: ReadonlyArray<readonly [string, T]>,
-		updateEntries: ReadonlyArray<readonly [string, T]>,
-		deleteKeys: ReadonlyArray<string>,
-	): void {
-		if (queries.size === 0) return;
-		// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
-		const dirtyQueries = new Set<QueryInternal<T, any>>();
-
-		if (addEntries.length > 0) {
-			for (const [key, value] of addEntries) {
-				for (const query of queries) {
-					if (query.where(value)) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (updateEntries.length > 0) {
-			for (const [key, value] of updateEntries) {
-				for (const query of queries) {
-					const matches = query.where(value);
-					const inResults = query.results.has(key);
-
-					if (matches && !inResults) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					} else if (!matches && inResults) {
-						query.results.delete(key);
-						dirtyQueries.add(query);
-					} else if (matches && inResults) {
-						const selected = selectValue(query, value);
-						query.results.set(key, selected);
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (deleteKeys.length > 0) {
-			for (const key of deleteKeys) {
-				for (const query of queries) {
-					if (query.results.delete(key)) {
-						dirtyQueries.add(query);
-					}
-				}
-			}
-		}
-
-		if (dirtyQueries.size > 0) {
-			runQueryCallbacks(dirtyQueries);
-		}
-	}
+	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
+	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> = [];
+	const onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>> = [];
+	const onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>> = [];
+	const onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>> = [];
 
 	function emitMutations(
 		addEntries: ReadonlyArray<readonly [string, T]>,
 		updateEntries: ReadonlyArray<readonly [string, T]>,
 		deleteKeys: ReadonlyArray<string>,
 	): void {
-		notifyQueries(addEntries, updateEntries, deleteKeys);
-
-		if (addEntries.length > 0) {
-			for (const handler of onAddHandlers) {
-				handler(addEntries);
-			}
-		}
-		if (updateEntries.length > 0) {
-			for (const handler of onUpdateHandlers) {
-				handler(updateEntries);
-			}
-		}
-		if (deleteKeys.length > 0) {
-			for (const handler of onDeleteHandlers) {
-				handler(deleteKeys);
-			}
-		}
+		emitMutationsFn(
+			onAddHandlers,
+			onUpdateHandlers,
+			onDeleteHandlers,
+			addEntries,
+			updateEntries,
+			deleteKeys,
+		);
 	}
 
 	function has(key: string): boolean {
@@ -338,30 +295,22 @@ export function createStore<T extends Record<string, unknown>>(
 		}
 	}
 
-	function collection(): Document {
+	function collection(): Document<T> {
 		return crdt.snapshot();
 	}
 
-	function merge(document: Document): void {
+	function merge(document: Document<T>): void {
 		const currentCollection = collection();
-		const result = mergeDocuments(currentCollection, document);
+		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		crdt = createResourceMapFromSnapshot<T>(result.document);
+		crdt = createResourceMapFromDocument<T>(result.document);
 
-		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, doc.attributes as T] as const,
-		);
-		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, doc.attributes as T] as const,
-		);
+		const addEntries = mapChangesToEntries(result.changes.added);
+		const updateEntries = mapChangesToEntries(result.changes.updated);
 		const deleteKeys = Array.from(result.changes.deleted);
 
-		if (
-			addEntries.length > 0 ||
-			updateEntries.length > 0 ||
-			deleteKeys.length > 0
-		) {
+		if (hasChanges(addEntries, updateEntries, deleteKeys)) {
 			emitMutations(addEntries, updateEntries, deleteKeys);
 		}
 	}
@@ -377,7 +326,7 @@ export function createStore<T extends Record<string, unknown>>(
 		const deleteKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = createResourceMapFromSnapshot<T>(crdt.snapshot());
+		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
@@ -400,7 +349,7 @@ export function createStore<T extends Record<string, unknown>>(
 				deleteKeys.push(key);
 			},
 			get: (key) => {
-				const encoded = staging.cloneMap().get(key);
+				const encoded = staging.get(key);
 				return decodeActive(encoded ?? null);
 			},
 			rollback: () => {
@@ -408,16 +357,21 @@ export function createStore<T extends Record<string, unknown>>(
 			},
 		};
 
-		const result = callback(tx);
+		try {
+			const result = callback(tx);
 
-		if (!rolledBack) {
-			crdt = staging;
-			if (!silent) {
-				emitMutations(addEntries, updateEntries, deleteKeys);
+			if (!rolledBack) {
+				crdt = staging;
+				if (!silent) {
+					emitMutations(addEntries, updateEntries, deleteKeys);
+				}
 			}
-		}
 
-		return result as NotPromise<R>;
+			return result as NotPromise<R>;
+		} catch (error) {
+			// Don't commit on error - staging is discarded
+			throw error;
+		}
 	}
 
 	function add(value: T, options?: StoreAddOptions): string {
@@ -432,83 +386,8 @@ export function createStore<T extends Record<string, unknown>>(
 		begin((tx) => tx.del(key));
 	}
 
-	function use(plugin: Plugin<T>): Store<T> {
-		onInitHandlers.push(plugin.onInit);
-		onDisposeHandlers.push(plugin.onDispose);
-		if (plugin.onAdd) onAddHandlers.push(plugin.onAdd);
-		if (plugin.onUpdate) onUpdateHandlers.push(plugin.onUpdate);
-		if (plugin.onDelete) onDeleteHandlers.push(plugin.onDelete);
-		return store;
-	}
-
-	async function init(): Promise<Store<T>> {
-		for (const hook of onInitHandlers) {
-			await hook(store);
-		}
-
-		for (const query of queries) {
-			hydrateQuery(query);
-		}
-
-		return store;
-	}
-
-	async function dispose(): Promise<void> {
-		for (let i = onDisposeHandlers.length - 1; i >= 0; i--) {
-			await onDisposeHandlers[i]?.();
-		}
-
-		for (const query of queries) {
-			query.callbacks.clear();
-			query.results.clear();
-		}
-
-		queries.clear();
-
-		onInitHandlers.length = 0;
-		onDisposeHandlers.length = 0;
-		onAddHandlers.length = 0;
-		onUpdateHandlers.length = 0;
-		onDeleteHandlers.length = 0;
-	}
-
-	function query<U = T>(config: QueryConfig<T, U>): Query<U> {
-		const q: QueryInternal<T, U> = {
-			where: config.where,
-			...(config.select && { select: config.select }),
-			...(config.order && { order: config.order }),
-			results: new Map(),
-			callbacks: new Set(),
-		};
-
-		queries.add(q);
-		hydrateQuery(q);
-
-		return {
-			results: () => {
-				if (q.order) {
-					return Array.from(q.results).sort(([, a], [, b]) =>
-						// biome-ignore lint/style/noNonNullAssertion: <guard above>
-						q.order!(a, b),
-					);
-				}
-				return Array.from(q.results);
-			},
-			onChange: (callback: () => void) => {
-				q.callbacks.add(callback);
-				return () => {
-					q.callbacks.delete(callback);
-				};
-			},
-			dispose: () => {
-				queries.delete(q);
-				q.callbacks.clear();
-				q.results.clear();
-			},
-		};
-	}
-
-	const store: Store<T> = {
+	// Phase 1: Create base store with core CRUD operations
+	const baseStore: StoreBase<T> = {
 		has,
 		get,
 		entries,
@@ -518,11 +397,61 @@ export function createStore<T extends Record<string, unknown>>(
 		add,
 		update,
 		del,
+	};
+
+	// Phase 2: Create plugin API that references base store
+	function use<TNewMethods extends Record<string, any>>(
+		plugin: Plugin<T, TNewMethods>,
+	): Store<T, TNewMethods> {
+		// Register hooks
+		if (plugin.hooks?.onInit) onInitHandlers.push(plugin.hooks.onInit);
+		if (plugin.hooks?.onDispose) onDisposeHandlers.push(plugin.hooks.onDispose);
+		if (plugin.hooks?.onAdd) onAddHandlers.push(plugin.hooks.onAdd);
+		if (plugin.hooks?.onUpdate) onUpdateHandlers.push(plugin.hooks.onUpdate);
+		if (plugin.hooks?.onDelete) onDeleteHandlers.push(plugin.hooks.onDelete);
+
+		// Attach methods
+		if (plugin.methods) {
+			const methods = plugin.methods(baseStore);
+
+			// Check for conflicts
+			for (const key of Object.keys(methods)) {
+				if (key in fullStore) {
+					throw new Error(
+						`Plugin method "${key}" conflicts with existing store method or plugin`,
+					);
+				}
+			}
+
+			Object.assign(fullStore, methods);
+		}
+
+		return fullStore as Store<T, TNewMethods>;
+	}
+
+	async function init(): Promise<Store<T>> {
+		await executeInitHooks(onInitHandlers, baseStore);
+		return fullStore;
+	}
+
+	async function dispose(): Promise<void> {
+		await executeDisposeHooks(onDisposeHandlers);
+
+		onInitHandlers.length = 0;
+		onDisposeHandlers.length = 0;
+		onAddHandlers.length = 0;
+		onUpdateHandlers.length = 0;
+		onDeleteHandlers.length = 0;
+	}
+
+	const pluginAPI: StorePluginAPI<T> = {
 		use,
 		init,
 		dispose,
-		query,
 	};
 
-	return store;
+	// Phase 3: Combine base store and plugin API
+	const fullStore = { ...baseStore, ...pluginAPI } as Store<T>;
+
+	return fullStore;
 }

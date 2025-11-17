@@ -1,4 +1,5 @@
 import { createStore } from "@byearlybird/starling";
+import { queryPlugin } from "@byearlybird/starling/plugin-query";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStoreHooks } from "@byearlybird/starling-react";
 import { createStorage } from "unstorage";
@@ -77,14 +78,20 @@ const remoteStorage = unstoragePlugin<Task>(
 			...data,
 			data: data.data.map((doc) => ({
 				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoEncrypt),
+				attributes: mapLeafValues(doc.attributes, pseudoEncrypt) as Record<
+					string,
+					unknown
+				>,
 			})),
 		}),
 		onAfterGet: (data) => ({
 			...data,
 			data: data.data.map((doc) => ({
 				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoDecrypt),
+				attributes: mapLeafValues(doc.attributes, pseudoDecrypt) as Record<
+					string,
+					unknown
+				>,
 			})),
 		}),
 	},
@@ -92,6 +99,7 @@ const remoteStorage = unstoragePlugin<Task>(
 
 // Create Starling store with local storage and HTTP Sync
 export const taskStore = await createStore<Task>()
+	.use(queryPlugin())
 	.use(localStorage)
 	.use(remoteStorage)
 	.init();

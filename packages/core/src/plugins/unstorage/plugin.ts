@@ -1,25 +1,25 @@
 import type { Storage } from "unstorage";
 import type { Document } from "../../document";
-import type { Plugin, Store } from "../../store/store";
+import type { Plugin, StoreBase } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet = (data: Document) => MaybePromise<Document>;
+type UnstorageOnBeforeSet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
 
-type UnstorageOnAfterGet = (data: Document) => MaybePromise<Document>;
+type UnstorageOnAfterGet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
 
 /**
  * Configuration options for the unstorage persistence plugin.
  */
-type UnstorageConfig = {
+type UnstorageConfig<T extends Record<string, unknown>> = {
 	/** Delay in ms to collapse rapid mutations into a single write. Default: 0 (immediate) */
 	debounceMs?: number;
 	/** Interval in ms to poll storage for external changes. When set, enables automatic sync. */
 	pollIntervalMs?: number;
 	/** Hook invoked before persisting to storage. Use for encryption, compression, etc. */
-	onBeforeSet?: UnstorageOnBeforeSet;
+	onBeforeSet?: UnstorageOnBeforeSet<T>;
 	/** Hook invoked after loading from storage. Use for decryption, validation, etc. */
-	onAfterGet?: UnstorageOnAfterGet;
+	onAfterGet?: UnstorageOnAfterGet<T>;
 	/** Function that returns true to skip persistence operations. Use for conditional sync. */
 	skip?: () => boolean;
 };
@@ -53,10 +53,10 @@ type UnstorageConfig = {
  *
  * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
  */
-function unstoragePlugin<T>(
+function unstoragePlugin<T extends Record<string, unknown>>(
 	key: string,
-	storage: Storage<Document>,
-	config: UnstorageConfig = {},
+	storage: Storage<Document<T>>,
+	config: UnstorageConfig<T> = {},
 ): Plugin<T> {
 	const {
 		debounceMs = 0,
@@ -67,7 +67,7 @@ function unstoragePlugin<T>(
 	} = config;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
-	let store: Store<T> | null = null;
+	let store: StoreBase<T> | null = null;
 	let persistPromise: Promise<void> | null = null;
 
 	const persistSnapshot = async () => {
@@ -108,7 +108,7 @@ function unstoragePlugin<T>(
 		if (!store) return;
 		if (skip?.()) return;
 
-		const persisted = await storage.get<Document>(key);
+		const persisted = await storage.get(key);
 
 		if (!persisted) return;
 
@@ -119,45 +119,47 @@ function unstoragePlugin<T>(
 	};
 
 	return {
-		onInit: async (s) => {
-			store = s;
+		hooks: {
+			onInit: async (s) => {
+				store = s;
 
-			// Initial load from storage
-			await pollStorage();
+				// Initial load from storage
+				await pollStorage();
 
-			// Start polling if configured
-			if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
-				pollInterval = setInterval(() => {
-					pollStorage();
-				}, pollIntervalMs);
-			}
-		},
-		onDispose: async () => {
-			// Flush any pending debounced write
-			if (debounceTimer !== null) {
-				clearTimeout(debounceTimer);
-				debounceTimer = null;
-				// Run the pending persist operation
-				await runPersist();
-			}
-			if (pollInterval !== null) {
-				clearInterval(pollInterval);
-				pollInterval = null;
-			}
-			// Wait for any remaining in-flight persistence to complete
-			if (persistPromise !== null) {
-				await persistPromise;
-			}
-			store = null;
-		},
-		onAdd: () => {
-			schedulePersist();
-		},
-		onUpdate: () => {
-			schedulePersist();
-		},
-		onDelete: () => {
-			schedulePersist();
+				// Start polling if configured
+				if (pollIntervalMs !== undefined && pollIntervalMs > 0) {
+					pollInterval = setInterval(() => {
+						pollStorage();
+					}, pollIntervalMs);
+				}
+			},
+			onDispose: async () => {
+				// Flush any pending debounced write
+				if (debounceTimer !== null) {
+					clearTimeout(debounceTimer);
+					debounceTimer = null;
+					// Run the pending persist operation
+					await runPersist();
+				}
+				if (pollInterval !== null) {
+					clearInterval(pollInterval);
+					pollInterval = null;
+				}
+				// Wait for any remaining in-flight persistence to complete
+				if (persistPromise !== null) {
+					await persistPromise;
+				}
+				store = null;
+			},
+			onAdd: () => {
+				schedulePersist();
+			},
+			onUpdate: () => {
+				schedulePersist();
+			},
+			onDelete: () => {
+				schedulePersist();
+			},
 		},
 	};
 }

@@ -4,7 +4,7 @@ import type { Document } from "../document/document";
 import { makeResource } from "../document/resource";
 import {
 	createResourceMap,
-	createResourceMapFromSnapshot,
+	createResourceMapFromDocument,
 } from "./resource-map";
 
 describe("ResourceMap", () => {
@@ -277,7 +277,7 @@ describe("ResourceMap", () => {
 				],
 			};
 
-			const crdt = createResourceMapFromSnapshot<{ name: string }>(collection);
+			const crdt = createResourceMapFromDocument<{ name: string }>(collection);
 
 			expect(crdt.has("id1")).toBe(true);
 			expect(crdt.has("id2")).toBe(true);
@@ -300,7 +300,7 @@ describe("ResourceMap", () => {
 				data: [deletedDoc],
 			};
 
-			const crdt = createResourceMapFromSnapshot<{ name: string }>(collection);
+			const crdt = createResourceMapFromDocument<{ name: string }>(collection);
 
 			// ResourceMap returns deleted documents, just marks them with deletedAt
 			expect(crdt.has("id1")).toBe(true);
@@ -317,7 +317,7 @@ describe("ResourceMap", () => {
 			original.set("id1", { name: "Alice", age: 30 });
 
 			const collection = original.snapshot();
-			const restored = createResourceMapFromSnapshot<{
+			const restored = createResourceMapFromDocument<{
 				name: string;
 				age: number;
 			}>(collection);
@@ -401,7 +401,7 @@ describe("ResourceMap", () => {
 				data: [],
 			};
 
-			const restored = createResourceMapFromSnapshot<{ name: string }>(
+			const restored = createResourceMapFromDocument<{ name: string }>(
 				collection,
 			);
 			restored.set("id1", { name: "Alice" });
