@@ -1,7 +1,7 @@
 import type { AnyObject, Document } from "../document";
 import { mergeDocuments } from "../document";
+import { createEmitter } from "../emitter";
 import {
-	emitMutations as emitMutationsFn,
 	executeDisposeHooks,
 	executeInitHooks,
 } from "./plugin-manager";
@@ -266,24 +266,32 @@ export function createStore<T extends AnyObject>(
 
 	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
 	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> = [];
-	const onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>> = [];
-	const onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>> = [];
-	const onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>> = [];
+
+	// Mutation events handled by emitter
+	type MutationEvents = {
+		add: { collectionKey: string; entries: ReadonlyArray<readonly [string, T]> };
+		update: {
+			collectionKey: string;
+			entries: ReadonlyArray<readonly [string, T]>;
+		};
+		delete: { collectionKey: string; keys: ReadonlyArray<string> };
+	};
+	const mutationEmitter = createEmitter<MutationEvents>();
 
 	function emitMutations(
 		addEntries: ReadonlyArray<readonly [string, T]>,
 		updateEntries: ReadonlyArray<readonly [string, T]>,
 		deleteKeys: ReadonlyArray<string>,
 	): void {
-		emitMutationsFn(
-			onAddHandlers,
-			onUpdateHandlers,
-			onDeleteHandlers,
-			collectionKey,
-			addEntries,
-			updateEntries,
-			deleteKeys,
-		);
+		if (addEntries.length > 0) {
+			mutationEmitter.emit("add", { collectionKey, entries: addEntries });
+		}
+		if (updateEntries.length > 0) {
+			mutationEmitter.emit("update", { collectionKey, entries: updateEntries });
+		}
+		if (deleteKeys.length > 0) {
+			mutationEmitter.emit("delete", { collectionKey, keys: deleteKeys });
+		}
 	}
 
 	function has(key: string): boolean {
@@ -409,9 +417,21 @@ export function createStore<T extends AnyObject>(
 		// Register hooks
 		if (plugin.hooks?.onInit) onInitHandlers.push(plugin.hooks.onInit);
 		if (plugin.hooks?.onDispose) onDisposeHandlers.push(plugin.hooks.onDispose);
-		if (plugin.hooks?.onAdd) onAddHandlers.push(plugin.hooks.onAdd);
-		if (plugin.hooks?.onUpdate) onUpdateHandlers.push(plugin.hooks.onUpdate);
-		if (plugin.hooks?.onDelete) onDeleteHandlers.push(plugin.hooks.onDelete);
+		if (plugin.hooks?.onAdd) {
+			mutationEmitter.on("add", (evt) =>
+				plugin.hooks!.onAdd!(evt.collectionKey, evt.entries),
+			);
+		}
+		if (plugin.hooks?.onUpdate) {
+			mutationEmitter.on("update", (evt) =>
+				plugin.hooks!.onUpdate!(evt.collectionKey, evt.entries),
+			);
+		}
+		if (plugin.hooks?.onDelete) {
+			mutationEmitter.on("delete", (evt) =>
+				plugin.hooks!.onDelete!(evt.collectionKey, evt.keys),
+			);
+		}
 
 		// Attach methods
 		if (plugin.methods) {
@@ -442,9 +462,7 @@ export function createStore<T extends AnyObject>(
 
 		onInitHandlers.length = 0;
 		onDisposeHandlers.length = 0;
-		onAddHandlers.length = 0;
-		onUpdateHandlers.length = 0;
-		onDeleteHandlers.length = 0;
+		mutationEmitter.clear();
 	}
 
 	const pluginAPI: StorePluginAPI<T> = {
