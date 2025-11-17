@@ -102,14 +102,14 @@ function queryPlugin<T extends AnyObject>(): Plugin<T, QueryMethods<T>> {
 
 	return {
 		hooks: {
-			onInit: (store) => {
+			onInit: (_collectionKey, store) => {
 				// Hydrate all queries with initial data
 				for (const query of queries) {
 					hydrateQuery(query, store.entries());
 				}
 			},
 
-			onDispose: () => {
+			onDispose: (_collectionKey) => {
 				// Clean up all queries
 				for (const query of queries) {
 					query.callbacks.clear();
@@ -118,21 +118,21 @@ function queryPlugin<T extends AnyObject>(): Plugin<T, QueryMethods<T>> {
 				queries.clear();
 			},
 
-			onAdd: (entries) => {
+			onAdd: (_collectionKey, entries) => {
 				const dirtyQueries = notifyQueries(queries, entries, [], []);
 				if (dirtyQueries.size > 0) {
 					runQueryCallbacks(dirtyQueries);
 				}
 			},
 
-			onUpdate: (entries) => {
+			onUpdate: (_collectionKey, entries) => {
 				const dirtyQueries = notifyQueries(queries, [], entries, []);
 				if (dirtyQueries.size > 0) {
 					runQueryCallbacks(dirtyQueries);
 				}
 			},
 
-			onDelete: (keys) => {
+			onDelete: (_collectionKey, keys) => {
 				const dirtyQueries = notifyQueries(queries, [], [], keys);
 				if (dirtyQueries.size > 0) {
 					runQueryCallbacks(dirtyQueries);

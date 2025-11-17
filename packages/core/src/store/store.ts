@@ -172,19 +172,25 @@ export type Store<
  * Plugin lifecycle and mutation hooks.
  *
  * All hooks are optional. Mutation hooks receive batched entries after each
- * transaction commits.
+ * transaction commits. All hooks receive the collection key as their first parameter.
  */
 export type PluginHooks<T extends AnyObject> = {
 	/** Called once when store.init() runs */
-	onInit?: (store: StoreBase<T>) => Promise<void> | void;
+	onInit?: (collectionKey: string, store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
-	onDispose?: () => Promise<void> | void;
+	onDispose?: (collectionKey: string) => Promise<void> | void;
 	/** Called after documents are added (batched per transaction) */
-	onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	onAdd?: (
+		collectionKey: string,
+		entries: ReadonlyArray<readonly [string, T]>,
+	) => void;
 	/** Called after documents are updated (batched per transaction) */
-	onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	onUpdate?: (
+		collectionKey: string,
+		entries: ReadonlyArray<readonly [string, T]>,
+	) => void;
 	/** Called after documents are deleted (batched per transaction) */
-	onDelete?: (keys: ReadonlyArray<string>) => void;
+	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
 };
 
 /**
@@ -226,6 +232,7 @@ export type Plugin<
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
+ * @param collectionKey - Unique identifier for this collection
  * @template T - The type of documents stored in this collection
  *
  * @example
@@ -234,9 +241,9 @@ export type Plugin<
  * import { queryPlugin } from '@byearlybird/starling/plugin-query';
  * import { unstoragePlugin } from '@byearlybird/starling/plugin-unstorage';
  *
- * const store = await createStore<{ text: string; completed: boolean }>()
+ * const store = await createStore<{ text: string; completed: boolean }>('todos')
  *   .use(queryPlugin())
- *   .use(unstoragePlugin('todos', storage))
+ *   .use(unstoragePlugin(storage))
  *   .init();
  *
  * // Add, update, delete
@@ -250,9 +257,10 @@ export type Plugin<
  * ```
  */
 export function createStore<T extends AnyObject>(
+	collectionKey: string,
 	config: StoreConfig = {},
 ): Store<T> {
-	const type = config.type ?? "default";
+	const type = config.type ?? collectionKey;
 	let crdt = createResourceMap<T>(new Map(), type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
@@ -271,6 +279,7 @@ export function createStore<T extends AnyObject>(
 			onAddHandlers,
 			onUpdateHandlers,
 			onDeleteHandlers,
+			collectionKey,
 			addEntries,
 			updateEntries,
 			deleteKeys,
@@ -424,12 +433,12 @@ export function createStore<T extends AnyObject>(
 	}
 
 	async function init(): Promise<Store<T>> {
-		await executeInitHooks(onInitHandlers, baseStore);
+		await executeInitHooks(onInitHandlers, collectionKey, baseStore);
 		return fullStore;
 	}
 
 	async function dispose(): Promise<void> {
-		await executeDisposeHooks(onDisposeHandlers);
+		await executeDisposeHooks(onDisposeHandlers, collectionKey);
 
 		onInitHandlers.length = 0;
 		onDisposeHandlers.length = 0;

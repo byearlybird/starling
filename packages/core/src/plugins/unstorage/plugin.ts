@@ -32,8 +32,8 @@ type UnstorageConfig<T extends AnyObject> = {
  * Persistence plugin for Starling using unstorage backends.
  *
  * Automatically persists store snapshots and optionally polls for external changes.
+ * The collection key is automatically provided by the store.
  *
- * @param key - Storage key for this dataset
  * @param storage - Unstorage instance (localStorage, HTTP, filesystem, etc.)
  * @param config - Optional configuration for debouncing, polling, hooks, and conditional sync
  * @returns Plugin instance for store.use()
@@ -44,8 +44,8 @@ type UnstorageConfig<T extends AnyObject> = {
  * import { createStorage } from "unstorage";
  * import localStorageDriver from "unstorage/drivers/localstorage";
  *
- * const store = await new Store<Todo>()
- *   .use(unstoragePlugin('todos', createStorage({
+ * const store = await createStore<Todo>('todos')
+ *   .use(unstoragePlugin(createStorage({
  *     driver: localStorageDriver({ base: 'app:' })
  *   }), {
  *     debounceMs: 300,
@@ -58,7 +58,6 @@ type UnstorageConfig<T extends AnyObject> = {
  * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
  */
 function unstoragePlugin<T extends AnyObject>(
-	key: string,
 	storage: Storage<Document<T>>,
 	config: UnstorageConfig<T> = {},
 ): Plugin<T> {
@@ -73,9 +72,10 @@ function unstoragePlugin<T extends AnyObject>(
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let store: StoreBase<T> | null = null;
 	let persistPromise: Promise<void> | null = null;
+	let key: string | null = null;
 
 	const persistSnapshot = async () => {
-		if (!store) return;
+		if (!store || !key) return;
 		const data = store.collection();
 		const persisted =
 			onBeforeSet !== undefined ? await onBeforeSet(data) : data;
@@ -109,7 +109,7 @@ function unstoragePlugin<T extends AnyObject>(
 	};
 
 	const pollStorage = async () => {
-		if (!store) return;
+		if (!store || !key) return;
 		if (skip?.()) return;
 
 		const persisted = await storage.get(key);
@@ -124,7 +124,8 @@ function unstoragePlugin<T extends AnyObject>(
 
 	return {
 		hooks: {
-			onInit: async (s) => {
+			onInit: async (collectionKey, s) => {
+				key = collectionKey;
 				store = s;
 
 				// Initial load from storage
@@ -137,7 +138,7 @@ function unstoragePlugin<T extends AnyObject>(
 					}, pollIntervalMs);
 				}
 			},
-			onDispose: async () => {
+			onDispose: async (_collectionKey) => {
 				// Flush any pending debounced write
 				if (debounceTimer !== null) {
 					clearTimeout(debounceTimer);
@@ -154,14 +155,15 @@ function unstoragePlugin<T extends AnyObject>(
 					await persistPromise;
 				}
 				store = null;
+				key = null;
 			},
-			onAdd: () => {
+			onAdd: (_collectionKey) => {
 				schedulePersist();
 			},
-			onUpdate: () => {
+			onUpdate: (_collectionKey) => {
 				schedulePersist();
 			},
-			onDelete: () => {
+			onDelete: (_collectionKey) => {
 				schedulePersist();
 			},
 		},

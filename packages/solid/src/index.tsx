@@ -36,7 +36,7 @@ import {
  * import { createStore } from "@byearlybird/starling";
  * import { createStoreHooks } from "@byearlybird/starling-solid";
  *
- * export const taskStore = await createStore<Task>().init();
+ * export const taskStore = await createStore<Task>('tasks').init();
  *
  * export const { StoreProvider, useStore, useQuery } = createStoreHooks(taskStore);
  *

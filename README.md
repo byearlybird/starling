@@ -27,10 +27,10 @@ bun add unstorage
 ## Quick Start
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 
 // Create a store with built-in reactive queries
-const todoStore = await new Store<{ text: string; completed: boolean }>().init();
+const todoStore = await createStore<{ text: string; completed: boolean }>('todos').init();
 
 // Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
@@ -106,13 +106,13 @@ Starling provides a simple API for mutations, queries, and sync. Hover over meth
 ### Creating a Store
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 
 // Create a basic store
-const store = new Store<YourType>();
+const store = createStore<YourType>('your-collection');
 
 // Optionally provide a custom ID generator
-const deterministicStore = new Store<YourType>({
+const deterministicStore = createStore<YourType>('your-collection', {
   getId: () => crypto.randomUUID(),
 });
 
@@ -201,7 +201,7 @@ const loggingPlugin = <T extends Record<string, unknown>>(): Plugin<T> => ({
 });
 
 // Use the plugin
-const store = await new Store<{ name: string }>()
+const store = await createStore<{ name: string }>('users')
   .use(loggingPlugin())
   .init();
 ```
@@ -223,17 +223,16 @@ Persists snapshots to any `unstorage` backend, replays them during boot, and opt
 You can stack multiple storage plugins—each one operates independently, and Starling's field-level LWW automatically resolves conflicts:
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
 import httpDriver from "unstorage/drivers/http";
 
 // Register multiple storage backends - they work together automatically
-const store = await new Store<Todo>()
+const store = await createStore<Todo>('todos')
   .use(
     unstoragePlugin(
-      "todos",
       createStorage({
         driver: localStorageDriver({ base: "app:" }),
       }),
@@ -241,7 +240,6 @@ const store = await new Store<Todo>()
   )
   .use(
     unstoragePlugin(
-      "todos",
       createStorage({
         driver: httpDriver({ base: "https://api.example.com" }),
       }),

@@ -10,13 +10,12 @@ type Todo = {
 };
 
 const fileStorage = unstoragePlugin<Todo>(
-	"tasks",
 	createStorage<Document<Todo>>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
 );
 
-const store = await createStore<Todo>().use(fileStorage).init();
+const store = await createStore<Todo>("tasks").use(fileStorage).init();
 
 const server = Bun.serve({
 	port: 3001,
