@@ -179,23 +179,27 @@ export type LifecycleEvents<T extends AnyObject> = {
 };
 
 /**
+ * Batched document entries for mutation hooks.
+ */
+export type MutationEntries<T> = ReadonlyArray<readonly [string, T]>;
+
+/**
+ * Batched document keys for deletion hooks.
+ */
+export type MutationKeys = ReadonlyArray<string>;
+
+/**
  * Plugin mutation hooks for reacting to data changes.
  *
  * All hooks receive batched entries after each transaction commits.
  */
 export type MutationEvents<T extends AnyObject> = {
 	/** Called after documents are added (batched per transaction) */
-	onAdd?: (
-		collectionKey: string,
-		entries: ReadonlyArray<readonly [string, T]>,
-	) => void;
+	onAdd?: (collectionKey: string, entries: MutationEntries<T>) => void;
 	/** Called after documents are updated (batched per transaction) */
-	onUpdate?: (
-		collectionKey: string,
-		entries: ReadonlyArray<readonly [string, T]>,
-	) => void;
+	onUpdate?: (collectionKey: string, entries: MutationEntries<T>) => void;
 	/** Called after documents are deleted (batched per transaction) */
-	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
+	onDelete?: (collectionKey: string, keys: MutationKeys) => void;
 };
 
 /**
@@ -282,21 +286,18 @@ export function createStore<T extends AnyObject>(
 		NonNullable<LifecycleEvents<T>["onDispose"]>
 	> = [];
 
-	// Mutation events handled by emitter
+	// Mutation events handled by emitter - mirrors MutationEvents but wraps parameters
 	type MutationEmitterEvents = {
-		add: { collectionKey: string; entries: ReadonlyArray<readonly [string, T]> };
-		update: {
-			collectionKey: string;
-			entries: ReadonlyArray<readonly [string, T]>;
-		};
-		delete: { collectionKey: string; keys: ReadonlyArray<string> };
+		add: { collectionKey: string; entries: MutationEntries<T> };
+		update: { collectionKey: string; entries: MutationEntries<T> };
+		delete: { collectionKey: string; keys: MutationKeys };
 	};
 	const mutationEmitter = createEmitter<MutationEmitterEvents>();
 
 	function emitMutations(
-		addEntries: ReadonlyArray<readonly [string, T]>,
-		updateEntries: ReadonlyArray<readonly [string, T]>,
-		deleteKeys: ReadonlyArray<string>,
+		addEntries: MutationEntries<T>,
+		updateEntries: MutationEntries<T>,
+		deleteKeys: MutationKeys,
 	): void {
 		if (addEntries.length > 0) {
 			mutationEmitter.emit("add", { collectionKey, entries: addEntries });
@@ -355,7 +356,7 @@ export function createStore<T extends AnyObject>(
 
 		const addEntries: Array<readonly [string, T]> = [];
 		const updateEntries: Array<readonly [string, T]> = [];
-		const deleteKeys: Array<string> = [];
+		const deleteKeys: string[] = [];
 
 		// Create a staging ResourceMap by cloning the current state
 		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
