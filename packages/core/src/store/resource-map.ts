@@ -108,7 +108,7 @@ export function createResourceMap<T extends Record<string, unknown>>(
 		 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
 		 * @param collection - Document from another replica or storage
 		 */
-		merge(collection: Document<T>): void {
+		merge(collection: Document): void {
 			const currentCollection = this.snapshot();
 			const result = mergeDocuments(currentCollection, collection);
 
@@ -128,7 +128,7 @@ export function createResourceMap<T extends Record<string, unknown>>(
 export function createResourceMapFromDocument<
 	U extends Record<string, unknown>,
 >(
-	collection: Document<U>,
+	collection: Document,
 	type: string = "default",
 ): ReturnType<typeof createResourceMap<U>> {
 	// Infer type from first resource if available, otherwise use provided type

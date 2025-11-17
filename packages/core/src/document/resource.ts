@@ -55,7 +55,9 @@ export function computeResourceLatest(
  * Each resource has a type, unique identifier, attributes containing the data,
  * and metadata for tracking deletion state and eventstamps.
  */
-export type ResourceObject<T extends Record<string, unknown>> = {
+export type ResourceObject<
+	T extends Record<string, unknown> = Record<string, unknown>,
+> = {
 	/** Resource type identifier */
 	type: string;
 	/** Unique identifier for this resource */
