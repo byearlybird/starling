@@ -1,5 +1,5 @@
 import type { AnyObject } from "../document";
-import type { PluginHooks, StoreBase } from "./store";
+import type { LifecycleEvents, StoreBase } from "./store";
 
 /**
  * Execute all plugin onInit hooks sequentially.
@@ -8,7 +8,7 @@ import type { PluginHooks, StoreBase } from "./store";
  * @param store - Store instance to pass to hooks
  */
 export async function executeInitHooks<T extends AnyObject>(
-	hooks: Array<NonNullable<PluginHooks<T>["onInit"]>>,
+	hooks: Array<NonNullable<LifecycleEvents<T>["onInit"]>>,
 	collectionKey: string,
 	store: StoreBase<T>,
 ): Promise<void> {
@@ -23,7 +23,7 @@ export async function executeInitHooks<T extends AnyObject>(
  * @param collectionKey - Collection identifier
  */
 export async function executeDisposeHooks<T extends AnyObject>(
-	hooks: Array<NonNullable<PluginHooks<T>["onDispose"]>>,
+	hooks: Array<NonNullable<LifecycleEvents<T>["onDispose"]>>,
 	collectionKey: string,
 ): Promise<void> {
 	for (let i = hooks.length - 1; i >= 0; i--) {

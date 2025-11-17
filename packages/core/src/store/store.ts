@@ -169,16 +169,21 @@ export type Store<
 > = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
 
 /**
- * Plugin lifecycle and mutation hooks.
- *
- * All hooks are optional. Mutation hooks receive batched entries after each
- * transaction commits. All hooks receive the collection key as their first parameter.
+ * Plugin lifecycle hooks for initialization and cleanup.
  */
-export type PluginHooks<T extends AnyObject> = {
+export type LifecycleEvents<T extends AnyObject> = {
 	/** Called once when store.init() runs */
 	onInit?: (collectionKey: string, store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
 	onDispose?: (collectionKey: string) => Promise<void> | void;
+};
+
+/**
+ * Plugin mutation hooks for reacting to data changes.
+ *
+ * All hooks receive batched entries after each transaction commits.
+ */
+export type MutationEvents<T extends AnyObject> = {
 	/** Called after documents are added (batched per transaction) */
 	onAdd?: (
 		collectionKey: string,
@@ -192,6 +197,14 @@ export type PluginHooks<T extends AnyObject> = {
 	/** Called after documents are deleted (batched per transaction) */
 	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
 };
+
+/**
+ * Plugin lifecycle and mutation hooks.
+ *
+ * All hooks are optional and receive the collection key as their first parameter.
+ */
+export type PluginHooks<T extends AnyObject> = LifecycleEvents<T> &
+	MutationEvents<T>;
 
 /**
  * Plugin interface for extending store behavior with hooks and methods.
@@ -264,11 +277,13 @@ export function createStore<T extends AnyObject>(
 	let crdt = createResourceMap<T>(new Map(), type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
-	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
-	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> = [];
+	const onInitHandlers: Array<NonNullable<LifecycleEvents<T>["onInit"]>> = [];
+	const onDisposeHandlers: Array<
+		NonNullable<LifecycleEvents<T>["onDispose"]>
+	> = [];
 
 	// Mutation events handled by emitter
-	type MutationEvents = {
+	type MutationEmitterEvents = {
 		add: { collectionKey: string; entries: ReadonlyArray<readonly [string, T]> };
 		update: {
 			collectionKey: string;
@@ -276,7 +291,7 @@ export function createStore<T extends AnyObject>(
 		};
 		delete: { collectionKey: string; keys: ReadonlyArray<string> };
 	};
-	const mutationEmitter = createEmitter<MutationEvents>();
+	const mutationEmitter = createEmitter<MutationEmitterEvents>();
 
 	function emitMutations(
 		addEntries: ReadonlyArray<readonly [string, T]>,
