@@ -37,7 +37,7 @@ store.begin((tx) => {
 });
 
 store.begin((tx) => {
-  tx.del("todo1"); // automatically persists
+  tx.remove("todo1"); // automatically persists
 });
 ```
 

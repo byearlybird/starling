@@ -377,7 +377,7 @@ summary(() => {
 		bench("delete", () => {
 			const store = new Store<SmallDoc>();
 			store.add(doc, { withId: "doc-0" });
-			store.del("doc-0");
+			store.remove("doc-0");
 		});
 	});
 });
@@ -409,7 +409,7 @@ summary(() => {
 		bench("delete", () => {
 			const store = new Store<MediumDoc>();
 			store.add(doc, { withId: "doc-0" });
-			store.del("doc-0");
+			store.remove("doc-0");
 		});
 	});
 });
@@ -441,7 +441,7 @@ summary(() => {
 		bench("delete", () => {
 			const store = new Store<LargeDoc>();
 			store.add(doc, { withId: "doc-0" });
-			store.del("doc-0");
+			store.remove("doc-0");
 		});
 	});
 });

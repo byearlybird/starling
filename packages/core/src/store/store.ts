@@ -59,7 +59,7 @@ export type StoreSetTransaction<T> = {
 	/** Update a document with a partial value (field-level merge) */
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
-	del: (key: string) => void;
+	remove: (key: string) => void;
 	/** Get a document within this transaction */
 	get: (key: string) => T | null;
 	/** Abort the transaction and discard all changes */
@@ -71,7 +71,7 @@ export type StoreSetTransaction<T> = {
  *
  * This is the stable API surface that plugins can rely on. It provides:
  * - **Read operations**: `has`, `get`, `entries`
- * - **Write operations**: `add`, `update`, `del`
+ * - **Write operations**: `add`, `update`, `remove`
  * - **Transactions**: `begin`
  * - **Sync operations**: `collection`, `merge`
  *
@@ -101,7 +101,7 @@ export type StoreBase<T extends AnyObject> = {
 	/** Update a document with a partial value */
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
-	del: (key: string) => void;
+	remove: (key: string) => void;
 };
 
 /**
@@ -242,7 +242,7 @@ export type Plugin<
  * // Add, update, delete
  * const id = store.add({ text: 'Buy milk', completed: false });
  * store.update(id, { completed: true });
- * store.del(id);
+ * store.remove(id);
  *
  * // Reactive queries (from queryPlugin)
  * const activeTodos = store.query({ where: (todo) => !todo.completed });
@@ -343,7 +343,7 @@ export function createStore<T extends AnyObject>(
 					updateEntries.push([key, merged.attributes as T] as const);
 				}
 			},
-			del: (key) => {
+			remove: (key) => {
 				if (!staging.has(key)) return;
 				staging.delete(key);
 				deleteKeys.push(key);
@@ -376,8 +376,8 @@ export function createStore<T extends AnyObject>(
 		begin((tx) => tx.update(key, value));
 	}
 
-	function del(key: string): void {
-		begin((tx) => tx.del(key));
+	function remove(key: string): void {
+		begin((tx) => tx.remove(key));
 	}
 
 	// Phase 1: Create base store with core CRUD operations
@@ -390,7 +390,7 @@ export function createStore<T extends AnyObject>(
 		begin,
 		add,
 		update,
-		del,
+		remove,
 	};
 
 	// Phase 2: Create plugin API that references base store

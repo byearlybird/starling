@@ -36,11 +36,11 @@ describe("Store - Convenience Methods", () => {
 		});
 	});
 
-	test("del should remove records when using convenience method", () => {
+	test("remove should remove records when using convenience method", () => {
 		const store = createStore<TestUser>();
 
 		const id = store.add({ name: "Charlie" }, { withId: "user-del-1" });
-		store.del(id);
+		store.remove(id);
 
 		expect(store.get("user-del-1")).toBeNull();
 	});
@@ -129,7 +129,7 @@ describe("Store - Get/Has Operations", () => {
 
 	test("should return null/false for deleted items", () => {
 		store.begin((tx) => {
-			tx.del("user-1");
+			tx.remove("user-1");
 		});
 
 		expect(store.get("user-1")).toBeNull();
@@ -213,7 +213,7 @@ describe("Store - Delete Operations", () => {
 
 	test("should soft-delete an item", () => {
 		store.begin((tx) => {
-			tx.del("user-1");
+			tx.remove("user-1");
 		});
 
 		expect(store.get("user-1")).toBe(null);
@@ -221,7 +221,7 @@ describe("Store - Delete Operations", () => {
 
 	test("should not return deleted items via get()", () => {
 		store.begin((tx) => {
-			tx.del("user-1");
+			tx.remove("user-1");
 		});
 
 		expect(store.get("user-1")).toBeNull();
@@ -252,7 +252,7 @@ describe("Store - Iteration & State", () => {
 
 	test("should include deleted items in snapshot()", () => {
 		store.begin((tx) => {
-			tx.del("user-1");
+			tx.remove("user-1");
 		});
 
 		const collection = store.collection();
@@ -300,7 +300,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 
 		store.begin((tx) => {
 			tx.add({ name: "Bob" }, { withId: "user-2" });
-			tx.del("user-1");
+			tx.remove("user-1");
 			tx.rollback();
 		});
 
@@ -318,7 +318,7 @@ describe("Store - Transaction Behavior - Commit/Rollback", () => {
 		expect(() => {
 			store.begin((tx) => {
 				tx.add({ name: "Bob" }, { withId: "user-2" });
-				tx.del("user-1");
+				tx.remove("user-1");
 				throw new Error("Transaction failed");
 			});
 		}).toThrow("Transaction failed");
@@ -454,8 +454,8 @@ describe("Store - Plugin System - Hook Registration", () => {
 		});
 
 		store.begin((tx) => {
-			tx.del("user-1");
-			tx.del("user-2");
+			tx.remove("user-1");
+			tx.remove("user-2");
 		});
 
 		expect(onDeleteMock).toHaveBeenCalledTimes(1);
