@@ -98,7 +98,7 @@ const remoteStorage = unstoragePlugin<Task>(
 );
 
 // Create Starling store with local storage and HTTP Sync
-const taskStore = await createStore<Task>('tasks')
+const taskStore = await createStore<Task>("tasks")
 	.use(queryPlugin())
 	.use(localStorage)
 	.use(remoteStorage)

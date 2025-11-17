@@ -32,7 +32,7 @@ type TestUser = {
 async function mergeStoreCollections<T extends Record<string, unknown>>(
 	collections: Document<T>[],
 ): Promise<Store<T>> {
-	const consolidated = createStore<T>('test-collection');
+	const consolidated = createStore<T>("test-collection");
 
 	// Initialize first (before merging) to avoid clock advancement after merge
 	await consolidated.init();
@@ -53,9 +53,9 @@ async function mergeStoreCollections<T extends Record<string, unknown>>(
 describe("Store Integration - Multi-Store Merging", () => {
 	test("should merge independent writes with no conflicts", async () => {
 		// Create 3 independent stores
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
-		const storeC = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
+		const storeC = createStore<TestUser>("test-collection");
 
 		// Each store gets its own unique writes
 		storeA.begin((tx) => {
@@ -130,9 +130,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should merge same document with different fields updated per store (field-level LWW)", async () => {
 		// Create 3 stores, each updating different fields of the same document
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
-		const storeC = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
+		const storeC = createStore<TestUser>("test-collection");
 
 		// All stores start with the same document (simulating an initial state)
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -190,9 +190,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should resolve same-field conflicts using LWW (highest eventstamp wins)", async () => {
 		// Create 3 stores where all update the same field with different values
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
-		const storeC = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
+		const storeC = createStore<TestUser>("test-collection");
 
 		// Initialize the same document in all stores
 		const initialUser = { id: "user-1", name: "Initial" };
@@ -253,9 +253,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should handle deletions where deletion eventstamp is highest", async () => {
 		// Create 3 stores with different mutation sequences
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
-		const storeC = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
+		const storeC = createStore<TestUser>("test-collection");
 
 		// Store A: Add a document
 		storeA.begin((tx) => {
@@ -329,9 +329,9 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should maintain consistency when merging stores with overlapping and unique data", async () => {
 		// Create 3 stores with partial overlaps
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
-		const storeC = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
+		const storeC = createStore<TestUser>("test-collection");
 
 		// All stores have user-1
 		// A and B have user-2
@@ -400,8 +400,8 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 	test("should forward clock during sync and continue working correctly", async () => {
 		// Create 2 stores that will sync with clock forwarding
-		const storeA = createStore<TestUser>('test-collection');
-		const storeB = createStore<TestUser>('test-collection');
+		const storeA = createStore<TestUser>("test-collection");
+		const storeB = createStore<TestUser>("test-collection");
 
 		// Both stores make initial writes
 		storeA.begin((tx) => {
@@ -461,7 +461,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 
 		// Now continue working: make new writes on both the consolidated store
 		// and create new independent stores to verify the system still works
-		const storeC = createStore<TestUser>('test-collection');
+		const storeC = createStore<TestUser>("test-collection");
 
 		// Add a new user to the consolidated store
 		consolidated.begin((tx) => {

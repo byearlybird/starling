@@ -180,9 +180,15 @@ export type PluginHooks<T extends AnyObject> = {
 	/** Called once when store.dispose() runs */
 	onDispose?: (collectionKey: string) => Promise<void> | void;
 	/** Called after documents are added (batched per transaction) */
-	onAdd?: (collectionKey: string, entries: ReadonlyArray<readonly [string, T]>) => void;
+	onAdd?: (
+		collectionKey: string,
+		entries: ReadonlyArray<readonly [string, T]>,
+	) => void;
 	/** Called after documents are updated (batched per transaction) */
-	onUpdate?: (collectionKey: string, entries: ReadonlyArray<readonly [string, T]>) => void;
+	onUpdate?: (
+		collectionKey: string,
+		entries: ReadonlyArray<readonly [string, T]>,
+	) => void;
 	/** Called after documents are deleted (batched per transaction) */
 	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
 };

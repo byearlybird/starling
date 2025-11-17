@@ -15,7 +15,7 @@ const fileStorage = unstoragePlugin<Todo>(
 	}),
 );
 
-const store = await createStore<Todo>('tasks').use(fileStorage).init();
+const store = await createStore<Todo>("tasks").use(fileStorage).init();
 
 const server = Bun.serve({
 	port: 3001,
