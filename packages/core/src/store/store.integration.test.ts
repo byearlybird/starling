@@ -30,7 +30,7 @@ type TestUser = {
  * @returns A new store containing the merged state
  */
 async function mergeStoreCollections<T extends Record<string, unknown>>(
-	collections: Document[],
+	collections: Document<T>[],
 ): Promise<Store<T>> {
 	const consolidated = createStore<T>();
 
@@ -311,7 +311,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 	});
 
 	test("should merge empty snapshots gracefully", async () => {
-		const emptyCollection: Document = {
+		const emptyCollection: Document<TestUser> = {
 			jsonapi: { version: "1.1" },
 			meta: {
 				latest: "2025-01-01T00:00:00.000Z|0000|0000",
