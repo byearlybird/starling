@@ -1,6 +1,6 @@
 import type { AnyObject, JsonDocument } from "../document";
 import { mergeDocuments } from "../document";
-import { ResourceMap } from "./resource-map";
+import { ResourceMap } from "../resource-map/resource-map";
 import { decodeActive } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
@@ -233,7 +233,11 @@ export function createStore<T extends AnyObject>(
 		}
 
 		// Emit mutations if there are any changes
-		if (addEntries.length > 0 || updateEntries.length > 0 || removeKeys.length > 0) {
+		if (
+			addEntries.length > 0 ||
+			updateEntries.length > 0 ||
+			removeKeys.length > 0
+		) {
 			emitMutations(addEntries, updateEntries, removeKeys);
 		}
 	}
@@ -309,7 +313,8 @@ export function createStore<T extends AnyObject>(
 	): () => void {
 		if (event === "add") {
 			addListeners.add(listener as StoreEventListeners<T>["add"]);
-			return () => addListeners.delete(listener as StoreEventListeners<T>["add"]);
+			return () =>
+				addListeners.delete(listener as StoreEventListeners<T>["add"]);
 		}
 		if (event === "update") {
 			updateListeners.add(listener as StoreEventListeners<T>["update"]);
