@@ -1,6 +1,6 @@
 export type {
 	AnyObject,
-	Document,
+	JsonDocument,
 	ResourceObject,
 } from "./document";
 export * from "./store/store";

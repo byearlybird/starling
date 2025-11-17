@@ -14,7 +14,7 @@ export type AnyObject = Record<string, unknown>;
  *
  * Documents are the unit of synchronization between store replicas.
  */
-export type Document<T extends AnyObject> = {
+export type JsonDocument<T extends AnyObject> = {
 	/** API version information */
 	jsonapi: {
 		version: "1.1";
@@ -50,7 +50,7 @@ export type DocumentChanges<T extends AnyObject> = {
  */
 export type MergeDocumentsResult<T extends AnyObject> = {
 	/** The merged document with updated resources and forwarded clock */
-	document: Document<T>;
+	document: JsonDocument<T>;
 
 	/** Change tracking for plugin hook notifications */
 	changes: DocumentChanges<T>;
@@ -96,8 +96,8 @@ export type MergeDocumentsResult<T extends AnyObject> = {
  * ```
  */
 export function mergeDocuments<T extends AnyObject>(
-	into: Document<T>,
-	from: Document<T>,
+	into: JsonDocument<T>,
+	from: JsonDocument<T>,
 ): MergeDocumentsResult<T> {
 	// Build index of base resources by ID for efficient lookup
 	const intoDocsById = new Map<string, ResourceObject<T>>();
@@ -191,7 +191,7 @@ export function mergeDocuments<T extends AnyObject>(
  */
 export function makeDocument<T extends AnyObject>(
 	eventstamp: string,
-): Document<T> {
+): JsonDocument<T> {
 	return {
 		jsonapi: { version: "1.1" },
 		meta: {
