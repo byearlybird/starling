@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { createStore, type Store } from "./store";
+import { createStore, type Store, type StoreBase } from "./store";
 
 type TestUser = {
 	name: string;
@@ -523,7 +523,7 @@ describe("Store - Plugin System - Hook Registration", () => {
 describe("Store - Plugin System - Lifecycle", () => {
 	test("should call plugin init() during store.init()", async () => {
 		const store = createStore<TestUser>();
-		const initMock = mock((_s: Store<TestUser>) => {});
+		const initMock = mock((_s: StoreBase<TestUser>) => {});
 
 		store.use({
 			hooks: {
@@ -535,7 +535,12 @@ describe("Store - Plugin System - Lifecycle", () => {
 		await store.init();
 
 		expect(initMock).toHaveBeenCalledTimes(1);
-		expect(initMock.mock.calls[0]?.[0]).toBe(store);
+		// Verify the hook received a StoreBase with core methods
+		const receivedStore = initMock.mock.calls[0]?.[0];
+		expect(receivedStore).toBeDefined();
+		expect(receivedStore?.has).toBeTypeOf("function");
+		expect(receivedStore?.get).toBeTypeOf("function");
+		expect(receivedStore?.add).toBeTypeOf("function");
 	});
 
 	test("should call multiple plugin inits in registration order", async () => {

@@ -1,4 +1,4 @@
-import type { Document, ResourceObject } from "../document";
+import type { Document } from "../document";
 import { mergeDocuments } from "../document";
 import {
 	emitMutations as emitMutationsFn,
@@ -7,14 +7,17 @@ import {
 } from "./plugin-manager";
 import {
 	createResourceMap,
-	createResourceMapFromSnapshot,
+	createResourceMapFromDocument,
 } from "./resource-map";
+import { decodeActive, hasChanges, mapChangesToEntries } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
-type DeepPartial<T> = T extends object
-	? { [P in keyof T]?: DeepPartial<T[P]> }
-	: T;
+type DeepPartial<T> = T extends Array<infer U>
+	? Array<DeepPartial<U>>
+	: T extends object
+		? { [P in keyof T]?: DeepPartial<T[P]> }
+		: T;
 
 /**
  * Options for adding documents to the store.
@@ -301,21 +304,13 @@ export function createStore<T extends Record<string, unknown>>(
 		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		crdt = createResourceMapFromSnapshot<T>(result.document);
+		crdt = createResourceMapFromDocument<T>(result.document);
 
-		const addEntries = Array.from(result.changes.added.entries()).map(
-			([key, doc]) => [key, doc.attributes as T] as const,
-		);
-		const updateEntries = Array.from(result.changes.updated.entries()).map(
-			([key, doc]) => [key, doc.attributes as T] as const,
-		);
+		const addEntries = mapChangesToEntries(result.changes.added);
+		const updateEntries = mapChangesToEntries(result.changes.updated);
 		const deleteKeys = Array.from(result.changes.deleted);
 
-		if (
-			addEntries.length > 0 ||
-			updateEntries.length > 0 ||
-			deleteKeys.length > 0
-		) {
+		if (hasChanges(addEntries, updateEntries, deleteKeys)) {
 			emitMutations(addEntries, updateEntries, deleteKeys);
 		}
 	}
@@ -331,7 +326,7 @@ export function createStore<T extends Record<string, unknown>>(
 		const deleteKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = createResourceMapFromSnapshot<T>(crdt.snapshot());
+		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
@@ -354,7 +349,7 @@ export function createStore<T extends Record<string, unknown>>(
 				deleteKeys.push(key);
 			},
 			get: (key) => {
-				const encoded = staging.cloneMap().get(key);
+				const encoded = staging.get(key);
 				return decodeActive(encoded ?? null);
 			},
 			rollback: () => {
@@ -362,16 +357,21 @@ export function createStore<T extends Record<string, unknown>>(
 			},
 		};
 
-		const result = callback(tx);
+		try {
+			const result = callback(tx);
 
-		if (!rolledBack) {
-			crdt = staging;
-			if (!silent) {
-				emitMutations(addEntries, updateEntries, deleteKeys);
+			if (!rolledBack) {
+				crdt = staging;
+				if (!silent) {
+					emitMutations(addEntries, updateEntries, deleteKeys);
+				}
 			}
-		}
 
-		return result as NotPromise<R>;
+			return result as NotPromise<R>;
+		} catch (error) {
+			// Don't commit on error - staging is discarded
+			throw error;
+		}
 	}
 
 	function add(value: T, options?: StoreAddOptions): string {
@@ -386,7 +386,23 @@ export function createStore<T extends Record<string, unknown>>(
 		begin((tx) => tx.del(key));
 	}
 
-	function use(plugin: Plugin<T, any>): any {
+	// Phase 1: Create base store with core CRUD operations
+	const baseStore: StoreBase<T> = {
+		has,
+		get,
+		entries,
+		collection,
+		merge,
+		begin,
+		add,
+		update,
+		del,
+	};
+
+	// Phase 2: Create plugin API that references base store
+	function use<TNewMethods extends Record<string, any>>(
+		plugin: Plugin<T, TNewMethods>,
+	): Store<T, TNewMethods> {
 		// Register hooks
 		if (plugin.hooks?.onInit) onInitHandlers.push(plugin.hooks.onInit);
 		if (plugin.hooks?.onDispose) onDisposeHandlers.push(plugin.hooks.onDispose);
@@ -396,26 +412,26 @@ export function createStore<T extends Record<string, unknown>>(
 
 		// Attach methods
 		if (plugin.methods) {
-			const methods = plugin.methods(store);
+			const methods = plugin.methods(baseStore);
 
 			// Check for conflicts
 			for (const key of Object.keys(methods)) {
-				if (key in store) {
+				if (key in fullStore) {
 					throw new Error(
 						`Plugin method "${key}" conflicts with existing store method or plugin`,
 					);
 				}
 			}
 
-			Object.assign(store, methods);
+			Object.assign(fullStore, methods);
 		}
 
-		return store;
+		return fullStore as Store<T, TNewMethods>;
 	}
 
-	async function init(): Promise<any> {
-		await executeInitHooks(onInitHandlers, store);
-		return store;
+	async function init(): Promise<Store<T>> {
+		await executeInitHooks(onInitHandlers, baseStore);
+		return fullStore;
 	}
 
 	async function dispose(): Promise<void> {
@@ -428,32 +444,14 @@ export function createStore<T extends Record<string, unknown>>(
 		onDeleteHandlers.length = 0;
 	}
 
-	const store: Store<T> = {
-		has,
-		get,
-		entries,
-		collection,
-		merge,
-		begin,
-		add,
-		update,
-		del,
+	const pluginAPI: StorePluginAPI<T> = {
 		use,
 		init,
 		dispose,
 	};
 
-	return store;
-}
+	// Phase 3: Combine base store and plugin API
+	const fullStore = { ...baseStore, ...pluginAPI } as Store<T>;
 
-/**
- * Decode a ResourceObject to its active value, or null if deleted.
- * @param doc - ResourceObject to decode
- * @returns Active value or null if document is deleted
- */
-function decodeActive<T extends Record<string, unknown>>(
-	doc: ResourceObject<T> | null,
-): T | null {
-	if (!doc || doc.meta.deletedAt) return null;
-	return doc.attributes as T;
+	return fullStore;
 }

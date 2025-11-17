@@ -78,14 +78,20 @@ const remoteStorage = unstoragePlugin<Task>(
 			...data,
 			data: data.data.map((doc) => ({
 				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoEncrypt),
+				attributes: mapLeafValues(doc.attributes, pseudoEncrypt) as Record<
+					string,
+					unknown
+				>,
 			})),
 		}),
 		onAfterGet: (data) => ({
 			...data,
 			data: data.data.map((doc) => ({
 				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoDecrypt),
+				attributes: mapLeafValues(doc.attributes, pseudoDecrypt) as Record<
+					string,
+					unknown
+				>,
 			})),
 		}),
 	},

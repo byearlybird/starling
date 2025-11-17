@@ -94,7 +94,7 @@ export function createResourceMap<T extends Record<string, unknown>>(
 			return new Map(internalMap);
 		},
 
-		snapshot(): Document {
+		snapshot(): Document<T> {
 			return {
 				jsonapi: { version: "1.1" },
 				meta: {
@@ -125,7 +125,7 @@ export function createResourceMap<T extends Record<string, unknown>>(
  * @param collection - Document containing resource data
  * @param type - Resource type identifier (defaults to "default")
  */
-export function createResourceMapFromSnapshot<
+export function createResourceMapFromDocument<
 	U extends Record<string, unknown>,
 >(
 	collection: Document,
