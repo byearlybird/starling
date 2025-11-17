@@ -1,0 +1,29 @@
+{
+	"name": "@byearlybird/starling-db",
+	"version": "0.1.0",
+	"type": "module",
+	"license": "MIT",
+	"description": "Database utilities for Starling stores",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts",
+		"prepublishOnly": "bun run build.ts"
+	},
+	"peerDependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
