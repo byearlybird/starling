@@ -1,15 +1,10 @@
 import type { AnyObject, JsonDocument } from "../document";
 import { mergeDocuments } from "../document";
 import {
-	emitMutations as emitMutationsFn,
-	executeDisposeHooks,
-	executeInitHooks,
-} from "./plugin-manager";
-import {
 	createResourceMap,
 	createResourceMapFromDocument,
 } from "./resource-map";
-import { decodeActive, hasChanges, mapChangesToEntries } from "./utils";
+import { decodeActive } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
 
@@ -67,20 +62,31 @@ export type StoreSetTransaction<T> = {
 };
 
 /**
- * Core CRUD operations available to all stores and plugins.
+ * Event listener callback types for store mutations.
+ */
+export type StoreEventListeners<T extends AnyObject> = {
+	/** Called after documents are added (batched per transaction) */
+	add: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	/** Called after documents are updated (batched per transaction) */
+	update: (entries: ReadonlyArray<readonly [string, T]>) => void;
+	/** Called after documents are deleted (batched per transaction) */
+	delete: (keys: ReadonlyArray<string>) => void;
+};
+
+/**
+ * Event types that can be subscribed to.
+ */
+export type StoreEventType = keyof StoreEventListeners<any>;
+
+/**
+ * Lightweight local-first data store with event-based reactivity.
  *
- * This is the stable API surface that plugins can rely on. It provides:
- * - **Read operations**: `has`, `get`, `entries`
- * - **Write operations**: `add`, `update`, `remove`
- * - **Transactions**: `begin`
- * - **Sync operations**: `collection`, `merge`
- *
- * This type excludes plugin-specific methods and lifecycle functions,
- * ensuring plugins only depend on the core store functionality.
+ * Provides CRUD operations, transactions, and state-based sync with
+ * simple event subscription for reactivity.
  *
  * @template T - The type of documents stored in this collection
  */
-export type StoreBase<T extends AnyObject> = {
+export type Store<T extends AnyObject> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -102,128 +108,13 @@ export type StoreBase<T extends AnyObject> = {
 	update: (key: string, value: DeepPartial<T>) => void;
 	/** Soft-delete a document */
 	remove: (key: string) => void;
-};
-
-/**
- * Plugin system methods for extending the store.
- *
- * These methods manage the plugin lifecycle and enable type-safe
- * method accumulation across multiple plugins.
- *
- * @template T - The type of documents stored in this collection
- * @template TMethods - Accumulated plugin methods from all registered plugins
- */
-export type StorePluginAPI<
-	T extends AnyObject,
-	TMethods extends Record<string, any> = {},
-> = {
-	/** Register a plugin that can add hooks and methods to the store */
-	use: <TNewMethods extends Record<string, any>>(
-		plugin: Plugin<T, TNewMethods>,
-	) => Store<T, TMethods & TNewMethods>;
-	/** Initialize the store and run plugin onInit hooks */
-	init: () => Promise<Store<T, TMethods>>;
-	/** Dispose the store and run plugin cleanup */
-	dispose: () => Promise<void>;
-};
-
-/**
- * Complete store instance with CRUD operations, plugin system, and accumulated plugin methods.
- *
- * ## Type System Architecture
- *
- * The store type system is composed of three layers:
- *
- * ```
- * StoreBase<T>              Core CRUD operations (has, get, add, update, del, etc.)
- *      +
- * StorePluginAPI<T, M>      Plugin lifecycle (use, init, dispose)
- *      +
- * TMethods                  Accumulated methods from plugins
- *      =
- * Store<T, TMethods>        Complete store API
- * ```
- *
- * ## Type Flow Example
- *
- * ```typescript
- * createStore<Todo>()                    // Store<Todo, {}>
- *   .use(queryPlugin())                   // Store<Todo, { query: ... }>
- *   .use(customPlugin())                  // Store<Todo, { query: ..., custom: ... }>
- *   .init()                               // Promise<Store<Todo, { query: ..., custom: ... }>>
- * ```
- *
- * ## Plugin Method Accumulation
- *
- * Each call to `.use()` adds new methods to the store type:
- * - Methods are type-safe and auto-complete in IDEs
- * - Method conflicts are detected at runtime
- * - Type accumulates through the chain: `TMethods & TNewMethods`
- *
- * @template T - The type of documents stored in this collection
- * @template TMethods - Accumulated plugin methods (default: {})
- */
-export type Store<
-	T extends AnyObject,
-	TMethods extends Record<string, any> = {},
-> = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
-
-/**
- * Plugin lifecycle and mutation hooks.
- *
- * All hooks are optional. Mutation hooks receive batched entries after each
- * transaction commits. All hooks receive the collection key as their first parameter.
- */
-export type PluginHooks<T extends AnyObject> = {
-	/** Called once when store.init() runs */
-	onInit?: (collectionKey: string, store: StoreBase<T>) => Promise<void> | void;
-	/** Called once when store.dispose() runs */
-	onDispose?: (collectionKey: string) => Promise<void> | void;
-	/** Called after documents are added (batched per transaction) */
-	onAdd?: (
-		collectionKey: string,
-		entries: ReadonlyArray<readonly [string, T]>,
-	) => void;
-	/** Called after documents are updated (batched per transaction) */
-	onUpdate?: (
-		collectionKey: string,
-		entries: ReadonlyArray<readonly [string, T]>,
-	) => void;
-	/** Called after documents are deleted (batched per transaction) */
-	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
-};
-
-/**
- * Plugin interface for extending store behavior with hooks and methods.
- *
- * Plugins can provide lifecycle hooks for side effects and methods to extend
- * the store's API. Methods receive the core store API and return an object
- * of functions to attach to the store instance.
- *
- * @example
- * ```ts
- * const loggingPlugin = <T>(): Plugin<T, { logState: () => void }> => ({
- *   hooks: {
- *     onInit: async () => console.log('Store initialized'),
- *     onAdd: (entries) => console.log('Added:', entries.length),
- *   },
- *   methods: (store) => ({
- *     logState: () => console.log('Entries:', Array.from(store.entries()))
- *   })
- * });
- *
- * const store = createStore<Todo>().use(loggingPlugin());
- * store.logState(); // Method from plugin
- * ```
- */
-export type Plugin<
-	T extends AnyObject,
-	TMethods extends Record<string, any> = {},
-> = {
-	/** Lifecycle and mutation hooks */
-	hooks?: PluginHooks<T>;
-	/** Factory function that returns methods to attach to the store */
-	methods?: (store: StoreBase<T>) => TMethods;
+	/** Subscribe to store events. Returns unsubscribe function. */
+	on: <E extends StoreEventType>(
+		event: E,
+		listener: StoreEventListeners<T>[E],
+	) => () => void;
+	/** Remove all event listeners and clean up resources */
+	dispose: () => void;
 };
 
 /**
@@ -232,28 +123,29 @@ export type Plugin<
  * Stores plain JavaScript objects with automatic field-level conflict resolution
  * using Last-Write-Wins semantics powered by hybrid logical clocks.
  *
- * @param collectionKey - Unique identifier for this collection
+ * @param collectionKey - Unique identifier for this collection (currently unused but reserved for future use)
+ * @param config - Optional configuration for ID generation and resource type
  * @template T - The type of documents stored in this collection
  *
  * @example
  * ```ts
  * import { createStore } from '@byearlybird/starling';
- * import { queryPlugin } from '@byearlybird/starling/plugin-query';
- * import { unstoragePlugin } from '@byearlybird/starling/plugin-unstorage';
  *
- * const store = await createStore<{ text: string; completed: boolean }>('todos')
- *   .use(queryPlugin())
- *   .use(unstoragePlugin(storage))
- *   .init();
+ * const store = createStore<{ text: string; completed: boolean }>('todos');
  *
  * // Add, update, delete
  * const id = store.add({ text: 'Buy milk', completed: false });
  * store.update(id, { completed: true });
  * store.remove(id);
  *
- * // Reactive queries (from queryPlugin)
- * const activeTodos = store.query({ where: (todo) => !todo.completed });
- * activeTodos.onChange(() => console.log('Todos changed!'));
+ * // Subscribe to changes
+ * const unsubscribe = store.on('add', (entries) => {
+ *   console.log('Added:', entries);
+ * });
+ *
+ * // Clean up
+ * unsubscribe();
+ * store.dispose();
  * ```
  */
 export function createStore<T extends AnyObject>(
@@ -264,26 +156,30 @@ export function createStore<T extends AnyObject>(
 	let crdt = createResourceMap<T>(new Map(), type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
-	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
-	const onDisposeHandlers: Array<NonNullable<PluginHooks<T>["onDispose"]>> = [];
-	const onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>> = [];
-	const onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>> = [];
-	const onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>> = [];
+	const addListeners = new Set<StoreEventListeners<T>["add"]>();
+	const updateListeners = new Set<StoreEventListeners<T>["update"]>();
+	const deleteListeners = new Set<StoreEventListeners<T>["delete"]>();
 
 	function emitMutations(
 		addEntries: ReadonlyArray<readonly [string, T]>,
 		updateEntries: ReadonlyArray<readonly [string, T]>,
 		deleteKeys: ReadonlyArray<string>,
 	): void {
-		emitMutationsFn(
-			onAddHandlers,
-			onUpdateHandlers,
-			onDeleteHandlers,
-			collectionKey,
-			addEntries,
-			updateEntries,
-			deleteKeys,
-		);
+		if (addEntries.length > 0) {
+			for (const listener of addListeners) {
+				listener(addEntries);
+			}
+		}
+		if (updateEntries.length > 0) {
+			for (const listener of updateListeners) {
+				listener(updateEntries);
+			}
+		}
+		if (deleteKeys.length > 0) {
+			for (const listener of deleteListeners) {
+				listener(deleteKeys);
+			}
+		}
 	}
 
 	function has(key: string): boolean {
@@ -315,11 +211,32 @@ export function createStore<T extends AnyObject>(
 		// Replace the ResourceMap with the merged state
 		crdt = createResourceMapFromDocument<T>(result.document);
 
-		const addEntries = mapChangesToEntries(result.changes.added);
-		const updateEntries = mapChangesToEntries(result.changes.updated);
-		const deleteKeys = Array.from(result.changes.deleted);
+		// Emit changes for each type
+		const addEntries: Array<readonly [string, T]> = [];
+		const updateEntries: Array<readonly [string, T]> = [];
+		const deleteKeys: Array<string> = [];
 
-		if (hasChanges(addEntries, updateEntries, deleteKeys)) {
+		// Convert added resources to entries
+		for (const [id, resource] of result.changes.added) {
+			if (!resource.meta.deletedAt) {
+				addEntries.push([id, resource.attributes as T]);
+			}
+		}
+
+		// Convert updated resources to entries
+		for (const [id, resource] of result.changes.updated) {
+			if (!resource.meta.deletedAt) {
+				updateEntries.push([id, resource.attributes as T]);
+			}
+		}
+
+		// Convert deleted resource IDs
+		for (const id of result.changes.deleted) {
+			deleteKeys.push(id);
+		}
+
+		// Emit mutations if there are any changes
+		if (addEntries.length > 0 || updateEntries.length > 0 || deleteKeys.length > 0) {
 			emitMutations(addEntries, updateEntries, deleteKeys);
 		}
 	}
@@ -389,8 +306,34 @@ export function createStore<T extends AnyObject>(
 		begin((tx) => tx.remove(key));
 	}
 
-	// Phase 1: Create base store with core CRUD operations
-	const baseStore: StoreBase<T> = {
+	function on<E extends StoreEventType>(
+		event: E,
+		listener: StoreEventListeners<T>[E],
+	): () => void {
+		if (event === "add") {
+			addListeners.add(listener as StoreEventListeners<T>["add"]);
+			return () => addListeners.delete(listener as StoreEventListeners<T>["add"]);
+		}
+		if (event === "update") {
+			updateListeners.add(listener as StoreEventListeners<T>["update"]);
+			return () =>
+				updateListeners.delete(listener as StoreEventListeners<T>["update"]);
+		}
+		if (event === "delete") {
+			deleteListeners.add(listener as StoreEventListeners<T>["delete"]);
+			return () =>
+				deleteListeners.delete(listener as StoreEventListeners<T>["delete"]);
+		}
+		throw new Error(`Unknown event type: ${event}`);
+	}
+
+	function dispose(): void {
+		addListeners.clear();
+		updateListeners.clear();
+		deleteListeners.clear();
+	}
+
+	const store: Store<T> = {
 		has,
 		get,
 		entries,
@@ -400,61 +343,9 @@ export function createStore<T extends AnyObject>(
 		add,
 		update,
 		remove,
-	};
-
-	// Phase 2: Create plugin API that references base store
-	function use<TNewMethods extends Record<string, any>>(
-		plugin: Plugin<T, TNewMethods>,
-	): Store<T, TNewMethods> {
-		// Register hooks
-		if (plugin.hooks?.onInit) onInitHandlers.push(plugin.hooks.onInit);
-		if (plugin.hooks?.onDispose) onDisposeHandlers.push(plugin.hooks.onDispose);
-		if (plugin.hooks?.onAdd) onAddHandlers.push(plugin.hooks.onAdd);
-		if (plugin.hooks?.onUpdate) onUpdateHandlers.push(plugin.hooks.onUpdate);
-		if (plugin.hooks?.onDelete) onDeleteHandlers.push(plugin.hooks.onDelete);
-
-		// Attach methods
-		if (plugin.methods) {
-			const methods = plugin.methods(baseStore);
-
-			// Check for conflicts
-			for (const key of Object.keys(methods)) {
-				if (key in fullStore) {
-					throw new Error(
-						`Plugin method "${key}" conflicts with existing store method or plugin`,
-					);
-				}
-			}
-
-			Object.assign(fullStore, methods);
-		}
-
-		return fullStore as Store<T, TNewMethods>;
-	}
-
-	async function init(): Promise<Store<T>> {
-		await executeInitHooks(onInitHandlers, collectionKey, baseStore);
-		return fullStore;
-	}
-
-	async function dispose(): Promise<void> {
-		await executeDisposeHooks(onDisposeHandlers, collectionKey);
-
-		onInitHandlers.length = 0;
-		onDisposeHandlers.length = 0;
-		onAddHandlers.length = 0;
-		onUpdateHandlers.length = 0;
-		onDeleteHandlers.length = 0;
-	}
-
-	const pluginAPI: StorePluginAPI<T> = {
-		use,
-		init,
+		on,
 		dispose,
 	};
 
-	// Phase 3: Combine base store and plugin API
-	const fullStore = { ...baseStore, ...pluginAPI } as Store<T>;
-
-	return fullStore;
+	return store;
 }

@@ -2,22 +2,22 @@
 
 Status: Draft
 
-This document covers the design and internals of Starling, including the state-based Last-Write-Wins merge strategy, eventstamps, the plugin system, and module organization.
+This document covers the design and internals of Starling, including the state-based Last-Write-Wins merge strategy, eventstamps, the event system, and module organization.
 
 ## Repository Layout
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `JsonDocument`, `Eventstamp`, `Record`, `Value`, `Clock`) with built-in reactive queries, plus unit tests |
-| `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
+| `packages/core` | Core store implementation (`Store`, `JsonDocument`, `Eventstamp`, `Record`, `Value`, `Clock`) with event-based reactivity |
+| `packages/db` | Database utilities including plugins, queries, and persistence (in development) |
 | `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
 | `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
 
 **Key points:**
 
 - Follows a Functional Core, Imperative Shell design—core packages stay pure/predictable while adapters handle IO, frameworks, and persistence
-- Core logic lives under `packages/core`; reactive queries are built into the `Store` class
-- Official plugins are co-located in `packages/core/src/plugins/*`
+- Core logic lives under `packages/core` and provides a minimal, event-based store
+- Higher-level features (queries, persistence, plugins) are being moved to `packages/db`
 - Framework integrations live in separate packages (`packages/react`, `packages/solid`)
 - All packages are TypeScript modules bundled via `tsdown`
 - Tests live alongside implementation: `packages/core/src/**/*.test.ts`
@@ -58,7 +58,7 @@ For apps where devices sync regularly (personal tools, small teams), wall-clock-
 
 - **No explicit causality**: Starling tracks time-based ordering but doesn't capture "happened-before" relationships. Concurrent edits rely on timestamp comparison rather than causal dependencies.
 
-- **Requires eventstamp persistence**: Devices must save the highest eventstamp they've seen to prevent clock regression after restarts. The `unstorage` plugin handles this automatically.
+- **Requires eventstamp persistence**: Devices must save the highest eventstamp they've seen to prevent clock regression after restarts. External persistence solutions should handle this automatically.
 
 ## State-Based Merging
 
@@ -202,7 +202,7 @@ The `mergeDocuments(into, from)` function handles document-level merging with au
 
 1. **Field-level LWW**: Each resource pair merges using `mergeResources`, preserving the newest eventstamp for each field
 2. **Clock forwarding**: The resulting document's latest value is the maximum of both input eventstamps
-3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
+3. **Change tracking**: Returns categorized changes (added, updated, deleted) for event notifications
 
 This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
 
@@ -227,49 +227,47 @@ For real-time collaboration, strict causal ordering, or complex operational tran
 
 Starling can complement these tools—use it for application state while delegating collaborative data structures to specialized CRDTs.
 
-## Plugin System
+## Event System
 
-Stores are extensible via plugins that provide lifecycle and mutation hooks:
+The core store provides a simple event subscription system for reactivity:
 
 ```typescript
-type Plugin<T> = {
-  onInit: (store: Store<T>) => Promise<void> | void;
-  onDispose: () => Promise<void> | void;
-  onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  onDelete?: (keys: ReadonlyArray<string>) => void;
+type StoreEventListeners<T> = {
+  add: (entries: ReadonlyArray<readonly [string, T]>) => void;
+  update: (entries: ReadonlyArray<readonly [string, T]>) => void;
+  delete: (keys: ReadonlyArray<string>) => void;
 };
 ```
 
-### Hook Execution
+### Event Subscription
 
-Plugins tap into the store lifecycle at specific points:
-
-- **`onInit`**: Setup phase during `store.init()` (hydrate snapshots, start pollers, establish connections)
-- **`onDispose`**: Cleanup phase during `store.dispose()` (flush pending work, close connections)
-- **Mutation hooks** (`onAdd`, `onUpdate`, `onDelete`): React to changes after transactions commit, receiving batched entries by mutation type
-
-Mutation hooks are **optional**—implement only what your plugin needs. For example, a read-only analytics plugin might only use `onInit` and `onAdd`.
-
-### Plugin Surface
-
-Plugins interact with the store exclusively through lifecycle and mutation hooks. The core API already exposes querying and every mutation primitive, so plugins focus on persistence, analytics, or side effects without mutating the store prototype.
-
-### Plugin Composition
-
-Plugins stack cleanly—each operates independently:
+Subscribe to store events using the `on()` method:
 
 ```typescript
-const store = await new Store<Todo>()
-  .use(unstoragePlugin("todos", localStorageBackend))
-  .use(unstoragePlugin("todos", httpBackend, { pollIntervalMs: 5000 }))
-  .init();
+const unsubscribe = store.on('add', (entries) => {
+  for (const [id, value] of entries) {
+    console.log(`Added ${id}:`, value);
+  }
+});
+
+// Later, clean up
+unsubscribe();
 ```
 
-**Execution order:**
-1. `onInit` hooks run sequentially (first registered, first executed)
-2. Mutation hooks run sequentially after each transaction commits
-3. `onDispose` hooks run sequentially during teardown
+### Event Batching
+
+Events are batched per transaction. A `begin()` call that touches multiple records triggers at most one event per event type.
+
+### Building Extensions
+
+The event system is designed for building higher-level features:
+
+- **Persistence**: Subscribe to mutation events and write to storage
+- **Queries**: Subscribe to events and update filtered result sets
+- **Analytics**: Track mutations for metrics
+- **Sync**: Listen for remote changes and propagate them
+
+See `packages/db` for higher-level features built on this event system.
 
 ## Module Overview
 
@@ -281,13 +279,13 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
 | [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
 | [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
-| [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with reactive queries, transactions, plugin orchestration, and document sync helpers such as `merge()` and `collection()` |
+| [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with transactions, event subscriptions, and document sync helpers such as `merge()` and `collection()` |
 
 ### Data Flow
 
 **Local mutations:**
 ```
-User mutation → Store → Transaction staging → Commit → Plugin hooks
+User mutation → Store → Transaction staging → Commit → Event listeners
                                     ↓
                             Eventstamp application
                                     ↓
@@ -302,32 +300,32 @@ store.merge(snapshot) → mergeDocuments(into, from) → Resource merge (mergeRe
                               ↓                              ↓
                        Update readMap              Track changes (add/update/delete)
                               ↓
-                        Plugin hooks (with tracked changes)
+                        Event listeners (with tracked changes)
 ```
 
 ## Package Exports
 
-Starling ships as a monorepo with subpath exports:
+Starling ships as a monorepo with minimal exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `ResourceObject`, `processResource`  
+**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `StoreEventListeners`, `StoreEventType`, `ResourceObject`, `JsonDocument`, `AnyObject`
 **Dependencies**: Zero runtime dependencies
 
-Provides the core store implementation, built-in queries, and plugin hooks.
+Provides the minimal core store implementation with CRUD operations, transactions, state-based sync, and event subscriptions.
 
-### `@byearlybird/starling/plugin-unstorage`
+### `@byearlybird/starling-db`
 
-**Exports**: `unstoragePlugin`  
-**Peer dependency**: `unstorage@^1.17.1`
+**Status**: In development
+**Planned exports**: Plugins, queries, persistence adapters
 
-Persistence layer supporting any `unstorage` backend (localStorage, HTTP, filesystem, etc.). Automatically persists the latest eventstamp to prevent clock regression.
+Higher-level database utilities that build on the core store's event system.
 
 ## Testing Strategy
 
 - **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `collection`, `store`)
-- **Integration tests**: Verify plugin hooks fire correctly and multi-plugin composition works
-- **Query tests**: Verify reactive query behavior, hydration, and change tracking
+- **Integration tests**: Verify event subscription and emission works correctly
+- **Sync tests**: Verify merge behavior and state replication
 - **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
 
 Tests live alongside implementation: `packages/core/src/**/*.test.ts`
