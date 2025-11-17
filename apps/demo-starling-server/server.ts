@@ -11,7 +11,7 @@ type Todo = {
 
 const fileStorage = unstoragePlugin<Todo>(
 	"tasks",
-	createStorage<Document>({
+	createStorage<Document<Todo>>({
 		driver: fsDriver({ base: "./tmp" }),
 	}),
 );
@@ -49,7 +49,7 @@ const server = Bun.serve({
 		// PUT /api/todos - Merge incoming collection data
 		if (url.pathname === "/api/tasks" && req.method === "PUT") {
 			try {
-				const incoming = (await req.json()) as Document;
+				const incoming = (await req.json()) as Document<Todo>;
 
 				store.merge(incoming);
 

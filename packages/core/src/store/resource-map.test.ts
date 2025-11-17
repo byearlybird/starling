@@ -268,7 +268,7 @@ describe("ResourceMap", () => {
 
 	describe("fromSnapshot", () => {
 		test("creates ResourceMap from collection", () => {
-			const collection: Document = {
+			const collection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: "2025-01-01T00:00:00.000Z|0001|abcd" },
 				data: [
@@ -294,7 +294,7 @@ describe("ResourceMap", () => {
 			);
 			deletedDoc.meta.deletedAt = "2025-01-01T00:00:01.000Z|0001|abcd";
 
-			const collection: Document = {
+			const collection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: "2025-01-01T00:00:01.000Z|0001|abcd" },
 				data: [deletedDoc],
@@ -395,7 +395,7 @@ describe("ResourceMap", () => {
 
 	describe("clock forwarding", () => {
 		test("clock forwards when loading newer eventstamp", () => {
-			const collection: Document = {
+			const collection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: "2025-01-01T00:00:10.000Z|0001|abcd" },
 				data: [],
@@ -418,7 +418,7 @@ describe("ResourceMap", () => {
 			const crdt = createResourceMap<{ name: string }>(new Map(), "items");
 			crdt.set("id1", { name: "Alice" });
 
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: MIN_EVENTSTAMP },
 				data: [makeResource("items", "id2", { name: "Bob" }, MIN_EVENTSTAMP)],
@@ -449,7 +449,7 @@ describe("ResourceMap", () => {
 
 			// Create a remote document with a newer eventstamp for one field
 			const laterEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: laterEventstamp },
 				data: [makeResource("items", "id1", { age: 31 }, laterEventstamp)],
@@ -475,7 +475,7 @@ describe("ResourceMap", () => {
 			const deletionEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
 			deletedDoc.meta.deletedAt = deletionEventstamp;
 
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: deletionEventstamp },
 				data: [deletedDoc],
@@ -497,7 +497,7 @@ describe("ResourceMap", () => {
 			);
 
 			const futureEventstamp = "2025-01-01T00:00:10.000Z|0001|abcd";
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: futureEventstamp },
 				data: [],
@@ -520,7 +520,7 @@ describe("ResourceMap", () => {
 			);
 			crdt.set("id1", { name: "Alice", age: 30 });
 
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: MIN_EVENTSTAMP },
 				data: [
@@ -557,7 +557,7 @@ describe("ResourceMap", () => {
 			const crdt = createResourceMap(new Map([["id1", localDoc]]), "items");
 
 			const olderEventstamp = "2025-01-01T00:00:05.000Z|0001|efgh";
-			const remoteCollection: Document = {
+			const remoteCollection: Document<Record<string, unknown>> = {
 				jsonapi: { version: "1.1" },
 				meta: { latest: olderEventstamp },
 				data: [makeResource("items", "id1", { name: "Bob" }, olderEventstamp)],
