@@ -218,14 +218,6 @@ describe("Store - Delete Operations", () => {
 
 		expect(store.get("user-1")).toBe(null);
 	});
-
-	test("should not return deleted items via get()", () => {
-		store.begin((tx) => {
-			tx.remove("user-1");
-		});
-
-		expect(store.get("user-1")).toBeNull();
-	});
 });
 
 describe("Store - Iteration & State", () => {
@@ -462,7 +454,7 @@ describe("Store - Event System", () => {
 
 		expect(onAddMock).toHaveBeenCalledTimes(1);
 		const entries = onAddMock.mock.calls[0]?.[0];
-		expect(entries.length).toBe(3);
+		expect(entries?.length).toBe(3);
 	});
 
 	test("should not fire events when silent: true", () => {
@@ -513,4 +505,3 @@ describe("Store - Event System", () => {
 		expect(onAddMock).not.toHaveBeenCalled();
 	});
 });
-
