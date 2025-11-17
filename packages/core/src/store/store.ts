@@ -1,4 +1,4 @@
-import type { AnyObject, Document } from "../document";
+import type { AnyObject, JsonDocument } from "../document";
 import { mergeDocuments } from "../document";
 import {
 	emitMutations as emitMutationsFn,
@@ -87,10 +87,10 @@ export type StoreBase<T extends AnyObject> = {
 	get: (key: string) => T | null;
 	/** Iterate over all non-deleted documents as [id, document] tuples */
 	entries: () => IterableIterator<readonly [string, T]>;
-	/** Get the complete store state as a Document for persistence or sync */
-	collection: () => Document<T>;
+	/** Get the complete store state as a JsonDocument for persistence or sync */
+	collection: () => JsonDocument<T>;
 	/** Merge a document from storage or another replica using field-level LWW */
-	merge: (document: Document<T>) => void;
+	merge: (document: JsonDocument<T>) => void;
 	/** Run multiple operations in a transaction with rollback support */
 	begin: <R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
@@ -304,11 +304,11 @@ export function createStore<T extends AnyObject>(
 		}
 	}
 
-	function collection(): Document<T> {
+	function collection(): JsonDocument<T> {
 		return crdt.snapshot();
 	}
 
-	function merge(document: Document<T>): void {
+	function merge(document: JsonDocument<T>): void {
 		const currentCollection = collection();
 		const result = mergeDocuments<T>(currentCollection, document);
 

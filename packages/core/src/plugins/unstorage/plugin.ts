@@ -1,16 +1,16 @@
 import type { Storage } from "unstorage";
-import type { AnyObject, Document } from "../../document";
+import type { AnyObject, JsonDocument } from "../../document";
 import type { Plugin, StoreBase } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
 type UnstorageOnBeforeSet<T extends AnyObject> = (
-	data: Document<T>,
-) => MaybePromise<Document<T>>;
+	data: JsonDocument<T>,
+) => MaybePromise<JsonDocument<T>>;
 
 type UnstorageOnAfterGet<T extends AnyObject> = (
-	data: Document<T>,
-) => MaybePromise<Document<T>>;
+	data: JsonDocument<T>,
+) => MaybePromise<JsonDocument<T>>;
 
 /**
  * Configuration options for the unstorage persistence plugin.
@@ -58,7 +58,7 @@ type UnstorageConfig<T extends AnyObject> = {
  * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
  */
 function unstoragePlugin<T extends AnyObject>(
-	storage: Storage<Document<T>>,
+	storage: Storage<JsonDocument<T>>,
 	config: UnstorageConfig<T> = {},
 ): Plugin<T> {
 	const {

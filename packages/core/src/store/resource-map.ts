@@ -1,5 +1,5 @@
 import { createClock } from "../clock/clock";
-import type { AnyObject, Document } from "../document/document";
+import type { AnyObject, JsonDocument } from "../document/document";
 import { mergeDocuments } from "../document/document";
 import type { ResourceObject } from "../document/resource";
 import {
@@ -94,7 +94,7 @@ export function createResourceMap<T extends AnyObject>(
 			return new Map(internalMap);
 		},
 
-		snapshot(): Document<T> {
+		snapshot(): JsonDocument<T> {
 			return {
 				jsonapi: { version: "1.1" },
 				meta: {
@@ -106,9 +106,9 @@ export function createResourceMap<T extends AnyObject>(
 
 		/**
 		 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
-		 * @param collection - Document from another replica or storage
+		 * @param collection - JsonDocument from another replica or storage
 		 */
-		merge(collection: Document<T>): void {
+		merge(collection: JsonDocument<T>): void {
 			const currentCollection = this.snapshot();
 			const result = mergeDocuments(currentCollection, collection);
 
@@ -121,12 +121,12 @@ export function createResourceMap<T extends AnyObject>(
 }
 
 /**
- * Create a ResourceMap from a Document snapshot.
- * @param collection - Document containing resource data
+ * Create a ResourceMap from a JsonDocument snapshot.
+ * @param collection - JsonDocument containing resource data
  * @param type - Resource type identifier (defaults to "default")
  */
 export function createResourceMapFromDocument<U extends AnyObject>(
-	collection: Document<U>,
+	collection: JsonDocument<U>,
 	type: string = "default",
 ): ReturnType<typeof createResourceMap<U>> {
 	// Infer type from first resource if available, otherwise use provided type
