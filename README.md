@@ -35,7 +35,7 @@ const todoStore = await new Store<{ text: string; completed: boolean }>().init()
 // Simple mutations (single operations)
 const id = todoStore.add({ text: "Learn Starling", completed: false });
 todoStore.update(id, { completed: true });
-todoStore.del(id);
+todoStore.remove(id);
 
 // Transactions for multiple operations or rollback support
 const todo1Id = todoStore.begin((tx) => {
@@ -97,7 +97,7 @@ Starling provides a simple API for mutations, queries, and sync. Hover over meth
 
 ### Quick Reference
 
-**Mutations**: `add()`, `update()`, `del()` - CRUD operations
+**Mutations**: `add()`, `update()`, `remove()` - CRUD operations
 **Transactions**: `begin()` - Batch operations with rollback support
 **Queries**: `query()` - Reactive filtered views (see [Queries Guide](docs/queries.md))
 **Sync**: `merge()`, `collection()` - State-based replication
@@ -126,7 +126,7 @@ const deterministicStore = new Store<YourType>({
 ```typescript
 const id = store.add({ name: "Alice", email: "alice@example.com" });
 store.update(id, { email: "alice@newdomain.com" });
-store.del(id);
+store.remove(id);
 ```
 
 **Transactions** (multiple operations or rollback support):

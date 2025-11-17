@@ -107,7 +107,7 @@ describe("Query Plugin", () => {
 			expect(activeQuery.results().length).toBe(2);
 
 			store.begin((tx) => {
-				tx.del("todo1");
+				tx.remove("todo1");
 			});
 
 			expect(activeQuery.results().length).toBe(1);
@@ -199,7 +199,7 @@ describe("Query Plugin", () => {
 			activeQuery.onChange(onChange);
 
 			store.begin((tx) => {
-				tx.del("todo1");
+				tx.remove("todo1");
 			});
 
 			expect(onChange).toHaveBeenCalledTimes(1);
