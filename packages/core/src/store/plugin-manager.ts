@@ -1,5 +1,9 @@
 import type { AnyObject } from "../document";
-import type { PluginHooks, StoreBase } from "./store";
+import type {
+	LifecycleEvents,
+	MutationEvents,
+	StoreBase,
+} from "./store";
 
 /**
  * Execute all plugin onInit hooks sequentially.
@@ -8,7 +12,7 @@ import type { PluginHooks, StoreBase } from "./store";
  * @param store - Store instance to pass to hooks
  */
 export async function executeInitHooks<T extends AnyObject>(
-	hooks: Array<NonNullable<PluginHooks<T>["onInit"]>>,
+	hooks: Array<NonNullable<LifecycleEvents<T>["onInit"]>>,
 	collectionKey: string,
 	store: StoreBase<T>,
 ): Promise<void> {
@@ -23,7 +27,7 @@ export async function executeInitHooks<T extends AnyObject>(
  * @param collectionKey - Collection identifier
  */
 export async function executeDisposeHooks<T extends AnyObject>(
-	hooks: Array<NonNullable<PluginHooks<T>["onDispose"]>>,
+	hooks: Array<NonNullable<LifecycleEvents<T>["onDispose"]>>,
 	collectionKey: string,
 ): Promise<void> {
 	for (let i = hooks.length - 1; i >= 0; i--) {
@@ -42,9 +46,9 @@ export async function executeDisposeHooks<T extends AnyObject>(
  * @param deleteKeys - Document IDs that were deleted
  */
 export function emitMutations<T extends AnyObject>(
-	onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>>,
-	onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>>,
-	onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>>,
+	onAddHandlers: Array<NonNullable<MutationEvents<T>["onAdd"]>>,
+	onUpdateHandlers: Array<NonNullable<MutationEvents<T>["onUpdate"]>>,
+	onDeleteHandlers: Array<NonNullable<MutationEvents<T>["onDelete"]>>,
 	collectionKey: string,
 	addEntries: ReadonlyArray<readonly [string, T]>,
 	updateEntries: ReadonlyArray<readonly [string, T]>,

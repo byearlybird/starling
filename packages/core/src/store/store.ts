@@ -169,16 +169,24 @@ export type Store<
 > = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
 
 /**
- * Plugin lifecycle and mutation hooks.
+ * Plugin lifecycle hooks for initialization and cleanup.
  *
- * All hooks are optional. Mutation hooks receive batched entries after each
- * transaction commits. All hooks receive the collection key as their first parameter.
+ * All hooks are optional and receive the collection key as their first parameter.
  */
-export type PluginHooks<T extends AnyObject> = {
+export type LifecycleEvents<T extends AnyObject> = {
 	/** Called once when store.init() runs */
 	onInit?: (collectionKey: string, store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
 	onDispose?: (collectionKey: string) => Promise<void> | void;
+};
+
+/**
+ * Plugin mutation hooks for reacting to data changes.
+ *
+ * All hooks are optional. Mutation hooks receive batched entries after each
+ * transaction commits. All hooks receive the collection key as their first parameter.
+ */
+export type MutationEvents<T extends AnyObject> = {
 	/** Called after documents are added (batched per transaction) */
 	onAdd?: (
 		collectionKey: string,
@@ -192,6 +200,15 @@ export type PluginHooks<T extends AnyObject> = {
 	/** Called after documents are deleted (batched per transaction) */
 	onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
 };
+
+/**
+ * Plugin lifecycle and mutation hooks.
+ *
+ * Combines lifecycle events (init/dispose) with mutation events (add/update/delete).
+ * All hooks are optional and receive the collection key as their first parameter.
+ */
+export type PluginHooks<T extends AnyObject> = LifecycleEvents<T> &
+	MutationEvents<T>;
 
 /**
  * Plugin interface for extending store behavior with hooks and methods.
