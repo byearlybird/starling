@@ -4,22 +4,22 @@ import type { Plugin, StoreBase } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet = (data: Document) => MaybePromise<Document>;
+type UnstorageOnBeforeSet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
 
-type UnstorageOnAfterGet = (data: Document) => MaybePromise<Document>;
+type UnstorageOnAfterGet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
 
 /**
  * Configuration options for the unstorage persistence plugin.
  */
-type UnstorageConfig = {
+type UnstorageConfig<T extends Record<string, unknown>> = {
 	/** Delay in ms to collapse rapid mutations into a single write. Default: 0 (immediate) */
 	debounceMs?: number;
 	/** Interval in ms to poll storage for external changes. When set, enables automatic sync. */
 	pollIntervalMs?: number;
 	/** Hook invoked before persisting to storage. Use for encryption, compression, etc. */
-	onBeforeSet?: UnstorageOnBeforeSet;
+	onBeforeSet?: UnstorageOnBeforeSet<T>;
 	/** Hook invoked after loading from storage. Use for decryption, validation, etc. */
-	onAfterGet?: UnstorageOnAfterGet;
+	onAfterGet?: UnstorageOnAfterGet<T>;
 	/** Function that returns true to skip persistence operations. Use for conditional sync. */
 	skip?: () => boolean;
 };
@@ -55,8 +55,8 @@ type UnstorageConfig = {
  */
 function unstoragePlugin<T extends Record<string, unknown>>(
 	key: string,
-	storage: Storage<Document>,
-	config: UnstorageConfig = {},
+	storage: Storage<Document<T>>,
+	config: UnstorageConfig<T> = {},
 ): Plugin<T> {
 	const {
 		debounceMs = 0,
@@ -108,7 +108,7 @@ function unstoragePlugin<T extends Record<string, unknown>>(
 		if (!store) return;
 		if (skip?.()) return;
 
-		const persisted = await storage.get<Document>(key);
+		const persisted = await storage.get(key);
 
 		if (!persisted) return;
 

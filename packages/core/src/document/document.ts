@@ -8,7 +8,7 @@ import { mergeResources, type ResourceObject } from "./resource";
  *
  * Documents are the unit of synchronization between store replicas.
  */
-export type Document = {
+export type Document<T extends Record<string, unknown> = Record<string, unknown>> = {
 	/** API version information */
 	jsonapi: {
 		version: "1.1";
@@ -21,19 +21,19 @@ export type Document = {
 	};
 
 	/** Array of resource objects with eventstamps and metadata */
-	data: ResourceObject<Record<string, unknown>>[];
+	data: ResourceObject<T>[];
 };
 
 /**
  * Change tracking information returned by mergeDocuments.
  * Categorizes resources by mutation type for hook notifications.
  */
-export type DocumentChanges = {
+export type DocumentChanges<T extends Record<string, unknown> = Record<string, unknown>> = {
 	/** Resources that were newly added (didn't exist before or were previously deleted) */
-	added: Map<string, ResourceObject<Record<string, unknown>>>;
+	added: Map<string, ResourceObject<T>>;
 
 	/** Resources that were modified (existed before and changed) */
-	updated: Map<string, ResourceObject<Record<string, unknown>>>;
+	updated: Map<string, ResourceObject<T>>;
 
 	/** Resources that were deleted (newly marked with deletedAt) */
 	deleted: Set<string>;
@@ -42,12 +42,12 @@ export type DocumentChanges = {
 /**
  * Result of merging two JSON:API documents.
  */
-export type MergeDocumentsResult = {
+export type MergeDocumentsResult<T extends Record<string, unknown> = Record<string, unknown>> = {
 	/** The merged document with updated resources and forwarded clock */
-	document: Document;
+	document: Document<T>;
 
 	/** Change tracking for plugin hook notifications */
-	changes: DocumentChanges;
+	changes: DocumentChanges<T>;
 };
 
 /**
@@ -89,23 +89,23 @@ export type MergeDocumentsResult = {
  * // result.changes.updated has "doc1"
  * ```
  */
-export function mergeDocuments(
-	into: Document,
-	from: Document,
-): MergeDocumentsResult {
+export function mergeDocuments<T extends Record<string, unknown>>(
+	into: Document<T>,
+	from: Document<T>,
+): MergeDocumentsResult<T> {
 	// Build index of base resources by ID for efficient lookup
-	const intoDocsById = new Map<string, ResourceObject>();
+	const intoDocsById = new Map<string, ResourceObject<T>>();
 	for (const doc of into.data) {
 		intoDocsById.set(doc.id, doc);
 	}
 
 	// Track changes for hook notifications
-	const added = new Map<string, ResourceObject>();
-	const updated = new Map<string, ResourceObject>();
+	const added = new Map<string, ResourceObject<T>>();
+	const updated = new Map<string, ResourceObject<T>>();
 	const deleted = new Set<string>();
 
 	// Start with base resources, will update/add as we process source
-	const mergedDocsById = new Map<string, ResourceObject>(intoDocsById);
+	const mergedDocsById = new Map<string, ResourceObject<T>>(intoDocsById);
 	let newestEventstamp =
 		into.meta.latest >= from.meta.latest ? into.meta.latest : from.meta.latest;
 
@@ -183,7 +183,7 @@ export function mergeDocuments(
  * const empty = makeDocument("2025-01-01T00:00:00.000Z|0000|0000");
  * ```
  */
-export function makeDocument(eventstamp: string): Document {
+export function makeDocument<T extends Record<string, unknown> = Record<string, unknown>>(eventstamp: string): Document<T> {
 	return {
 		jsonapi: { version: "1.1" },
 		meta: {

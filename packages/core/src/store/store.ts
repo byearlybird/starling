@@ -85,9 +85,9 @@ export type StoreBase<T extends Record<string, unknown>> = {
 	/** Iterate over all non-deleted documents as [id, document] tuples */
 	entries: () => IterableIterator<readonly [string, T]>;
 	/** Get the complete store state as a Document for persistence or sync */
-	collection: () => Document;
+	collection: () => Document<T>;
 	/** Merge a document from storage or another replica using field-level LWW */
-	merge: (document: Document) => void;
+	merge: (document: Document<T>) => void;
 	/** Run multiple operations in a transaction with rollback support */
 	begin: <R = void>(
 		callback: (tx: StoreSetTransaction<T>) => NotPromise<R>,
@@ -292,13 +292,13 @@ export function createStore<T extends Record<string, unknown>>(
 		}
 	}
 
-	function collection(): Document {
+	function collection(): Document<T> {
 		return crdt.snapshot();
 	}
 
-	function merge(document: Document): void {
+	function merge(document: Document<T>): void {
 		const currentCollection = collection();
-		const result = mergeDocuments(currentCollection, document);
+		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
 		crdt = createResourceMapFromSnapshot<T>(result.document);
