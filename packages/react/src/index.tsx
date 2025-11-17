@@ -4,7 +4,7 @@
  * Use `createStoreHooks()` to generate typed Context-based hooks for your store.
  */
 
-import type { Store } from "@byearlybird/starling";
+import type { AnyObject, Store } from "@byearlybird/starling";
 import type {
 	QueryConfig,
 	QueryMethods,
@@ -57,7 +57,7 @@ import {
  * ```
  */
 export function createStoreHooks<
-	T extends Record<string, unknown>,
+	T extends AnyObject,
 	TCustomMethods extends Record<string, unknown> = {},
 >(store: Store<T, QueryMethods<T> & TCustomMethods>) {
 	type StoreWithQuery = Store<T, QueryMethods<T> & TCustomMethods>;

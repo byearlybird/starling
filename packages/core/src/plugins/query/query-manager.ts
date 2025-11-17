@@ -1,3 +1,4 @@
+import type { AnyObject } from "../../document";
 import type { QueryInternal } from "../../store/types";
 import { selectValue } from "./utils";
 
@@ -5,7 +6,7 @@ import { selectValue } from "./utils";
  * Execute all callbacks for queries that have changed.
  * @param dirtyQueries - Set of queries that have been modified
  */
-export function runQueryCallbacks<T extends Record<string, unknown>>(
+export function runQueryCallbacks<T extends AnyObject>(
 	dirtyQueries: Set<QueryInternal<T, any>>,
 ): void {
 	for (const query of dirtyQueries) {
@@ -20,7 +21,7 @@ export function runQueryCallbacks<T extends Record<string, unknown>>(
  * @param query - Query to hydrate
  * @param entries - Iterable of [id, value] tuples to filter
  */
-export function hydrateQuery<T extends Record<string, unknown>, U>(
+export function hydrateQuery<T extends AnyObject, U>(
 	query: QueryInternal<T, U>,
 	entries: Iterable<readonly [string, T]>,
 ): void {
@@ -41,7 +42,7 @@ export function hydrateQuery<T extends Record<string, unknown>, U>(
  * @param deleteKeys - Document IDs that were deleted
  * @returns Set of queries that changed and should notify listeners
  */
-export function notifyQueries<T extends Record<string, unknown>>(
+export function notifyQueries<T extends AnyObject>(
 	queries: Set<QueryInternal<T, any>>,
 	addEntries: ReadonlyArray<readonly [string, T]>,
 	updateEntries: ReadonlyArray<readonly [string, T]>,

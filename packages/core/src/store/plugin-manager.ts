@@ -1,3 +1,4 @@
+import type { AnyObject } from "../document";
 import type { PluginHooks, StoreBase } from "./store";
 
 /**
@@ -5,7 +6,7 @@ import type { PluginHooks, StoreBase } from "./store";
  * @param hooks - Array of onInit handlers
  * @param store - Store instance to pass to hooks
  */
-export async function executeInitHooks<T extends Record<string, unknown>>(
+export async function executeInitHooks<T extends AnyObject>(
 	hooks: Array<NonNullable<PluginHooks<T>["onInit"]>>,
 	store: StoreBase<T>,
 ): Promise<void> {
@@ -18,7 +19,7 @@ export async function executeInitHooks<T extends Record<string, unknown>>(
  * Execute all plugin onDispose hooks sequentially in reverse order.
  * @param hooks - Array of onDispose handlers
  */
-export async function executeDisposeHooks<T extends Record<string, unknown>>(
+export async function executeDisposeHooks<T extends AnyObject>(
 	hooks: Array<NonNullable<PluginHooks<T>["onDispose"]>>,
 ): Promise<void> {
 	for (let i = hooks.length - 1; i >= 0; i--) {
@@ -35,7 +36,7 @@ export async function executeDisposeHooks<T extends Record<string, unknown>>(
  * @param updateEntries - Documents that were updated
  * @param deleteKeys - Document IDs that were deleted
  */
-export function emitMutations<T extends Record<string, unknown>>(
+export function emitMutations<T extends AnyObject>(
 	onAddHandlers: Array<NonNullable<PluginHooks<T>["onAdd"]>>,
 	onUpdateHandlers: Array<NonNullable<PluginHooks<T>["onUpdate"]>>,
 	onDeleteHandlers: Array<NonNullable<PluginHooks<T>["onDelete"]>>,

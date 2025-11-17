@@ -1,3 +1,4 @@
+import type { AnyObject } from "../../document";
 import type { QueryInternal } from "../../store/types";
 
 /**
@@ -6,7 +7,7 @@ import type { QueryInternal } from "../../store/types";
  * @param value - Value to transform
  * @returns Transformed value or original value if no select function
  */
-export function selectValue<T extends Record<string, unknown>, U>(
+export function selectValue<T extends AnyObject, U>(
 	query: QueryInternal<T, U>,
 	value: T,
 ): U {

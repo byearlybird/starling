@@ -1,4 +1,4 @@
-import type { Document } from "../document";
+import type { AnyObject, Document } from "../document";
 import { mergeDocuments } from "../document";
 import {
 	emitMutations as emitMutationsFn,
@@ -80,7 +80,7 @@ export type StoreSetTransaction<T> = {
  *
  * @template T - The type of documents stored in this collection
  */
-export type StoreBase<T extends Record<string, unknown>> = {
+export type StoreBase<T extends AnyObject> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -114,7 +114,7 @@ export type StoreBase<T extends Record<string, unknown>> = {
  * @template TMethods - Accumulated plugin methods from all registered plugins
  */
 export type StorePluginAPI<
-	T extends Record<string, unknown>,
+	T extends AnyObject,
 	TMethods extends Record<string, any> = {},
 > = {
 	/** Register a plugin that can add hooks and methods to the store */
@@ -164,7 +164,7 @@ export type StorePluginAPI<
  * @template TMethods - Accumulated plugin methods (default: {})
  */
 export type Store<
-	T extends Record<string, unknown>,
+	T extends AnyObject,
 	TMethods extends Record<string, any> = {},
 > = StoreBase<T> & StorePluginAPI<T, TMethods> & TMethods;
 
@@ -174,7 +174,7 @@ export type Store<
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
  */
-export type PluginHooks<T extends Record<string, unknown>> = {
+export type PluginHooks<T extends AnyObject> = {
 	/** Called once when store.init() runs */
 	onInit?: (store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -211,7 +211,7 @@ export type PluginHooks<T extends Record<string, unknown>> = {
  * ```
  */
 export type Plugin<
-	T extends Record<string, unknown>,
+	T extends AnyObject,
 	TMethods extends Record<string, any> = {},
 > = {
 	/** Lifecycle and mutation hooks */
@@ -249,7 +249,7 @@ export type Plugin<
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export function createStore<T extends Record<string, unknown>>(
+export function createStore<T extends AnyObject>(
 	config: StoreConfig = {},
 ): Store<T> {
 	const type = config.type ?? "default";
@@ -356,22 +356,16 @@ export function createStore<T extends Record<string, unknown>>(
 				rolledBack = true;
 			},
 		};
+		const result = callback(tx);
 
-		try {
-			const result = callback(tx);
-
-			if (!rolledBack) {
-				crdt = staging;
-				if (!silent) {
-					emitMutations(addEntries, updateEntries, deleteKeys);
-				}
+		if (!rolledBack) {
+			crdt = staging;
+			if (!silent) {
+				emitMutations(addEntries, updateEntries, deleteKeys);
 			}
-
-			return result as NotPromise<R>;
-		} catch (error) {
-			// Don't commit on error - staging is discarded
-			throw error;
 		}
+
+		return result as NotPromise<R>;
 	}
 
 	function add(value: T, options?: StoreAddOptions): string {

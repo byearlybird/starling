@@ -14,7 +14,9 @@ let store: Store<Todo>;
 
 beforeEach(async () => {
 	storage = createStorage<Document>();
-	store = await createStore<Todo>().use(unstoragePlugin("todos", storage)).init();
+	store = await createStore<Todo>()
+		.use(unstoragePlugin("todos", storage))
+		.init();
 });
 
 test("initializes empty store when no data in storage", () => {

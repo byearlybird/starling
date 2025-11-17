@@ -1,17 +1,21 @@
 import type { Storage } from "unstorage";
-import type { Document } from "../../document";
+import type { AnyObject, Document } from "../../document";
 import type { Plugin, StoreBase } from "../../store/store";
 
 type MaybePromise<T> = T | Promise<T>;
 
-type UnstorageOnBeforeSet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
+type UnstorageOnBeforeSet<T extends AnyObject> = (
+	data: Document<T>,
+) => MaybePromise<Document<T>>;
 
-type UnstorageOnAfterGet<T extends Record<string, unknown>> = (data: Document<T>) => MaybePromise<Document<T>>;
+type UnstorageOnAfterGet<T extends AnyObject> = (
+	data: Document<T>,
+) => MaybePromise<Document<T>>;
 
 /**
  * Configuration options for the unstorage persistence plugin.
  */
-type UnstorageConfig<T extends Record<string, unknown>> = {
+type UnstorageConfig<T extends AnyObject> = {
 	/** Delay in ms to collapse rapid mutations into a single write. Default: 0 (immediate) */
 	debounceMs?: number;
 	/** Interval in ms to poll storage for external changes. When set, enables automatic sync. */
@@ -53,7 +57,7 @@ type UnstorageConfig<T extends Record<string, unknown>> = {
  *
  * @see {@link ../../../../docs/plugins/unstorage.md} for detailed configuration guide
  */
-function unstoragePlugin<T extends Record<string, unknown>>(
+function unstoragePlugin<T extends AnyObject>(
 	key: string,
 	storage: Storage<Document<T>>,
 	config: UnstorageConfig<T> = {},

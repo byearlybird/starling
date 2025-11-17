@@ -1,11 +1,11 @@
-import type { ResourceObject } from "../document";
+import type { AnyObject, ResourceObject } from "../document";
 
 /**
  * Map a collection of ResourceObjects to entries (tuples of [id, attributes])
  * @param changes - Map of resource objects
  * @returns Array of readonly tuples containing [id, attributes]
  */
-export function mapChangesToEntries<T extends Record<string, unknown>>(
+export function mapChangesToEntries<T extends AnyObject>(
 	changes: Map<string, ResourceObject<T>>,
 ): ReadonlyArray<readonly [string, T]> {
 	return Array.from(changes.entries()).map(
@@ -33,7 +33,7 @@ export function hasChanges(
  * @param doc - ResourceObject to decode
  * @returns Active value or null if document is deleted
  */
-export function decodeActive<T extends Record<string, unknown>>(
+export function decodeActive<T extends AnyObject>(
 	doc: ResourceObject<T> | null,
 ): T | null {
 	if (!doc || doc.meta.deletedAt) return null;

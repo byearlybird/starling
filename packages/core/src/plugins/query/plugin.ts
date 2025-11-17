@@ -1,3 +1,4 @@
+import type { AnyObject } from "../../document";
 import type { Plugin } from "../../store/store";
 import type { QueryInternal } from "../../store/types";
 import {
@@ -46,7 +47,7 @@ export type Query<U> = {
 /**
  * Methods added to the store by queryPlugin.
  */
-export type QueryMethods<T extends Record<string, unknown>> = {
+export type QueryMethods<T extends AnyObject> = {
 	/** Create a reactive query that auto-updates when matching docs change */
 	query: <U = T>(config: QueryConfig<T, U>) => Query<U>;
 };
@@ -94,10 +95,7 @@ export type QueryMethods<T extends Record<string, unknown>> = {
  *
  * @see {@link ../../../../docs/queries.md} for detailed usage guide
  */
-function queryPlugin<T extends Record<string, unknown>>(): Plugin<
-	T,
-	QueryMethods<T>
-> {
+function queryPlugin<T extends AnyObject>(): Plugin<T, QueryMethods<T>> {
 	// Plugin-local state
 	// biome-ignore lint/suspicious/noExplicitAny: Store can contain queries with different select types
 	const queries = new Set<QueryInternal<T, any>>();
