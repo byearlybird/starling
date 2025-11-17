@@ -60,14 +60,12 @@ const mapLeafValues = (
 };
 
 const localStorage = unstoragePlugin<Task>(
-	"tasks",
 	createStorage({
 		driver: localStorageDriver({ base: "starling-todos:" }),
 	}),
 );
 
 const remoteStorage = unstoragePlugin<Task>(
-	"tasks",
 	createStorage({
 		driver: httpDriver({ base: "http://localhost:3001/api" }),
 	}),
@@ -95,7 +93,7 @@ const remoteStorage = unstoragePlugin<Task>(
 );
 
 // Create Starling store with local storage and HTTP Sync
-export const taskStore = await createStore<Task>()
+export const taskStore = await createStore<Task>('tasks')
 	.use(queryPlugin())
 	.use(localStorage)
 	.use(remoteStorage)

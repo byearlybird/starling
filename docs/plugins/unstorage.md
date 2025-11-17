@@ -14,7 +14,7 @@ bun add unstorage
 ## Usage
 
 ```typescript
-import { Store } from "@byearlybird/starling";
+import { createStore } from "@byearlybird/starling";
 import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
 import { createStorage } from "unstorage";
 import localStorageDriver from "unstorage/drivers/localstorage";
@@ -23,8 +23,8 @@ const storage = createStorage({
 	driver: localStorageDriver({ base: "app:" }),
 });
 
-const store = await new Store<{ text: string }>()
-	.use(unstoragePlugin("todos", storage, { debounceMs: 300 }))
+const store = await createStore<{ text: string }>('todos')
+	.use(unstoragePlugin(storage, { debounceMs: 300 }))
 	.init();
 
 // Automatic persistence on every mutation
@@ -43,23 +43,22 @@ store.begin((tx) => {
 
 ## API
 
-### `unstoragePlugin(namespace, storage, config?)`
+### `unstoragePlugin(storage, config?)`
 
-Returns a Starling plugin that automatically persists store snapshots to storage.
+Returns a Starling plugin that automatically persists store snapshots to storage. The collection key is automatically provided by the store.
 
 **Parameters:**
 
-- `namespace` – Unique key for the dataset inside your storage backend.
-- `storage` – Any `Storage<Collection>` instance returned by `createStorage()`. Collections have the shape `{ "~docs": EncodedDocument[], "~eventstamp": string }`.
+- `storage` – Any `Storage<Document<T>>` instance returned by `createStorage()`. Documents are persisted with their eventstamps.
 - `config.debounceMs` – Optional delay (in ms) used to collapse rapid mutations into a single persistence call. Defaults to `0` (write immediately).
 - `config.pollIntervalMs` – Optional interval (in ms) to poll storage for external changes. When set, the plugin will periodically check storage and merge any external updates. Useful for multi-process or shared storage scenarios.
 - `config.skip` – Optional function that returns `true` to skip persistence operations. Useful for conditional persistence (e.g., `skip: () => !navigator.onLine` to skip when offline).
-- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the Collection object `{ "~docs": EncodedDocument[], "~eventstamp": string }` and must return the same structure. Use this for custom serialization or filtering.
-- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the Collection object and must return the same structure. Use this to transform or validate loaded data.
+- `config.onBeforeSet` – Optional hook invoked before snapshots are persisted. Receives the Document object and must return the same structure. Use this for custom serialization or filtering.
+- `config.onAfterGet` – Optional hook invoked after loading from storage but before hydrating the store. Receives the Document object and must return the same structure. Use this to transform or validate loaded data.
 
 ## Behavior
 
-- During `init`, the plugin loads `storage.get(namespace)`, forwards the store's clock to the persisted `"~eventstamp"`, and replays each document inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
+- During `init`, the plugin loads the document from storage using the collection key, forwards the store's clock to the persisted eventstamp, and replays each resource inside a transaction. Provide `onAfterGet` to modify or filter the payload before it touches the store.
 - Clock forwarding ensures new writes receive timestamps higher than any remote data, preventing eventstamp collisions across sync boundaries.
 - Without this plugin (or an equivalent), the store only keeps the latest clock in memory. A cold start will reset to the current wall clock.
 - `onAdd`, `onUpdate`, and `onDelete` hooks share the same persistence scheduler. When `debounceMs > 0`, only the trailing invocation writes the snapshot.
@@ -82,9 +81,9 @@ const httpStorage = createStorage({
   driver: httpDriver({ base: "https://api.example.com" }),
 });
 
-const store = await new Store<Todo>()
-  .use(unstoragePlugin('todos', localStorage))
-  .use(unstoragePlugin('todos', httpStorage, { pollIntervalMs: 5000 }))
+const store = await createStore<Todo>('todos')
+  .use(unstoragePlugin(localStorage))
+  .use(unstoragePlugin(httpStorage, { pollIntervalMs: 5000 }))
   .init();
 
 // Every mutation automatically persists to BOTH storages

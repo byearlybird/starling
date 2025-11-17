@@ -11,7 +11,7 @@ type Todo = {
 describe("Query Plugin", () => {
 	describe("Basic Filtering", () => {
 		it("returns matching items", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -33,7 +33,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("returns empty array when no items match", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const completedQuery = store.query({
 				where: (todo) => todo.completed,
@@ -47,7 +47,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("includes all items when predicate always returns true", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const allQuery = store.query({ where: () => true });
 
@@ -63,7 +63,7 @@ describe("Query Plugin", () => {
 
 	describe("Reactivity", () => {
 		it("updates query results when items are added", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -77,7 +77,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("updates query results when items are updated", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -95,7 +95,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("updates query results when items are deleted", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -115,7 +115,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("adds items to query when they start matching", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -133,7 +133,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("removes items from query when they stop matching", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 
@@ -153,7 +153,7 @@ describe("Query Plugin", () => {
 
 	describe("Change Notifications", () => {
 		it("calls onChange when items are added", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const onChange = mock(() => {});
@@ -168,7 +168,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("calls onChange when items are updated", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			store.begin((tx) => {
 				tx.add({ text: "Task", completed: false }, { withId: "todo1" });
@@ -187,7 +187,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("calls onChange when items are deleted", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			store.begin((tx) => {
 				tx.add({ text: "Task", completed: false }, { withId: "todo1" });
@@ -206,7 +206,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("does not call onChange when unrelated items change", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const onChange = mock(() => {});
@@ -224,7 +224,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("allows unsubscribing from onChange", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const onChange = mock(() => {});
@@ -249,7 +249,7 @@ describe("Query Plugin", () => {
 
 	describe("Projection (select)", () => {
 		it("projects results using select function", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const textQuery = store.query({
 				where: (todo) => !todo.completed,
@@ -268,7 +268,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("updates projected results reactively", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const textQuery = store.query({
 				where: () => true,
@@ -291,7 +291,7 @@ describe("Query Plugin", () => {
 
 	describe("Sorting (order)", () => {
 		it("sorts results using order function", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const sortedQuery = store.query({
 				where: () => true,
@@ -311,7 +311,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("combines select and order", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const sortedTextQuery = store.query({
 				where: () => true,
@@ -330,7 +330,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("sorts by numeric priority", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const priorityQuery = store.query({
 				where: () => true,
@@ -361,7 +361,7 @@ describe("Query Plugin", () => {
 
 	describe("Multiple Queries", () => {
 		it("maintains multiple independent queries", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const completedQuery = store.query({ where: (todo) => todo.completed });
@@ -376,7 +376,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("updates all affected queries on mutation", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const completedQuery = store.query({ where: (todo) => todo.completed });
@@ -399,7 +399,7 @@ describe("Query Plugin", () => {
 
 	describe("Query Lifecycle", () => {
 		it("hydrates query on creation with existing data", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			store.begin((tx) => {
 				tx.add({ text: "Task 1", completed: false }, { withId: "todo1" });
@@ -413,7 +413,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("cleans up query on dispose", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const activeQuery = store.query({ where: (todo) => !todo.completed });
 			const onChange = mock(() => {});
@@ -438,7 +438,7 @@ describe("Query Plugin", () => {
 
 	describe("Plugin Lifecycle", () => {
 		it("hydrates queries immediately on creation", async () => {
-			const store = createStore<Todo>().use(queryPlugin());
+			const store = createStore<Todo>('test-collection').use(queryPlugin());
 
 			store.begin((tx) => {
 				tx.add({ text: "Task", completed: false }, { withId: "todo1" });
@@ -456,7 +456,7 @@ describe("Query Plugin", () => {
 		});
 
 		it("cleans up all queries on dispose", async () => {
-			const store = await createStore<Todo>().use(queryPlugin()).init();
+			const store = await createStore<Todo>('test-collection').use(queryPlugin()).init();
 
 			const query1 = store.query({ where: () => true });
 			const query2 = store.query({ where: () => true });
