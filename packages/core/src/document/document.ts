@@ -1,6 +1,12 @@
 import { mergeResources, type ResourceObject } from "./resource";
 
 /**
+ * Base constraint for all document data in Starling.
+ * Documents must be plain JavaScript objects with string keys.
+ */
+export type AnyObject = Record<string, unknown>;
+
+/**
  * A JSON:API document represents the complete state of a store:
  * - API version information
  * - Metadata including the highest eventstamp observed across all operations
@@ -8,7 +14,7 @@ import { mergeResources, type ResourceObject } from "./resource";
  *
  * Documents are the unit of synchronization between store replicas.
  */
-export type Document<T extends Record<string, unknown>> = {
+export type Document<T extends AnyObject> = {
 	/** API version information */
 	jsonapi: {
 		version: "1.1";
@@ -28,7 +34,7 @@ export type Document<T extends Record<string, unknown>> = {
  * Change tracking information returned by mergeDocuments.
  * Categorizes resources by mutation type for hook notifications.
  */
-export type DocumentChanges<T extends Record<string, unknown>> = {
+export type DocumentChanges<T extends AnyObject> = {
 	/** Resources that were newly added (didn't exist before or were previously deleted) */
 	added: Map<string, ResourceObject<T>>;
 
@@ -42,7 +48,7 @@ export type DocumentChanges<T extends Record<string, unknown>> = {
 /**
  * Result of merging two JSON:API documents.
  */
-export type MergeDocumentsResult<T extends Record<string, unknown>> = {
+export type MergeDocumentsResult<T extends AnyObject> = {
 	/** The merged document with updated resources and forwarded clock */
 	document: Document<T>;
 
@@ -89,7 +95,7 @@ export type MergeDocumentsResult<T extends Record<string, unknown>> = {
  * // result.changes.updated has "doc1"
  * ```
  */
-export function mergeDocuments<T extends Record<string, unknown>>(
+export function mergeDocuments<T extends AnyObject>(
 	into: Document<T>,
 	from: Document<T>,
 ): MergeDocumentsResult<T> {
@@ -183,7 +189,7 @@ export function mergeDocuments<T extends Record<string, unknown>>(
  * const empty = makeDocument("2025-01-01T00:00:00.000Z|0000|0000");
  * ```
  */
-export function makeDocument<T extends Record<string, unknown>>(eventstamp: string): Document<T> {
+export function makeDocument<T extends AnyObject>(eventstamp: string): Document<T> {
 	return {
 		jsonapi: { version: "1.1" },
 		meta: {

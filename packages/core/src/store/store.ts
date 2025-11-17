@@ -1,4 +1,4 @@
-import type { Document } from "../document";
+import type { AnyObject, Document } from "../document";
 import { mergeDocuments } from "../document";
 import {
 	emitMutations as emitMutationsFn,
@@ -80,7 +80,7 @@ export type StoreSetTransaction<T> = {
  *
  * @template T - The type of documents stored in this collection
  */
-export type StoreBase<T extends Record<string, unknown>> = {
+export type StoreBase<T extends AnyObject> = {
 	/** Check if a document exists by ID (excluding soft-deleted documents) */
 	has: (key: string) => boolean;
 	/** Get a document by ID (excluding soft-deleted documents) */
@@ -174,7 +174,7 @@ export type Store<
  * All hooks are optional. Mutation hooks receive batched entries after each
  * transaction commits.
  */
-export type PluginHooks<T extends Record<string, unknown>> = {
+export type PluginHooks<T extends AnyObject> = {
 	/** Called once when store.init() runs */
 	onInit?: (store: StoreBase<T>) => Promise<void> | void;
 	/** Called once when store.dispose() runs */
@@ -249,7 +249,7 @@ export type Plugin<
  * activeTodos.onChange(() => console.log('Todos changed!'));
  * ```
  */
-export function createStore<T extends Record<string, unknown>>(
+export function createStore<T extends AnyObject>(
 	config: StoreConfig = {},
 ): Store<T> {
 	const type = config.type ?? "default";
