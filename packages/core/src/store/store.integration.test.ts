@@ -281,7 +281,7 @@ describe("Store Integration - Multi-Store Merging", () => {
 		});
 
 		storeC.begin((tx) => {
-			tx.del("user-1");
+			tx.remove("user-1");
 		});
 
 		// Capture collections

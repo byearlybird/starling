@@ -31,7 +31,7 @@ export const Column = (props: ColumnProps) => {
 					{([id, task]) => (
 						<Card
 							task={task}
-							onRemove={() => store.del(id)}
+							onRemove={() => store.remove(id)}
 							onMoveLeft={() =>
 								store.update(id, {
 									status: task.status === "done" ? "doing" : "todo",

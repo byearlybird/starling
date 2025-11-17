@@ -87,7 +87,7 @@ test("persists delete operation to storage", async () => {
 	});
 
 	store.begin((tx) => {
-		tx.del("todo1");
+		tx.remove("todo1");
 	});
 
 	const persisted = (await storage.getItem("todos")) as Document | null;
