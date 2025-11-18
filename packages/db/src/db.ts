@@ -91,7 +91,28 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 	};
 
 	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
-		handles[name] = createCollectionHandle(collections[name]);
+		// Create handles that dynamically look up collections
+		// This ensures handles see updated collections after transactions
+		handles[name] = {
+			add(item) {
+				return collections[name].add(item);
+			},
+			update(id, updates) {
+				collections[name].update(id, updates);
+			},
+			remove(id) {
+				collections[name].remove(id);
+			},
+			get(id, opts) {
+				return collections[name].get(id, opts);
+			},
+			getAll(opts) {
+				return collections[name].getAll(opts);
+			},
+			find(filter, opts) {
+				return collections[name].find(filter, opts);
+			},
+		} as CollectionHandle<Schemas[typeof name]>;
 	}
 
 	return handles;
