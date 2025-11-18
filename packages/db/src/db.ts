@@ -1,10 +1,11 @@
 import { type AnyObject, Clock } from "@byearlybird/starling";
-import { createCollection } from "./collection";
+import { type Collection, createCollection } from "./collection";
 import {
 	type CollectionHandle,
 	createCollectionHandle,
 } from "./collection-handle";
 import type { StandardSchemaV1 } from "./standard-schema";
+import { type TransactionContext, executeTransaction } from "./transaction";
 
 type AnyObjectSchema<T extends AnyObject = AnyObject> = StandardSchemaV1<T>;
 
@@ -17,6 +18,12 @@ export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
 	schema: {
 		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 	};
+};
+
+export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
+	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
+} & {
+	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
 };
 
 /**
@@ -37,33 +44,55 @@ export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
  */
 export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 	config: DbConfig<Schemas>,
-): { [K in keyof Schemas]: CollectionHandle<Schemas[K]> } {
+): Database<Schemas> {
 	const clock = new Clock();
-	const collections = makeHandles(config.schema, () => clock.now());
+	const getEventstamp = () => clock.now();
+	const collections = makeCollections(config.schema, getEventstamp);
+	const handles = makeHandles(collections);
 
-	return collections;
+	return {
+		...handles,
+		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
+			return executeTransaction(config.schema, collections, getEventstamp, callback);
+		},
+	};
 }
 
-function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
+function makeCollections<Schemas extends Record<string, AnyObjectSchema>>(
 	configs: {
 		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 	},
 	getEventstamp: () => string,
-): { [K in keyof Schemas]: CollectionHandle<Schemas[K]> } {
+): { [K in keyof Schemas]: Collection<Schemas[K]> } {
 	const collections = {} as {
-		[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
+		[K in keyof Schemas]: Collection<Schemas[K]>;
 	};
 
 	for (const name of Object.keys(configs) as (keyof Schemas)[]) {
 		const config = configs[name];
-		const collection = createCollection(
+		collections[name] = createCollection(
 			name as string,
 			config.schema,
 			config.getId,
 			getEventstamp,
 		);
-		collections[name] = createCollectionHandle(collection);
 	}
 
 	return collections;
+}
+
+function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
+	collections: {
+		[K in keyof Schemas]: Collection<Schemas[K]>;
+	},
+): { [K in keyof Schemas]: CollectionHandle<Schemas[K]> } {
+	const handles = {} as {
+		[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
+	};
+
+	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
+		handles[name] = createCollectionHandle(collections[name]);
+	}
+
+	return handles;
 }
