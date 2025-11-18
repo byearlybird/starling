@@ -5,6 +5,7 @@ import {
 	createCollectionHandle,
 } from "./collection-handle";
 import type { StandardSchemaV1 } from "./standard-schema";
+import { type TransactionContext, executeTransaction } from "./transaction";
 
 type AnyObjectSchema<T extends AnyObject = AnyObject> = StandardSchemaV1<T>;
 
@@ -17,14 +18,6 @@ export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
 	schema: {
 		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 	};
-};
-
-export type TransactionContext<
-	Schemas extends Record<string, AnyObjectSchema>,
-> = {
-	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
-} & {
-	rollback(): void;
 };
 
 export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
@@ -102,127 +95,4 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 	}
 
 	return handles;
-}
-
-function executeTransaction<Schemas extends Record<string, AnyObjectSchema>, R>(
-	configs: {
-		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
-	},
-	collections: {
-		[K in keyof Schemas]: Collection<Schemas[K]>;
-	},
-	getEventstamp: () => string,
-	callback: (tx: TransactionContext<Schemas>) => R,
-): R {
-	// Track which collections have been cloned (copy-on-write optimization)
-	const clonedCollections = new Map<keyof Schemas, Collection<any>>();
-
-	// Create lazy transaction handles
-	const txHandles = {} as {
-		[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
-	};
-
-	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
-		const originalCollection = collections[name];
-		const config = configs[name];
-
-		// Clone function (called lazily on first access - read or write)
-		const getClonedCollection = () => {
-			if (!clonedCollections.has(name)) {
-				const cloned = createCollection(
-					name as string,
-					config.schema,
-					config.getId,
-					getEventstamp,
-					originalCollection.data(),
-				);
-				clonedCollections.set(name, cloned);
-			}
-			return clonedCollections.get(name)!;
-		};
-
-		txHandles[name] = createLazyTransactionHandle(
-			originalCollection,
-			getClonedCollection,
-		);
-	}
-
-	// Track rollback state
-	let shouldRollback = false;
-
-	const tx = {
-		...txHandles,
-		rollback() {
-			shouldRollback = true;
-		},
-	} as TransactionContext<Schemas>;
-
-	// Execute callback
-	let result: R;
-	try {
-		result = callback(tx);
-	} catch (error) {
-		// Automatic rollback on exception
-		throw error;
-	}
-
-	// Commit only the collections that were actually modified
-	if (!shouldRollback) {
-		for (const [name, clonedCollection] of clonedCollections.entries()) {
-			const config = configs[name];
-			collections[name] = createCollection(
-				name as string,
-				config.schema,
-				config.getId,
-				getEventstamp,
-				clonedCollection.data(),
-			);
-		}
-	}
-
-	return result;
-}
-
-/**
- * Create a transaction handle that lazily clones on first access (copy-on-write).
- * First read or write triggers cloning, providing snapshot isolation.
- */
-function createLazyTransactionHandle<T extends AnyObjectSchema>(
-	originalCollection: Collection<T>,
-	getClonedCollection: () => Collection<T>,
-): CollectionHandle<T> {
-	let cloned: Collection<T> | null = null;
-
-	const ensureCloned = () => {
-		if (!cloned) {
-			cloned = getClonedCollection();
-		}
-		return cloned;
-	};
-
-	return {
-		get(id, opts) {
-			return ensureCloned().get(id, opts);
-		},
-
-		getAll(opts) {
-			return ensureCloned().getAll(opts);
-		},
-
-		find(filter, opts) {
-			return ensureCloned().find(filter, opts);
-		},
-
-		add(item) {
-			return ensureCloned().add(item);
-		},
-
-		update(id, updates) {
-			ensureCloned().update(id, updates);
-		},
-
-		remove(id) {
-			ensureCloned().remove(id);
-		},
-	};
 }
