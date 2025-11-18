@@ -25,7 +25,7 @@ export type Collection<T extends AnyObjectSchema> = {
 	add(item: StandardSchemaV1.InferInput<T>): StandardSchemaV1.InferOutput<T>;
 	update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>): void;
 	remove(id: string): void;
-	clone(): Collection<T>;
+	data(): Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>;
 };
 
 export function createCollection<T extends AnyObjectSchema>(
@@ -131,14 +131,8 @@ export function createCollection<T extends AnyObjectSchema>(
 			data.set(id, removed);
 		},
 
-		clone() {
-			return createCollection(
-				name,
-				schema,
-				getId,
-				getEventstamp,
-				new Map(data),
-			);
+		data() {
+			return new Map(data);
 		},
 	};
 }
