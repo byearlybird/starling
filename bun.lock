@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@byearlybird/starling-repo",
@@ -72,6 +71,9 @@
     "packages/db": {
       "name": "@byearlybird/starling-db",
       "version": "0.1.0",
+      "devDependencies": {
+        "zod": "^4.1.12",
+      },
       "peerDependencies": {
         "@byearlybird/starling": "workspace:*",
       },

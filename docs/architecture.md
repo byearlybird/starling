@@ -8,7 +8,7 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceMap`, `Eventstamp`, `HybridLogicalClock`) for state-based replication |
+| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceMap`, `Eventstamp`, `Clock`) for state-based replication |
 | `packages/db` | Store implementation with CRUD operations, transactions, event-based reactivity, queries, and persistence (in development) |
 | `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
 | `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
@@ -265,7 +265,7 @@ Starling ships as a monorepo with minimal exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `ResourceMap`, `ResourceObject`, `JsonDocument`, `AnyObject`, `HybridLogicalClock`, `mergeDocuments`, `mergeResources`, `makeResource`
+**Exports**: `ResourceMap`, `ResourceObject`, `JsonDocument`, `AnyObject`, `Clock`, `mergeDocuments`, `MIN_EVENTSTAMP`, `isValidEventstamp`
 **Dependencies**: Zero runtime dependencies
 
 Provides minimal CRDT primitives for state-based replication: document merging, resource management, and hybrid logical clocks.

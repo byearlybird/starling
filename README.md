@@ -146,16 +146,16 @@ console.log(result.changes.deleted);  // Set of deleted resource IDs
 Generate monotonic eventstamps:
 
 ```typescript
-import { HybridLogicalClock } from "@byearlybird/starling";
+import { Clock } from "@byearlybird/starling";
 
-const clock = new HybridLogicalClock();
+const clock = new Clock();
 
 // Generate eventstamps
 const stamp1 = clock.now();  // "2025-01-01T00:00:00.000Z|0001|a7f2"
 const stamp2 = clock.now();  // Always greater than stamp1
 
 // Forward clock when observing remote eventstamps
-clock.update(remoteEventstamp);
+clock.forward(remoteEventstamp);
 ```
 
 ## Building on Top

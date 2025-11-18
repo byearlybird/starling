@@ -3,4 +3,16 @@
  * Database utilities for Starling stores
  */
 
-export const version = "0.1.0";
+// Collection utilities
+export {
+	type Collection,
+	DuplicateIdError,
+	IdNotFoundError,
+} from "./collection";
+export { CollectionHandle } from "./collection-handle";
+export type { CollectionConfig, DbConfig } from "./db";
+// Core Database API
+export { createDatabase } from "./db";
+
+// Type utilities
+export type { StandardSchemaV1 } from "./standard-schema";
