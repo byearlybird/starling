@@ -126,7 +126,7 @@ function executeTransaction<Schemas extends Record<string, AnyObjectSchema>, R>(
 		const originalCollection = collections[name];
 		const config = configs[name];
 
-		// Clone function (called lazily on first write)
+		// Clone function (called lazily on first access - read or write)
 		const getClonedCollection = () => {
 			if (!clonedCollections.has(name)) {
 				const cloned = createCollection(
@@ -184,8 +184,8 @@ function executeTransaction<Schemas extends Record<string, AnyObjectSchema>, R>(
 }
 
 /**
- * Create a transaction handle that lazily clones on first write (copy-on-write).
- * Reads use the original collection until a write occurs, then switch to the clone.
+ * Create a transaction handle that lazily clones on first access (copy-on-write).
+ * First read or write triggers cloning, providing snapshot isolation.
  */
 function createLazyTransactionHandle<T extends AnyObjectSchema>(
 	originalCollection: Collection<T>,
@@ -200,19 +200,17 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 		return cloned;
 	};
 
-	const getActiveCollection = () => cloned ?? originalCollection;
-
 	return {
 		get(id, opts) {
-			return getActiveCollection().get(id, opts);
+			return ensureCloned().get(id, opts);
 		},
 
 		getAll(opts) {
-			return getActiveCollection().getAll(opts);
+			return ensureCloned().getAll(opts);
 		},
 
 		find(filter, opts) {
-			return getActiveCollection().find(filter, opts);
+			return ensureCloned().find(filter, opts);
 		},
 
 		add(item) {
