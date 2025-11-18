@@ -2,10 +2,12 @@
 
 React hooks for [Starling](https://github.com/byearlybird/starling) stores.
 
+> **Note:** This package depends on the `Store` implementation which is being moved to `@byearlybird/starling-db`. The examples below reference the previous API. This package will be updated once `@byearlybird/starling-db` is ready.
+
 ## Installation
 
 ```bash
-bun add @byearlybird/starling @byearlybird/starling-react
+bun add @byearlybird/starling-db @byearlybird/starling-react
 ```
 
 ## Quick Start

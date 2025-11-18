@@ -4,7 +4,7 @@ import {
 	deleteResource,
 	makeResource,
 	mergeResources,
-} from ".";
+} from "./resource";
 
 test("makeResource creates EncodedDocument with null deletedAt", () => {
 	const result = makeResource(

@@ -1,3 +1,4 @@
+import { InvalidEventstampError } from "./errors";
 import {
 	decodeEventstamp,
 	encodeEventstamp,
@@ -13,47 +14,77 @@ import {
  * The clock automatically increments the counter when the wall clock doesn't
  * advance, ensuring eventstamps are always unique and monotonic.
  */
-export type Clock = ReturnType<typeof createClock>;
+export class Clock {
+	private counter: number;
+	private lastMs: number;
+	private lastNonce: string;
 
-export function createClock() {
-	let counter = 0;
-	let lastMs = Date.now();
-	let lastNonce = generateNonce();
+	constructor() {
+		this.counter = 0;
+		this.lastMs = Date.now();
+		this.lastNonce = generateNonce();
+	}
 
-	const now = (): string => {
+	/**
+	 * Create a Clock from an eventstamp string.
+	 * @param eventstamp - Eventstamp string to decode and initialize clock from
+	 * @throws Error if eventstamp is invalid
+	 * @returns A new Clock instance initialized to the decoded eventstamp
+	 */
+	static fromEventstamp(eventstamp: string): Clock {
+		if (!isValidEventstamp(eventstamp)) {
+			throw new Error(`Invalid eventstamp: "${eventstamp}"`);
+		}
+
+		const decoded = decodeEventstamp(eventstamp);
+		const clock = new Clock();
+		clock.lastMs = decoded.timestampMs;
+		clock.counter = decoded.counter;
+		clock.lastNonce = decoded.nonce;
+		return clock;
+	}
+
+	/**
+	 * Generate a new eventstamp, incrementing the counter if wall clock hasn't advanced.
+	 * @returns A new eventstamp string
+	 */
+	now(): string {
 		const wallMs = Date.now();
 
-		if (wallMs > lastMs) {
-			lastMs = wallMs;
-			counter = 0;
-			lastNonce = generateNonce();
+		if (wallMs > this.lastMs) {
+			this.lastMs = wallMs;
+			this.counter = 0;
 		} else {
-			counter++;
-			lastNonce = generateNonce();
+			this.counter++;
 		}
 
-		return encodeEventstamp(lastMs, counter, lastNonce);
-	};
+		this.lastNonce = generateNonce();
+		return encodeEventstamp(this.lastMs, this.counter, this.lastNonce);
+	}
 
-	const latest = (): string => encodeEventstamp(lastMs, counter, lastNonce);
+	/**
+	 * Get the latest eventstamp without advancing the clock.
+	 * @returns The current eventstamp
+	 */
+	latest(): string {
+		return encodeEventstamp(this.lastMs, this.counter, this.lastNonce);
+	}
 
-	const forward = (eventstamp: string): void => {
+	/**
+	 * Forward the clock to the given eventstamp if it's newer than current.
+	 * @param eventstamp - Eventstamp to fast-forward to
+	 */
+	forward(eventstamp: string): void {
 		if (!isValidEventstamp(eventstamp)) {
-			return;
+			throw new InvalidEventstampError(eventstamp);
 		}
 
-		const current = latest();
+		const current = this.latest();
 		if (eventstamp > current) {
 			const newer = decodeEventstamp(eventstamp);
-			lastMs = newer.timestampMs;
-			counter = newer.counter;
-			lastNonce = newer.nonce;
+			this.lastMs = newer.timestampMs;
+			this.counter = newer.counter;
+			this.lastNonce = newer.nonce;
 		}
-	};
-
-	return {
-		now,
-		latest,
-		forward,
-	};
+	}
 }
