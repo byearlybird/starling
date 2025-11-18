@@ -8,16 +8,16 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `JsonDocument`, `Eventstamp`, `Record`, `Value`, `Clock`) with event-based reactivity |
-| `packages/db` | Database utilities including plugins, queries, and persistence (in development) |
+| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceMap`, `Eventstamp`, `HybridLogicalClock`) for state-based replication |
+| `packages/db` | Store implementation with CRUD operations, transactions, event-based reactivity, queries, and persistence (in development) |
 | `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
 | `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
 
 **Key points:**
 
 - Follows a Functional Core, Imperative Shell design—core packages stay pure/predictable while adapters handle IO, frameworks, and persistence
-- Core logic lives under `packages/core` and provides a minimal, event-based store
-- Higher-level features (queries, persistence, plugins) are being moved to `packages/db`
+- Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management
+- Higher-level features (Store implementation, queries, persistence, plugins) live in `packages/db`
 - Framework integrations live in separate packages (`packages/react`, `packages/solid`)
 - All packages are TypeScript modules bundled via `tsdown`
 - Tests live alongside implementation: `packages/core/src/**/*.test.ts`
@@ -204,7 +204,7 @@ The `mergeDocuments(into, from)` function handles document-level merging with au
 2. **Clock forwarding**: The resulting document's latest value is the maximum of both input eventstamps
 3. **Change tracking**: Returns categorized changes (added, updated, deleted) for event notifications
 
-This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
+This design separates merge logic from higher-level store implementations, enabling independent testing and reuse of document operations.
 
 ## Design Scope
 
@@ -227,48 +227,6 @@ For real-time collaboration, strict causal ordering, or complex operational tran
 
 Starling can complement these tools—use it for application state while delegating collaborative data structures to specialized CRDTs.
 
-## Event System
-
-The core store provides a simple event subscription system for reactivity:
-
-```typescript
-type StoreEventListeners<T> = {
-  add: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  update: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  remove: (keys: ReadonlyArray<string>) => void;
-};
-```
-
-### Event Subscription
-
-Subscribe to store events using the `on()` method:
-
-```typescript
-const unsubscribe = store.on('add', (entries) => {
-  for (const [id, value] of entries) {
-    console.log(`Added ${id}:`, value);
-  }
-});
-
-// Later, clean up
-unsubscribe();
-```
-
-### Event Batching
-
-Events are batched per transaction. A `begin()` call that touches multiple records triggers at most one event per event type.
-
-### Building Extensions
-
-The event system is designed for building higher-level features:
-
-- **Persistence**: Subscribe to mutation events and write to storage
-- **Queries**: Subscribe to events and update filtered result sets
-- **Analytics**: Track mutations for metrics
-- **Sync**: Listen for remote changes and propagate them
-
-See `packages/db` for higher-level features built on this event system.
-
 ## Module Overview
 
 Each module handles a distinct responsibility in the state-based replication model:
@@ -278,29 +236,27 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`clock/clock.ts`](../packages/core/src/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
 | [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
 | [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
-| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
-| [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with transactions, event subscriptions, and document sync helpers such as `merge()` and `collection()` |
+| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources, and keeps document metadata (latest eventstamp) synchronized |
+| [`resource-map/resource-map.ts`](../packages/core/src/resource-map/resource-map.ts) | CRDT data structure providing a map-like interface for managing resources with field-level LWW semantics, document export/import, and soft deletion |
 
 ### Data Flow
 
-**Local mutations:**
+**ResourceMap mutations:**
 ```
-User mutation → Store → Transaction staging → Commit → Event listeners
-                                    ↓
-                            Eventstamp application
-                                    ↓
-                            Resource merge
+map.set(id, value) → Generate eventstamp → Merge with existing resource
+                            ↓
+                    Update internal state
 ```
 
-**Document sync:**
+**Document merging:**
 ```
-store.merge(snapshot) → mergeDocuments(into, from) → Resource merge (mergeResources)
-                              ↓                              ↓
-                      Clock forwarding                 Field-level LWW
-                              ↓                              ↓
-                       Update readMap              Track changes (add/update/delete)
-                              ↓
-                        Event listeners (with tracked changes)
+mergeDocuments(into, from) → Resource merge (mergeResources)
+              ↓                              ↓
+      Clock forwarding                 Field-level LWW
+              ↓                              ↓
+    Update meta.latest              Track changes (add/update/delete)
+              ↓
+    Return merged document + changes
 ```
 
 ## Package Exports
@@ -309,22 +265,22 @@ Starling ships as a monorepo with minimal exports:
 
 ### `@byearlybird/starling` (Core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `StoreEventListeners`, `StoreEventType`, `ResourceObject`, `JsonDocument`, `AnyObject`
+**Exports**: `ResourceMap`, `ResourceObject`, `JsonDocument`, `AnyObject`, `HybridLogicalClock`, `mergeDocuments`, `mergeResources`, `makeResource`
 **Dependencies**: Zero runtime dependencies
 
-Provides the minimal core store implementation with CRUD operations, transactions, state-based sync, and event subscriptions.
+Provides minimal CRDT primitives for state-based replication: document merging, resource management, and hybrid logical clocks.
 
 ### `@byearlybird/starling-db`
 
 **Status**: In development
-**Planned exports**: Plugins, queries, persistence adapters
+**Planned exports**: `Store`, `createStore`, queries, persistence adapters, plugins
 
-Higher-level database utilities that build on the core store's event system.
+Higher-level store implementation with CRUD operations, transactions, event subscriptions, queries, and persistence built on the core primitives.
 
 ## Testing Strategy
 
-- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `collection`, `store`)
-- **Integration tests**: Verify event subscription and emission works correctly
+- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `document`, `resource`, `resource-map`)
+- **Merge tests**: Verify field-level LWW behavior and document merging
 - **Sync tests**: Verify merge behavior and state replication
 - **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
 
