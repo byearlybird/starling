@@ -329,8 +329,12 @@ test("mergeResources handles schema changes (object replaced with primitive)", (
 	// With flat paths, all fields can coexist without schema conflicts
 	// The newer "settings" value wins, but nested fields from doc1 remain
 	expect(merged.attributes.settings).toBe(null);
-	expect(merged.meta.eventstamps.settings).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-	expect(merged.meta.eventstamps["settings.theme"]).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
+	expect(merged.meta.eventstamps.settings).toBe(
+		"2025-01-02T00:00:00.000Z|0000|c3d4",
+	);
+	expect(merged.meta.eventstamps["settings.theme"]).toBe(
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
 });
 
 test("mergeResources handles schema changes in nested fields", () => {
@@ -351,8 +355,12 @@ test("mergeResources handles schema changes in nested fields", () => {
 
 	// With flat paths, both the newer primitive and older nested fields coexist
 	expect(merged.attributes.profile.personal).toBe("Alice Smith");
-	expect(merged.meta.eventstamps["profile.personal"]).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
-	expect(merged.meta.eventstamps["profile.personal.name"]).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
+	expect(merged.meta.eventstamps["profile.personal"]).toBe(
+		"2025-01-02T00:00:00.000Z|0000|c3d4",
+	);
+	expect(merged.meta.eventstamps["profile.personal.name"]).toBe(
+		"2025-01-01T00:00:00.000Z|0000|a1b2",
+	);
 });
 
 // Cache validation tests

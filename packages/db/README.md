@@ -1,173 +1,153 @@
 # @byearlybird/starling-db
 
-Store implementation and database utilities for Starling.
+Database utilities for Starling.
 
 ## Purpose
 
-This package provides the Store implementation and higher-level functionality built on `@byearlybird/starling` core primitives. The core package now provides only CRDT primitives (ResourceMap, document merging, hybrid logical clocks), while this package implements:
+This package builds on the `@byearlybird/starling` core primitives to provide:
 
-- **Store API** - CRUD operations with transactions and event-based reactivity
-- **Plugin system** - Extensible architecture for adding custom behavior
-- **Reactive queries** - Predicate-based queries that automatically update
-- **Persistence** - Storage adapters for various backends
-- **Additional utilities** - Helper functions for common patterns
+- Typed collections backed by schemas
+- CRUD operations and snapshot-based merging
+- Transactions with snapshot isolation
+- Batched mutation events at collection and database level
 
-## Background
+It does **not** currently provide the higher-level Store + plugin API that existed in earlier versions of Starling. That layer will be rebuilt on top of this package in a future iteration.
 
-The core `@byearlybird/starling` package previously included a complete Store implementation with:
+## Core Ideas
 
-1. CRUD operations (add, update, remove, get)
-2. Transactions with rollback support
-3. Event subscriptions (add, update, remove events)
-4. A plugin system with lifecycle hooks
-5. A built-in query plugin for reactive queries
-6. An unstorage plugin for persistence
+At a high level:
 
-The Store has been removed from core to better separate concerns: core provides low-level CRDT primitives, while this package builds higher-level store functionality on top.
+- You describe your data model with schemas.
+- `createDatabase` builds collections from those schemas.
+- Each collection exposes simple CRUD + merge operations.
+- Transactions execute against a copy-on-write view and commit as a batch, emitting a single mutation event per collection.
 
-## Removed Features (To Be Reimplemented)
+All of this is implemented in terms of Starling’s CRDT primitives (`createMap`, `mergeDocuments`, and hybrid logical clocks).
 
-### Plugin System
+## Installation
 
-The core store previously supported a plugin architecture that allowed extending the store with hooks and methods:
-
-**Previous API:**
-```typescript
-type Plugin<T, TMethods = {}> = {
-  hooks?: {
-    onInit?: (collectionKey: string, store: StoreBase<T>) => Promise<void> | void;
-    onDispose?: (collectionKey: string) => Promise<void> | void;
-    onAdd?: (collectionKey: string, entries: ReadonlyArray<readonly [string, T]>) => void;
-    onUpdate?: (collectionKey: string, entries: ReadonlyArray<readonly [string, T]>) => void;
-    onDelete?: (collectionKey: string, keys: ReadonlyArray<string>) => void;
-  };
-  methods?: (store: StoreBase<T>) => TMethods;
-};
-
-// Usage
-const store = createStore<Todo>('todos')
-  .use(queryPlugin())
-  .use(customPlugin())
-  .init();
+```bash
+bun add @byearlybird/starling @byearlybird/starling-db zod
 ```
 
-**New approach (to be implemented):**
-- Simplified plugin registration without complex type accumulation
-- Focus on composition over inheritance
-- Clear separation between hooks and methods
+## Defining a Database
 
-### Query Plugin
+`@byearlybird/starling-db` expects schemas that implement the Standard Schema v1 interface (`StandardSchemaV1`). Popular validation libraries such as **Zod**, **Valibot**, and **ArkType** already implement this interface, so you can pass their schemas directly. A database groups one or more collections.
 
-Reactive queries that automatically updated when matching documents changed:
+```ts
+import { z } from "zod";
+import { createDatabase, type DbConfig } from "@byearlybird/starling-db";
 
-**Previous API:**
-```typescript
-type QueryConfig<T, U = T> = {
-  where: (data: T) => boolean;
-  select?: (data: T) => U;
-  order?: (a: U, b: U) => number;
-};
-
-type Query<U> = {
-  results: () => Array<readonly [string, U]>;
-  onChange: (callback: () => void) => () => void;
-  dispose: () => void;
-};
-
-// Usage
-const activeTodos = store.query({
-  where: (todo) => !todo.completed,
-  select: (todo) => todo.text,
-  order: (a, b) => a.localeCompare(b)
+// Define your schema (Zod implements Standard Schema v1)
+const taskSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1),
+  completed: z.boolean().default(false),
 });
 
-activeTodos.onChange(() => {
-  console.log('Todos changed:', activeTodos.results());
+type Task = z.infer<typeof taskSchema>;
+
+const config: DbConfig<{ tasks: typeof taskSchema }> = {
+  schema: {
+    tasks: {
+      schema: taskSchema,
+      getId: (task) => task.id,
+    },
+  },
+};
+
+const db = createDatabase(config);
+```
+
+The resulting `db` has a `tasks` collection handle with typed methods.
+
+## Collections
+
+Each collection handle supports CRUD operations, queries by predicate, and merging from a snapshot:
+
+```ts
+// Add
+const task = db.tasks.add({ id: "1", title: "Learn Starling" });
+
+// Update
+db.tasks.update("1", { completed: true });
+
+// Remove (soft delete at the CRDT level)
+db.tasks.remove("1");
+
+// Read
+const single = db.tasks.get("1");
+const allActive = db.tasks.getAll();
+
+// Filtered view
+const importantTitles = db.tasks.find(
+  (t) => !t.completed,
+  {
+    map: (t) => t.title,
+    sort: (a, b) => a.localeCompare(b),
+  },
+);
+```
+
+Collections can also merge a `JsonDocument` generated by another replica or loaded from storage:
+
+```ts
+import type { JsonDocument } from "@byearlybird/starling";
+
+declare const remoteDoc: JsonDocument<Task>;
+
+db.tasks.merge(remoteDoc);
+```
+
+Schema validation runs on writes and merges, so invalid data is rejected early.
+
+## Transactions
+
+Use `begin` to run a transaction with snapshot isolation. Internally, collections are cloned lazily (copy-on-write). All writes in a transaction are batched into a single mutation event per affected collection.
+
+```ts
+db.begin((tx) => {
+  tx.tasks.add({ id: "2", title: "Write docs", completed: false });
+  tx.tasks.update("1", { completed: false });
 });
 ```
 
-**Implementation details:**
-- Queries hydrated on registration and during `init()`
-- Mutations batched per transaction
-- Automatic cleanup on `dispose()`
-- Change detection based on predicate re-evaluation
+If you need to cancel a transaction, call `tx.rollback()` inside the callback. Any thrown error also prevents commits.
 
-### Unstorage Plugin
+## Mutation Events
 
-Persistence layer supporting any `unstorage` backend:
+Both collections and the database emit mutation events describing batched changes.
 
-**Previous API:**
-```typescript
-type UnstorageConfig<T> = {
-  debounceMs?: number;
-  pollIntervalMs?: number;
-  onBeforeSet?: (data: JsonDocument<T>) => MaybePromise<JsonDocument<T>>;
-  onAfterGet?: (data: JsonDocument<T>) => MaybePromise<JsonDocument<T>>;
-  skip?: () => boolean;
-};
+```ts
+// Collection-level events
+const unsubscribeTasks = db.tasks.on("mutation", (mutation) => {
+  for (const added of mutation.added) {
+    console.log("Task added:", added.id, added.item);
+  }
+});
 
-// Usage
-const store = createStore<Todo>('todos')
-  .use(unstoragePlugin(storage, {
-    debounceMs: 300,
-    pollIntervalMs: 5000,
-    skip: () => !navigator.onLine
-  }))
-  .init();
+// Database-level events
+const unsubscribeDb = db.on("mutation", (events) => {
+  for (const { collection, added, updated, removed } of events) {
+    console.log(`[${String(collection)}] added=${added.length} updated=${updated.length} removed=${removed.length}`);
+  }
+});
 ```
 
-**Key features:**
-- Automatic snapshot persistence after mutations
-- Debouncing to reduce write frequency
-- Polling for external changes
-- Conditional persistence (skip function)
-- Transform hooks for encryption/compression
-- Multiple storage instances (storage multiplexing)
-
-## Planned Store API
-
-This package will implement a Store built on core primitives:
-
-```typescript
-type Store<T> = {
-  // CRUD operations
-  has: (key: string) => boolean;
-  get: (key: string) => T | null;
-  add: (value: T, options?: { withId?: string }) => string;
-  update: (key: string, value: DeepPartial<T>) => void;
-  remove: (key: string) => void;
-
-  // Batch operations
-  begin: <R>(callback: (tx: StoreSetTransaction<T>) => R, opts?: { silent?: boolean }) => R;
-
-  // Sync
-  collection: () => JsonDocument<T>;
-  merge: (document: JsonDocument<T>) => void;
-  entries: () => IterableIterator<readonly [string, T]>;
-
-  // Events
-  on: <E extends 'add' | 'update' | 'remove'>(
-    event: E,
-    listener: (data: ...) => void
-  ) => () => void;
-  dispose: () => void;
-};
-```
-
-The Store will be built using `ResourceMap` from the core package, providing a higher-level API with event subscriptions and transaction support.
+During a transaction, all mutations in that transaction are batched into a single event per collection when the transaction commits.
 
 ## Development Status
 
-This package is in early development. Contributions welcome!
+This package is early but functional:
 
-## Roadmap
+- Collections, transactions, and mutation events are implemented and tested.
+- Schema integration is intentionally minimal to keep the API small.
 
-- [ ] Implement Store class with CRUD operations, transactions, and events
-- [ ] Implement plugin system
-- [ ] Port query functionality
-- [ ] Port persistence functionality
-- [ ] Add additional storage adapters
-- [ ] Performance optimizations
+Planned (not implemented here yet):
+
+- A higher-level Store API built on `createDatabase`
+- Query helpers for common patterns
+- Persistence adapters and integration guides
 
 ## License
 
