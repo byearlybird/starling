@@ -1,54 +1,20 @@
 import { expect, test } from "bun:test";
+import z from "zod";
 import { createDatabase } from "./db";
-import type { StandardSchemaV1 } from "./standard-schema";
 
 // Test schema for tasks
-type Task = {
-	id: string;
-	title: string;
-	completed: boolean;
-};
-
-const taskSchema: StandardSchemaV1<Task, Task> = {
-	"~standard": {
-		version: 1,
-		vendor: "test",
-		validate: (value: unknown) => {
-			const task = value as Task;
-			if (!task.id || !task.title || typeof task.completed !== "boolean") {
-				return {
-					issues: [{ message: "Invalid task" }],
-				};
-			}
-			return { value: task };
-		},
-		types: undefined as any,
-	},
-};
+const taskSchema = z.object({
+	id: z.string().default(() => crypto.randomUUID()),
+	title: z.string(),
+	completed: z.boolean(),
+});
 
 // Test schema for users
-type User = {
-	id: string;
-	name: string;
-	email: string;
-};
-
-const userSchema: StandardSchemaV1<User, User> = {
-	"~standard": {
-		version: 1,
-		vendor: "test",
-		validate: (value: unknown) => {
-			const user = value as User;
-			if (!user.id || !user.name || !user.email) {
-				return {
-					issues: [{ message: "Invalid user" }],
-				};
-			}
-			return { value: user };
-		},
-		types: undefined as any,
-	},
-};
+const userSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	email: z.string(),
+});
 
 test("collection mutation event: add operation", () => {
 	const db = createDatabase({
@@ -69,7 +35,9 @@ test("collection mutation event: add operation", () => {
 
 	expect(events).toHaveLength(1);
 	expect(events[0]).toEqual({
-		added: [{ id: "1", item: { id: "1", title: "Buy milk", completed: false } }],
+		added: [
+			{ id: "1", item: { id: "1", title: "Buy milk", completed: false } },
+		],
 		updated: [],
 		removed: [],
 	});

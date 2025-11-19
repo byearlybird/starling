@@ -1,54 +1,24 @@
 import { expect, test } from "bun:test";
+import { z } from "zod";
 import { createDatabase } from "./db";
-import type { StandardSchemaV1 } from "./standard-schema";
 
 // Test schema for tasks
-type Task = {
-	id: string;
-	title: string;
-	completed: boolean;
-};
+const taskSchema = z.object({
+	id: z.string().default(() => crypto.randomUUID()),
+	title: z.string(),
+	completed: z.boolean(),
+});
 
-const taskSchema: StandardSchemaV1<Task, Task> = {
-	"~standard": {
-		version: 1,
-		vendor: "test",
-		validate: (value: unknown) => {
-			const task = value as Task;
-			if (!task.id || !task.title || typeof task.completed !== "boolean") {
-				return {
-					issues: [{ message: "Invalid task" }],
-				};
-			}
-			return { value: task };
-		},
-		types: undefined as any,
-	},
-};
+type Task = z.infer<typeof taskSchema>;
 
 // Test schema for users
-type User = {
-	id: string;
-	name: string;
-	email: string;
-};
+const userSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	email: z.string(),
+});
 
-const userSchema: StandardSchemaV1<User, User> = {
-	"~standard": {
-		version: 1,
-		vendor: "test",
-		validate: (value: unknown) => {
-			const user = value as User;
-			if (!user.id || !user.name || !user.email) {
-				return {
-					issues: [{ message: "Invalid user" }],
-				};
-			}
-			return { value: user };
-		},
-		types: undefined as any,
-	},
-};
+type User = z.infer<typeof userSchema>;
 
 test("createDatabase: creates database with typed collections", () => {
 	const db = createDatabase({
@@ -79,7 +49,19 @@ test("createDatabase: creates multiple collections", () => {
 				schema: userSchema,
 				getId: (user) => user.id,
 			},
+			kv: {
+				schema: z.object({
+					key: z.string(),
+					value: z.string(),
+				}),
+				getId: (item) => item.key,
+			},
 		},
+	});
+
+	db.tasks.add({
+		completed: false,
+		title: "Test Task",
 	});
 
 	expect(db.tasks).toBeDefined();
