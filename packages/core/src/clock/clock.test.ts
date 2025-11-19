@@ -176,33 +176,26 @@ test("eventstamp format is consistent with padding", () => {
 	}
 });
 
-test("forward() ignores invalid eventstamp format", () => {
+test("forward() throws error for invalid eventstamp format", () => {
 	const clock = new Clock();
-
-	const initialStamp = clock.latest();
 
 	// Try to forward with various invalid formats
-	clock.forward("invalid");
-	clock.forward("2025-01-01");
-	clock.forward("2025-01-01T00:00:00.000Z");
-	clock.forward("2025-01-01T00:00:00.000Z|invalid|abcd");
-	clock.forward("2025-01-01T00:00:00.000Z|0001|xyz");
-	clock.forward("");
-
-	// Clock should remain unchanged
-	expect(clock.latest()).toBe(initialStamp);
+	expect(() => clock.forward("invalid")).toThrow();
+	expect(() => clock.forward("2025-01-01")).toThrow();
+	expect(() => clock.forward("2025-01-01T00:00:00.000Z")).toThrow();
+	expect(() =>
+		clock.forward("2025-01-01T00:00:00.000Z|invalid|abcd"),
+	).toThrow();
+	expect(() => clock.forward("2025-01-01T00:00:00.000Z|0001|xyz")).toThrow();
+	expect(() => clock.forward("")).toThrow();
 });
 
-test("forward() accepts valid eventstamp after rejecting invalid", () => {
+test("forward() accepts valid eventstamp", () => {
 	const clock = new Clock();
 
 	const initialStamp = clock.latest();
 
-	// Try invalid
-	clock.forward("invalid");
-	expect(clock.latest()).toBe(initialStamp);
-
-	// Now forward with valid eventstamp
+	// Forward with valid eventstamp
 	const { timestampMs } = decodeEventstamp(initialStamp);
 	const validEventstamp = encodeEventstamp(
 		timestampMs + 1000,
@@ -223,21 +216,15 @@ test("fromEventstamp() creates clock from valid eventstamp", () => {
 });
 
 test("fromEventstamp() throws error for invalid eventstamp", () => {
-	expect(() => Clock.fromEventstamp("invalid")).toThrow(
-		/Invalid eventstamp format/,
-	);
-	expect(() => Clock.fromEventstamp("2025-01-01")).toThrow(
-		/Invalid eventstamp format/,
-	);
-	expect(() => Clock.fromEventstamp("2025-01-01T00:00:00.000Z")).toThrow(
-		/Invalid eventstamp format/,
-	);
+	expect(() => Clock.fromEventstamp("invalid")).toThrow();
+	expect(() => Clock.fromEventstamp("2025-01-01")).toThrow();
+	expect(() => Clock.fromEventstamp("2025-01-01T00:00:00.000Z")).toThrow();
 	expect(() =>
 		Clock.fromEventstamp("2025-01-01T00:00:00.000Z|invalid|abcd"),
-	).toThrow(/Invalid eventstamp format/);
+	).toThrow();
 	expect(() =>
 		Clock.fromEventstamp("2025-01-01T00:00:00.000Z|0001|xyz"),
-	).toThrow(/Invalid eventstamp format/);
+	).toThrow();
 });
 
 test("fromEventstamp() preserves timestamp, counter, and nonce", () => {

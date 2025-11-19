@@ -1,3 +1,4 @@
+import { InvalidEventstampError } from "./errors";
 import {
 	decodeEventstamp,
 	encodeEventstamp,
@@ -32,9 +33,7 @@ export class Clock {
 	 */
 	static fromEventstamp(eventstamp: string): Clock {
 		if (!isValidEventstamp(eventstamp)) {
-			throw new Error(
-				`Invalid eventstamp format: "${eventstamp}". Expected format: YYYY-MM-DDTHH:mm:ss.SSSZ|HHHH+|HHHH`,
-			);
+			throw new Error(`Invalid eventstamp: "${eventstamp}"`);
 		}
 
 		const decoded = decodeEventstamp(eventstamp);
@@ -55,12 +54,11 @@ export class Clock {
 		if (wallMs > this.lastMs) {
 			this.lastMs = wallMs;
 			this.counter = 0;
-			this.lastNonce = generateNonce();
 		} else {
 			this.counter++;
-			this.lastNonce = generateNonce();
 		}
 
+		this.lastNonce = generateNonce();
 		return encodeEventstamp(this.lastMs, this.counter, this.lastNonce);
 	}
 
@@ -78,7 +76,7 @@ export class Clock {
 	 */
 	forward(eventstamp: string): void {
 		if (!isValidEventstamp(eventstamp)) {
-			return;
+			throw new InvalidEventstampError(eventstamp);
 		}
 
 		const current = this.latest();

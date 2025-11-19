@@ -1,6 +1,14 @@
 import { MIN_EVENTSTAMP } from "../clock/eventstamp";
 import type { AnyObject } from "./document";
-import { isObject } from "./utils";
+
+function isObject(value: unknown): boolean {
+	return (
+		value != null &&
+		typeof value === "object" &&
+		!Array.isArray(value) &&
+		Object.getPrototypeOf(value) === Object.prototype
+	);
+}
 
 function collectGreatestEventstamp(
 	tree: Record<string, unknown>,

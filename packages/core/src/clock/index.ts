@@ -1,2 +1,3 @@
 export { Clock } from "./clock";
-export { isValidEventstamp, MIN_EVENTSTAMP, decodeEventstamp } from "./eventstamp";
+export { InvalidEventstampError } from "./errors";
+export { isValidEventstamp, MIN_EVENTSTAMP } from "./eventstamp";
