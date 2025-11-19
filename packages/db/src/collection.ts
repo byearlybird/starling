@@ -1,7 +1,9 @@
 import {
 	deleteResource,
 	makeResource,
+	mergeDocuments,
 	mergeResources,
+	type JsonDocument,
 	type ResourceObject,
 } from "@byearlybird/starling";
 import { createEmitter } from "./emitter";
@@ -36,6 +38,7 @@ export type Collection<T extends AnyObjectSchema> = {
 	add(item: StandardSchemaV1.InferInput<T>): StandardSchemaV1.InferOutput<T>;
 	update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>): void;
 	remove(id: string): void;
+	merge(document: JsonDocument<StandardSchemaV1.InferOutput<T>>): void;
 	data(): Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>;
 	on(
 		event: "mutation",
@@ -216,6 +219,66 @@ export function createCollection<T extends AnyObjectSchema>(
 
 			// Buffer the remove mutation
 			pendingMutations.removed.push({ id, item });
+
+			// Flush immediately for non-transaction operations
+			if (autoFlush) {
+				flushMutations();
+			}
+		},
+
+		merge(document: JsonDocument<StandardSchemaV1.InferOutput<T>>) {
+			// Capture before state for update/delete event tracking
+			const beforeState = new Map<string, StandardSchemaV1.InferOutput<T>>();
+			for (const [id, resource] of data.entries()) {
+				beforeState.set(id, resource.attributes);
+			}
+
+			// Build current document from collection state
+			const currentResources = Array.from(data.values());
+			const currentLatest = currentResources.reduce(
+				(max, r) => (r.meta.latest > max ? r.meta.latest : max),
+				getEventstamp(),
+			);
+
+			const currentDoc: JsonDocument<StandardSchemaV1.InferOutput<T>> = {
+				jsonapi: { version: "1.1" },
+				meta: { latest: currentLatest },
+				data: currentResources,
+			};
+
+			// Merge using core mergeDocuments
+			const result = mergeDocuments(currentDoc, document);
+
+			// Replace collection data with merged result
+			data.clear();
+			for (const resource of result.document.data) {
+				data.set(resource.id, resource);
+			}
+
+			// Emit events for changes
+			for (const [id, resource] of result.changes.added) {
+				standardValidate(schema, resource.attributes);
+				pendingMutations.added.push({ id, item: resource.attributes });
+			}
+
+			for (const [id, resource] of result.changes.updated) {
+				standardValidate(schema, resource.attributes);
+				const before = beforeState.get(id);
+				if (before) {
+					pendingMutations.updated.push({
+						id,
+						before,
+						after: resource.attributes,
+					});
+				}
+			}
+
+			for (const id of result.changes.deleted) {
+				const before = beforeState.get(id);
+				if (before) {
+					pendingMutations.removed.push({ id, item: before });
+				}
+			}
 
 			// Flush immediately for non-transaction operations
 			if (autoFlush) {
