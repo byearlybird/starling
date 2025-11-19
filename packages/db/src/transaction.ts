@@ -1,12 +1,8 @@
-import type { StandardSchemaV1 } from "./standard-schema";
-import type { AnyObjectSchema } from "./types";
 import type { Collection } from "./collection";
 import { createCollection } from "./collection";
-import {
-	type CollectionHandle,
-	createCollectionHandle,
-} from "./collection-handle";
+import type { CollectionHandle } from "./collection-handle";
 import type { CollectionConfig } from "./db";
+import type { AnyObjectSchema } from "./types";
 
 export type TransactionContext<
 	Schemas extends Record<string, AnyObjectSchema>,
@@ -65,6 +61,7 @@ export function executeTransaction<
 					config.getId,
 					getEventstamp,
 					originalCollection.data(),
+					{ autoFlush: false }, // Don't auto-flush during transactions
 				);
 				clonedCollections.set(name, cloned);
 			}
@@ -89,17 +86,19 @@ export function executeTransaction<
 
 	// Execute callback
 	let result: R;
-	try {
-		result = callback(tx);
-	} catch (error) {
-		// Automatic rollback on exception
-		throw error;
-	}
+	result = callback(tx);
 
 	// Commit only the collections that were actually modified
 	if (!shouldRollback) {
 		for (const [name, clonedCollection] of clonedCollections.entries()) {
 			const config = configs[name];
+			const originalCollection = collections[name];
+
+			// Get pending mutations from the cloned collection
+			const pendingMutations = clonedCollection._getPendingMutations();
+
+			// Replace the collection with the committed version FIRST
+			// This ensures the new data is in place when events are emitted
 			collections[name] = createCollection(
 				name as string,
 				config.schema,
@@ -107,6 +106,10 @@ export function executeTransaction<
 				getEventstamp,
 				clonedCollection.data(),
 			);
+
+			// Emit the batched mutation event on the original collection
+			// (which still has the event subscriptions)
+			originalCollection._emitMutations(pendingMutations);
 		}
 	}
 
@@ -125,7 +128,7 @@ export function executeTransaction<
  * All subsequent operations use the cloned collection.
  */
 function createLazyTransactionHandle<T extends AnyObjectSchema>(
-	originalCollection: Collection<T>,
+	_originalCollection: Collection<T>,
 	getClonedCollection: () => Collection<T>,
 ): CollectionHandle<T> {
 	let cloned: Collection<T> | null = null;

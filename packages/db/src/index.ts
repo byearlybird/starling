@@ -10,13 +10,10 @@ export {
 	IdNotFoundError,
 } from "./collection";
 export { CollectionHandle } from "./collection-handle";
-export type { CollectionConfig, DbConfig, Database } from "./db";
-
-// Transaction utilities
-export type { TransactionContext } from "./transaction";
-
+export type { CollectionConfig, Database, DbConfig } from "./db";
 // Core Database API
 export { createDatabase } from "./db";
-
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
+// Transaction utilities
+export type { TransactionContext } from "./transaction";

@@ -1,13 +1,36 @@
 import { type AnyObject, Clock } from "@byearlybird/starling";
 import { type Collection, createCollection } from "./collection";
-import {
-	type CollectionHandle,
-	createCollectionHandle,
-} from "./collection-handle";
+import type { CollectionHandle } from "./collection-handle";
+import { createEmitter } from "./emitter";
 import type { StandardSchemaV1 } from "./standard-schema";
-import { type TransactionContext, executeTransaction } from "./transaction";
+import { executeTransaction, type TransactionContext } from "./transaction";
 
 type AnyObjectSchema<T extends AnyObject = AnyObject> = StandardSchemaV1<T>;
+
+export type DatabaseMutationEvent<
+	Schemas extends Record<string, AnyObjectSchema>,
+> = {
+	[K in keyof Schemas]: {
+		collection: K;
+		added: Array<{
+			id: string;
+			item: StandardSchemaV1.InferOutput<Schemas[K]>;
+		}>;
+		updated: Array<{
+			id: string;
+			before: StandardSchemaV1.InferOutput<Schemas[K]>;
+			after: StandardSchemaV1.InferOutput<Schemas[K]>;
+		}>;
+		removed: Array<{
+			id: string;
+			item: StandardSchemaV1.InferOutput<Schemas[K]>;
+		}>;
+	};
+}[keyof Schemas][];
+
+export type DatabaseEvents<Schemas extends Record<string, AnyObjectSchema>> = {
+	mutation: DatabaseMutationEvent<Schemas>;
+};
 
 export type CollectionConfig<T extends AnyObjectSchema> = {
 	schema: T;
@@ -24,6 +47,10 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
 } & {
 	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
+	on(
+		event: "mutation",
+		handler: (payload: DatabaseMutationEvent<Schemas>) => void,
+	): () => void;
 };
 
 /**
@@ -50,10 +77,44 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 	const collections = makeCollections(config.schema, getEventstamp);
 	const handles = makeHandles(collections);
 
+	// Database-level emitter
+	const dbEmitter = createEmitter<DatabaseEvents<Schemas>>();
+
+	// Subscribe to all collection events and re-emit at database level
+	for (const collectionName of Object.keys(collections) as (keyof Schemas)[]) {
+		const collection = collections[collectionName];
+
+		collection.on("mutation", (mutations) => {
+			// Only emit if there were actual changes
+			if (
+				mutations.added.length > 0 ||
+				mutations.updated.length > 0 ||
+				mutations.removed.length > 0
+			) {
+				dbEmitter.emit("mutation", [
+					{
+						collection: collectionName,
+						added: mutations.added,
+						updated: mutations.updated,
+						removed: mutations.removed,
+					},
+				] as DatabaseMutationEvent<Schemas>);
+			}
+		});
+	}
+
 	return {
 		...handles,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
-			return executeTransaction(config.schema, collections, getEventstamp, callback);
+			return executeTransaction(
+				config.schema,
+				collections,
+				getEventstamp,
+				callback,
+			);
+		},
+		on(event, handler) {
+			return dbEmitter.on(event, handler);
 		},
 	};
 }
@@ -111,6 +172,9 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 			},
 			find(filter, opts) {
 				return collections[name].find(filter, opts);
+			},
+			on(event, handler) {
+				return collections[name].on(event, handler);
 			},
 		} as CollectionHandle<Schemas[typeof name]>;
 	}
