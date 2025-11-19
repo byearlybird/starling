@@ -21,8 +21,8 @@ export function createEmitter<Events>(): Emitter<Events> {
 			set.add(handler as Handler<any>);
 
 			return () => {
-				set!.delete(handler as Handler<any>);
-				if (!set!.size) handlers.delete(type);
+				set?.delete(handler as Handler<any>);
+				if (!set?.size) handlers.delete(type);
 			};
 		},
 

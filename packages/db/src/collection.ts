@@ -4,9 +4,9 @@ import {
 	mergeResources,
 	type ResourceObject,
 } from "@byearlybird/starling";
+import { createEmitter } from "./emitter";
 import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
-import { createEmitter, type Emitter } from "./emitter";
 
 export type CollectionMutationEvent<T> = {
 	added: Array<{ id: string; item: T }>;
@@ -66,9 +66,7 @@ export function createCollection<T extends AnyObjectSchema>(
 		new Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>();
 
 	const emitter =
-		createEmitter<
-			CollectionEvents<StandardSchemaV1.InferOutput<T>>
-		>();
+		createEmitter<CollectionEvents<StandardSchemaV1.InferOutput<T>>>();
 
 	// Pending mutations buffer
 	const pendingMutations: CollectionMutationEvent<

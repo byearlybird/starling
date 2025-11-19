@@ -284,7 +284,7 @@ test("begin: implicit rollback on exception", () => {
 			tx.tasks.add({ id: "1", title: "Should not persist", completed: false });
 			throw new Error("Transaction failed");
 		});
-	} catch (error) {
+	} catch (_error) {
 		// Expected error
 	}
 

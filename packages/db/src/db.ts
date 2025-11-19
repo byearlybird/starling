@@ -1,12 +1,9 @@
 import { type AnyObject, Clock } from "@byearlybird/starling";
 import { type Collection, createCollection } from "./collection";
-import {
-	type CollectionHandle,
-	createCollectionHandle,
-} from "./collection-handle";
-import type { StandardSchemaV1 } from "./standard-schema";
-import { type TransactionContext, executeTransaction } from "./transaction";
+import type { CollectionHandle } from "./collection-handle";
 import { createEmitter } from "./emitter";
+import type { StandardSchemaV1 } from "./standard-schema";
+import { executeTransaction, type TransactionContext } from "./transaction";
 
 type AnyObjectSchema<T extends AnyObject = AnyObject> = StandardSchemaV1<T>;
 

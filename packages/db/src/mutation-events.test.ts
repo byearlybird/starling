@@ -233,7 +233,7 @@ test("transaction exception does not emit events", () => {
 			tx.tasks.add({ id: "1", title: "Task 1", completed: false });
 			throw new Error("Oops!");
 		});
-	} catch (e) {
+	} catch (_e) {
 		// Expected
 	}
 
