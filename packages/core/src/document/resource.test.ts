@@ -310,7 +310,7 @@ test("mergeResources returns newest eventstamp when adding new fields", () => {
 	expect(merged.meta.latest).toBe("2025-01-08T00:00:00.000Z|0000|m3n4");
 });
 
-test("mergeResources throws on schema mismatch (object vs primitive)", () => {
+test("mergeResources handles schema changes (object replaced with primitive)", () => {
 	const doc1 = makeResource(
 		"users",
 		"doc-1",
@@ -324,12 +324,16 @@ test("mergeResources throws on schema mismatch (object vs primitive)", () => {
 		"2025-01-02T00:00:00.000Z|0000|c3d4",
 	);
 
-	expect(() => mergeResources(doc1, doc2)).toThrow(
-		"Schema mismatch at field 'settings': cannot merge object with primitive",
-	);
+	const merged = mergeResources(doc1, doc2);
+
+	// With flat paths, all fields can coexist without schema conflicts
+	// The newer "settings" value wins, but nested fields from doc1 remain
+	expect(merged.attributes.settings).toBe(null);
+	expect(merged.meta.eventstamps.settings).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
+	expect(merged.meta.eventstamps["settings.theme"]).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
 });
 
-test("mergeResources throws on schema mismatch in nested field", () => {
+test("mergeResources handles schema changes in nested fields", () => {
 	const doc1 = makeResource(
 		"users",
 		"doc-1",
@@ -343,9 +347,12 @@ test("mergeResources throws on schema mismatch in nested field", () => {
 		"2025-01-02T00:00:00.000Z|0000|c3d4",
 	);
 
-	expect(() => mergeResources(doc1, doc2)).toThrow(
-		"Schema mismatch at field 'profile.personal': cannot merge object with primitive",
-	);
+	const merged = mergeResources(doc1, doc2);
+
+	// With flat paths, both the newer primitive and older nested fields coexist
+	expect(merged.attributes.profile.personal).toBe("Alice Smith");
+	expect(merged.meta.eventstamps["profile.personal"]).toBe("2025-01-02T00:00:00.000Z|0000|c3d4");
+	expect(merged.meta.eventstamps["profile.personal.name"]).toBe("2025-01-01T00:00:00.000Z|0000|a1b2");
 });
 
 // Cache validation tests
