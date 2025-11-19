@@ -4,6 +4,7 @@ import {
 	generateNonce,
 	isValidEventstamp,
 } from "./eventstamp";
+import { InvalidEventstampError } from "./errors";
 
 /**
  * A Hybrid Logical Clock that generates monotonically increasing eventstamps.
@@ -54,7 +55,7 @@ export function createClock(initialState?: {
 
 	const forward = (eventstamp: string): void => {
 		if (!isValidEventstamp(eventstamp)) {
-			return;
+			throw new InvalidEventstampError(eventstamp);
 		}
 
 		const current = latest();

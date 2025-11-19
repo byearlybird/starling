@@ -1,5 +1,9 @@
 import { createClock } from "../clock/clock";
-import type { AnyObject, JsonDocument } from "../document/document";
+import type {
+	AnyObject,
+	JsonDocument,
+	MergeDocumentsResult,
+} from "../document/document";
 import { mergeDocuments } from "../document/document";
 import type { ResourceObject } from "../document/resource";
 import {
@@ -105,7 +109,10 @@ export function createMap<T extends AnyObject>(
 			return new Map(internalMap);
 		},
 
-		snapshot(): JsonDocument<T> {
+		/**
+		 * Export the current state as a JsonDocument snapshot.
+		 */
+		toDocument(): JsonDocument<T> {
 			return {
 				jsonapi: { version: "1.1" },
 				meta: {
@@ -117,20 +124,22 @@ export function createMap<T extends AnyObject>(
 
 		/**
 		 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
-		 * @param collection - JsonDocument from another replica or storage
+	 * @returns The merge result containing the merged document and tracked changes
+		 * @param document - JsonDocument from another replica or storage
 		 */
-		merge(collection: JsonDocument<T>): void {
-			const currentCollection: JsonDocument<T> = {
+		merge(document: JsonDocument<T>): MergeDocumentsResult<T> {
+			const currentDocument: JsonDocument<T> = {
 				jsonapi: { version: "1.1" },
 				meta: {
 					latest: clock.latest(),
 				},
 				data: Array.from(internalMap.values()),
 			};
-			const result = mergeDocuments(currentCollection, collection);
+			const result = mergeDocuments(currentDocument, document);
 
 			clock.forward(result.document.meta.latest);
 			internalMap = documentToMap(result.document);
+			return result;
 		},
 	};
 }

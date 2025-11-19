@@ -68,12 +68,16 @@
     "packages/core": {
       "name": "@byearlybird/starling",
       "version": "0.9.3",
-      "peerDependencies": {
-        "unstorage": "^1.17.1",
+    },
+    "packages/db": {
+      "name": "@byearlybird/starling-db",
+      "version": "0.1.0",
+      "devDependencies": {
+        "zod": "^4.1.12",
       },
-      "optionalPeers": [
-        "unstorage",
-      ],
+      "peerDependencies": {
+        "@byearlybird/starling": "workspace:*",
+      },
     },
     "packages/react": {
       "name": "@byearlybird/starling-react",
@@ -152,6 +156,8 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.2.5", "", { "os": "win32", "cpu": "x64" }, "sha512-F/jhuXCssPFAuciMhHKk00xnCAxJRS/pUzVfXYmOMUp//XW7mO6QeCjsjvnm8L4AO/dG2VOB0O+fJPiJ2uXtIw=="],
 
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/core"],
+
+    "@byearlybird/starling-db": ["@byearlybird/starling-db@workspace:packages/db"],
 
     "@byearlybird/starling-react": ["@byearlybird/starling-react@workspace:packages/react"],
 
