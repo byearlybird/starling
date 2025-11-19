@@ -4,33 +4,29 @@
 
 ```typescript
 // In collection.ts or a new types file
+export type CollectionMutationEvent<T> = {
+  added: Array<{ id: string; item: T }>;
+  updated: Array<{ id: string; before: T; after: T }>;
+  removed: Array<{ id: string; item: T }>;
+};
+
 export type CollectionEvents<T> = {
-  add: { id: string; item: T };
-  update: { id: string; before: T; after: T };
-  remove: { id: string; item: T };
+  mutation: CollectionMutationEvent<T>;
 };
 
 // In db.ts
-export type DatabaseEvent<Schemas extends Record<string, AnyObjectSchema>> =
-  | {
-      type: 'add';
-      collection: keyof Schemas;
-      id: string;
-      item: any; // Would be properly typed per collection
-    }
-  | {
-      type: 'update';
-      collection: keyof Schemas;
-      id: string;
-      before: any;
-      after: any;
-    }
-  | {
-      type: 'remove';
-      collection: keyof Schemas;
-      id: string;
-      item: any;
-    };
+export type DatabaseMutationEvent<Schemas extends Record<string, AnyObjectSchema>> = {
+  [K in keyof Schemas]: {
+    collection: K;
+    added: Array<{ id: string; item: StandardSchemaV1.InferOutput<Schemas[K]> }>;
+    updated: Array<{ id: string; before: StandardSchemaV1.InferOutput<Schemas[K]>; after: StandardSchemaV1.InferOutput<Schemas[K]> }>;
+    removed: Array<{ id: string; item: StandardSchemaV1.InferOutput<Schemas[K]> }>;
+  };
+}[keyof Schemas][];
+
+export type DatabaseEvents<Schemas extends Record<string, AnyObjectSchema>> = {
+  mutation: DatabaseMutationEvent<Schemas>;
+};
 ```
 
 ## 2. Collection Changes
@@ -41,10 +37,12 @@ import { createEmitter, type Emitter } from "./emitter";
 
 export type Collection<T extends AnyObjectSchema> = {
   // ... existing methods ...
-  on<K extends keyof CollectionEvents<StandardSchemaV1.InferOutput<T>>>(
-    event: K,
-    handler: (payload: CollectionEvents<StandardSchemaV1.InferOutput<T>>[K]) => void
+  on(
+    event: 'mutation',
+    handler: (payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>) => void
   ): () => void;
+  // Internal method to flush pending mutations
+  _flushMutations(): void;
 };
 
 export function createCollection<T extends AnyObjectSchema>(
@@ -56,6 +54,28 @@ export function createCollection<T extends AnyObjectSchema>(
 ): Collection<T> {
   const data = initialData ?? new Map();
   const emitter = createEmitter<CollectionEvents<StandardSchemaV1.InferOutput<T>>>();
+
+  // Pending mutations buffer
+  const pendingMutations: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>> = {
+    added: [],
+    updated: [],
+    removed: [],
+  };
+
+  const flushMutations = () => {
+    if (
+      pendingMutations.added.length > 0 ||
+      pendingMutations.updated.length > 0 ||
+      pendingMutations.removed.length > 0
+    ) {
+      emitter.emit('mutation', { ...pendingMutations });
+
+      // Clear the buffer
+      pendingMutations.added = [];
+      pendingMutations.updated = [];
+      pendingMutations.removed = [];
+    }
+  };
 
   return {
     // ... existing methods ...
@@ -71,8 +91,11 @@ export function createCollection<T extends AnyObjectSchema>(
       const resource = makeResource(name, id, validated, getEventstamp());
       data.set(id, resource);
 
-      // Emit the add event
-      emitter.emit('add', { id, item: validated });
+      // Buffer the add mutation
+      pendingMutations.added.push({ id, item: validated });
+
+      // Flush immediately for non-transaction operations
+      flushMutations();
 
       return validated;
     },
@@ -95,12 +118,15 @@ export function createCollection<T extends AnyObjectSchema>(
       standardValidate(schema, merged.attributes);
       data.set(id, merged);
 
-      // Emit the update event with before/after
-      emitter.emit('update', {
+      // Buffer the update mutation
+      pendingMutations.updated.push({
         id,
         before,
         after: merged.attributes
       });
+
+      // Flush immediately for non-transaction operations
+      flushMutations();
     },
 
     remove(id: string) {
@@ -115,12 +141,19 @@ export function createCollection<T extends AnyObjectSchema>(
       const removed = deleteResource(existing, getEventstamp());
       data.set(id, removed);
 
-      // Emit the remove event
-      emitter.emit('remove', { id, item });
+      // Buffer the remove mutation
+      pendingMutations.removed.push({ id, item });
+
+      // Flush immediately for non-transaction operations
+      flushMutations();
     },
 
     on(event, handler) {
       return emitter.on(event, handler);
+    },
+
+    _flushMutations() {
+      flushMutations();
     },
   };
 }
@@ -132,9 +165,9 @@ export function createCollection<T extends AnyObjectSchema>(
 // collection-handle.ts
 export type CollectionHandle<Schema extends AnyObjectSchema> = {
   // ... existing methods ...
-  on<K extends keyof CollectionEvents<StandardSchemaV1.InferOutput<Schema>>>(
-    event: K,
-    handler: (payload: CollectionEvents<StandardSchemaV1.InferOutput<Schema>>[K]) => void
+  on(
+    event: 'mutation',
+    handler: (payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<Schema>>) => void
   ): () => void;
 };
 
@@ -162,8 +195,8 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 } & {
   begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
   on(
-    event: 'add' | 'update' | 'remove',
-    handler: (payload: DatabaseEvent<Schemas>) => void
+    event: 'mutation',
+    handler: (payload: DatabaseMutationEvent<Schemas>) => void
   ): () => void;
 };
 
@@ -176,42 +209,26 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
   const handles = makeHandles(collections);
 
   // Database-level emitter
-  const dbEmitter = createEmitter<{
-    add: DatabaseEvent<Schemas>;
-    update: DatabaseEvent<Schemas>;
-    remove: DatabaseEvent<Schemas>;
-  }>();
+  const dbEmitter = createEmitter<DatabaseEvents<Schemas>>();
 
   // Subscribe to all collection events and re-emit at database level
   for (const collectionName of Object.keys(collections) as (keyof Schemas)[]) {
     const collection = collections[collectionName];
 
-    collection.on('add', ({ id, item }) => {
-      dbEmitter.emit('add', {
-        type: 'add',
-        collection: collectionName,
-        id,
-        item,
-      });
-    });
-
-    collection.on('update', ({ id, before, after }) => {
-      dbEmitter.emit('update', {
-        type: 'update',
-        collection: collectionName,
-        id,
-        before,
-        after,
-      });
-    });
-
-    collection.on('remove', ({ id, item }) => {
-      dbEmitter.emit('remove', {
-        type: 'remove',
-        collection: collectionName,
-        id,
-        item,
-      });
+    collection.on('mutation', (mutations) => {
+      // Only emit if there were actual changes
+      if (
+        mutations.added.length > 0 ||
+        mutations.updated.length > 0 ||
+        mutations.removed.length > 0
+      ) {
+        dbEmitter.emit('mutation', [{
+          collection: collectionName,
+          added: mutations.added,
+          updated: mutations.updated,
+          removed: mutations.removed,
+        }]);
+      }
     });
   }
 
@@ -243,12 +260,6 @@ export function executeTransaction<
 ): R {
   const clonedCollections = new Map<keyof Schemas, Collection<any>>();
 
-  // Buffer to accumulate events during transaction
-  const eventBuffer: Array<{
-    collection: keyof Schemas;
-    replay: () => void;
-  }> = [];
-
   // Create lazy transaction handles
   const txHandles = {} as {
     [K in keyof Schemas]: CollectionHandle<Schemas[K]>;
@@ -260,7 +271,8 @@ export function executeTransaction<
 
     const getClonedCollection = () => {
       if (!clonedCollections.has(name)) {
-        // Create a cloned collection WITHOUT event emitting during transaction
+        // Create a cloned collection
+        // It will buffer mutations internally but NOT flush them automatically
         const cloned = createCollection(
           name as string,
           config.schema,
@@ -268,28 +280,6 @@ export function executeTransaction<
           getEventstamp,
           originalCollection.data(),
         );
-
-        // Intercept events from the cloned collection and buffer them
-        cloned.on('add', (payload) => {
-          eventBuffer.push({
-            collection: name,
-            replay: () => originalCollection.emit('add', payload),
-          });
-        });
-
-        cloned.on('update', (payload) => {
-          eventBuffer.push({
-            collection: name,
-            replay: () => originalCollection.emit('update', payload),
-          });
-        });
-
-        cloned.on('remove', (payload) => {
-          eventBuffer.push({
-            collection: name,
-            replay: () => originalCollection.emit('remove', payload),
-          });
-        });
 
         clonedCollections.set(name, cloned);
       }
@@ -322,9 +312,11 @@ export function executeTransaction<
 
   // Commit only if not rolled back
   if (!shouldRollback) {
-    // Update collections
+    // Update collections and flush their accumulated mutations
     for (const [name, clonedCollection] of clonedCollections.entries()) {
       const config = configs[name];
+
+      // Replace the collection with the cloned version
       collections[name] = createCollection(
         name as string,
         config.schema,
@@ -332,17 +324,17 @@ export function executeTransaction<
         getEventstamp,
         clonedCollection.data(),
       );
-    }
 
-    // Replay all buffered events atomically
-    for (const bufferedEvent of eventBuffer) {
-      bufferedEvent.replay();
+      // Flush all mutations from the cloned collection as a single batched event
+      clonedCollection._flushMutations();
     }
   }
 
   return result;
 }
 ```
+
+**Key difference**: Collections now buffer their mutations internally. During normal operations, they flush immediately. During transactions, the flush is deferred until commit, creating a batched event.
 
 ## 6. Usage Examples
 
@@ -361,50 +353,60 @@ const db = createDatabase({
   },
 });
 
-// Collection-level events
-const unsubscribe = db.tasks.on('add', ({ id, item }) => {
-  console.log('Task added:', id, item);
-  // { id: '1', item: { id: '1', title: 'Buy milk', completed: false } }
-});
+// Collection-level events - batched mutations
+const unsubscribe = db.tasks.on('mutation', ({ added, updated, removed }) => {
+  console.log('Tasks changed:');
+  console.log('Added:', added);
+  // [{ id: '1', item: { id: '1', title: 'Buy milk', completed: false } }]
 
-db.tasks.on('update', ({ id, before, after }) => {
-  console.log('Task updated:', id);
-  console.log('Before:', before);
-  console.log('After:', after);
-  // Before: { id: '1', title: 'Buy milk', completed: false }
-  // After: { id: '1', title: 'Buy milk', completed: true }
-});
+  console.log('Updated:', updated);
+  // [{ id: '2', before: {...}, after: {...} }]
 
-db.tasks.on('remove', ({ id, item }) => {
-  console.log('Task removed:', id, item);
-  // { id: '1', item: { id: '1', title: 'Buy milk', completed: true } }
+  console.log('Removed:', removed);
+  // [{ id: '3', item: { id: '3', title: '...', completed: true } }]
 });
 
 // Database-level events (cross-collection)
-db.on('add', ({ type, collection, id, item }) => {
-  auditLog.write(`[${collection}] Added: ${id}`, item);
+db.on('mutation', (collections) => {
+  for (const { collection, added, updated, removed } of collections) {
+    if (added.length > 0) {
+      auditLog.write(`[${collection}] Added ${added.length} items`);
+    }
+    if (updated.length > 0) {
+      auditLog.write(`[${collection}] Updated ${updated.length} items`);
+    }
+    if (removed.length > 0) {
+      auditLog.write(`[${collection}] Removed ${removed.length} items`);
+    }
+  }
 });
 
-db.on('update', ({ type, collection, id, before, after }) => {
-  auditLog.write(`[${collection}] Updated: ${id}`, { before, after });
-});
-
-// Individual operations emit immediately
+// Individual operations emit immediately (batched with single item)
 db.tasks.add({ id: '1', title: 'Buy milk', completed: false });
-// -> Fires 'add' event immediately
+// -> Fires 'mutation' event: { added: [{ id: '1', item: {...} }], updated: [], removed: [] }
 
 db.tasks.update('1', { completed: true });
-// -> Fires 'update' event immediately
+// -> Fires 'mutation' event: { added: [], updated: [{ id: '1', before: {...}, after: {...} }], removed: [] }
 
-// Transactions batch events
+db.tasks.remove('1');
+// -> Fires 'mutation' event: { added: [], updated: [], removed: [{ id: '1', item: {...} }] }
+
+// Transactions batch ALL changes into a single event
 db.begin((tx) => {
   tx.tasks.add({ id: '2', title: 'Walk dog', completed: false });
   tx.tasks.add({ id: '3', title: 'Read book', completed: false });
+  tx.tasks.update('1', { title: 'Buy organic milk' });
   tx.users.add({ id: 'u1', name: 'Alice', email: 'alice@example.com' });
 
   // No events fired yet...
 });
-// -> All 3 events fire here after commit (in order)
+// -> Fires single 'mutation' event with ALL changes:
+// Collection-level (tasks): { added: [2 items], updated: [1 item], removed: [] }
+// Collection-level (users): { added: [1 item], updated: [], removed: [] }
+// Database-level: [
+//   { collection: 'tasks', added: [...], updated: [...], removed: [] },
+//   { collection: 'users', added: [...], updated: [], removed: [] }
+// ]
 
 // Rollback example - no events emitted
 db.begin((tx) => {
@@ -427,66 +429,23 @@ try {
 unsubscribe();
 ```
 
-## 7. Alternative: Simpler Event Batching
+## 7. How Batching Works
 
-If the above transaction event buffering is too complex, here's a simpler approach:
+**For individual operations:**
+1. Mutation happens (add/update/remove)
+2. Change is added to pending mutations buffer
+3. Buffer is immediately flushed, emitting a mutation event with single item
 
-```typescript
-// Instead of buffering and replaying, we could:
-// 1. Disable events during transaction execution
-// 2. After commit, manually emit events based on what changed
+**For transactions:**
+1. Transaction begins
+2. Multiple mutations accumulate in the cloned collection's buffer
+3. Buffer does NOT auto-flush during transaction
+4. On commit:
+   - Collection is replaced with cloned version
+   - `_flushMutations()` is called
+   - Single mutation event emitted with ALL changes
+5. On rollback/exception:
+   - Cloned collection is discarded
+   - No flush happens, no events emitted
 
-export function executeTransaction<
-  Schemas extends Record<string, AnyObjectSchema>,
-  R,
->(
-  configs: { [K in keyof Schemas]: CollectionConfig<Schemas[K]> },
-  collections: { [K in keyof Schemas]: Collection<Schemas[K]> },
-  getEventstamp: () => string,
-  callback: (tx: TransactionContext<Schemas>) => R,
-): R {
-  // ... cloning logic ...
-
-  // Capture before state
-  const beforeState = new Map<keyof Schemas, Map<string, any>>();
-  for (const [name, collection] of clonedCollections.entries()) {
-    beforeState.set(name, new Map(collection.data()));
-  }
-
-  // ... execute transaction ...
-
-  if (!shouldRollback) {
-    // Commit and compute diffs
-    for (const [name, clonedCollection] of clonedCollections.entries()) {
-      const before = beforeState.get(name)!;
-      const after = clonedCollection.data();
-
-      // Emit events based on diffs
-      for (const [id, afterResource] of after.entries()) {
-        const beforeResource = before.get(id);
-
-        if (!beforeResource) {
-          // Added
-          collections[name].emit('add', { id, item: afterResource.attributes });
-        } else if (!isEqual(beforeResource, afterResource)) {
-          // Updated
-          collections[name].emit('update', {
-            id,
-            before: beforeResource.attributes,
-            after: afterResource.attributes
-          });
-        }
-      }
-
-      // Check for removals
-      for (const [id, beforeResource] of before.entries()) {
-        if (!after.has(id) || after.get(id)!.meta.deletedAt) {
-          collections[name].emit('remove', { id, item: beforeResource.attributes });
-        }
-      }
-    }
-  }
-
-  return result;
-}
-```
+This provides a clean, consistent API: both individual operations and transactions use the same event structure, just with different batch sizes.
