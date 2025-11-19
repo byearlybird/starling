@@ -1,4 +1,4 @@
-import { type AnyObject, Clock } from "@byearlybird/starling";
+import { type AnyObject, createClock } from "@byearlybird/starling";
 import { type Collection, createCollection } from "./collection";
 import type { CollectionHandle } from "./collection-handle";
 import { createEmitter } from "./emitter";
@@ -72,7 +72,7 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 	config: DbConfig<Schemas>,
 ): Database<Schemas> {
-	const clock = new Clock();
+	const clock = createClock();
 	const getEventstamp = () => clock.now();
 	const collections = makeCollections(config.schema, getEventstamp);
 	const handles = makeHandles(collections);
