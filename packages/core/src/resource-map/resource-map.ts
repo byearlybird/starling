@@ -124,7 +124,7 @@ export function createMap<T extends AnyObject>(
 
 		/**
 		 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
-	 * @returns The merge result containing the merged document and tracked changes
+		 * @returns The merge result containing the merged document and tracked changes
 		 * @param document - JsonDocument from another replica or storage
 		 */
 		merge(document: JsonDocument<T>): MergeDocumentsResult<T> {

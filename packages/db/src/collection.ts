@@ -1,9 +1,9 @@
 import {
 	deleteResource,
+	type JsonDocument,
 	makeResource,
 	mergeDocuments,
 	mergeResources,
-	type JsonDocument,
 	type ResourceObject,
 } from "@byearlybird/starling";
 import { createEmitter } from "./emitter";

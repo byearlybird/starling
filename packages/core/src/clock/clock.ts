@@ -1,10 +1,10 @@
+import { InvalidEventstampError } from "./errors";
 import {
 	decodeEventstamp,
 	encodeEventstamp,
 	generateNonce,
 	isValidEventstamp,
 } from "./eventstamp";
-import { InvalidEventstampError } from "./errors";
 
 /**
  * A Hybrid Logical Clock that generates monotonically increasing eventstamps.

@@ -159,19 +159,35 @@ export function mergeResources<T extends AnyObject>(
 		if (stamp1 && stamp2) {
 			// Both have this path - compare eventstamps
 			if (stamp1 > stamp2) {
-				setValueAtPath(resultAttributes, path, getValueAtPath(into.attributes, path));
+				setValueAtPath(
+					resultAttributes,
+					path,
+					getValueAtPath(into.attributes, path),
+				);
 				resultEventstamps[path] = stamp1;
 			} else {
-				setValueAtPath(resultAttributes, path, getValueAtPath(from.attributes, path));
+				setValueAtPath(
+					resultAttributes,
+					path,
+					getValueAtPath(from.attributes, path),
+				);
 				resultEventstamps[path] = stamp2;
 			}
 		} else if (stamp1) {
 			// Only in first record
-			setValueAtPath(resultAttributes, path, getValueAtPath(into.attributes, path));
+			setValueAtPath(
+				resultAttributes,
+				path,
+				getValueAtPath(into.attributes, path),
+			);
 			resultEventstamps[path] = stamp1;
 		} else {
 			// Only in second record
-			setValueAtPath(resultAttributes, path, getValueAtPath(from.attributes, path));
+			setValueAtPath(
+				resultAttributes,
+				path,
+				getValueAtPath(from.attributes, path),
+			);
 			resultEventstamps[path] = stamp2;
 		}
 	}
