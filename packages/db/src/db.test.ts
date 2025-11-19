@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createDatabase } from "./db";
 import { createMultiCollectionDb, createTestDb } from "./test-helpers";
 
-describe("createDatabase", () => {
+describe("Database", () => {
 	describe("initialization", () => {
 		test("creates database with typed collections", () => {
 			const db = createTestDb();
@@ -76,6 +76,40 @@ describe("createDatabase", () => {
 			db.tasks.add({ id: "1", title: "Test", completed: false });
 
 			expect(events).toHaveLength(1);
+		});
+	});
+
+	describe("events", () => {
+		test("emits events with collection name", () => {
+			const db = createTestDb();
+			const dbEvents: any[] = [];
+			db.on("mutation", (e) => dbEvents.push(e));
+
+			db.tasks.add({ id: "1", title: "Task 1", completed: false });
+
+			expect(dbEvents).toHaveLength(1);
+			expect(dbEvents[0]).toHaveLength(1);
+			expect(dbEvents[0][0].collection).toBe("tasks");
+			expect(dbEvents[0][0].added).toHaveLength(1);
+		});
+
+		test("emits events from multiple collections", () => {
+			const db = createMultiCollectionDb();
+			const dbEvents: any[] = [];
+			db.on("mutation", (e) => dbEvents.push(e));
+
+			db.begin((tx) => {
+				tx.tasks.add({ id: "1", title: "Task 1", completed: false });
+				tx.users.add({ id: "u1", name: "Alice", email: "alice@example.com" });
+			});
+
+			expect(dbEvents).toHaveLength(2);
+
+			const tasksEvent = dbEvents.find((e) => e[0].collection === "tasks");
+			expect(tasksEvent[0].added).toHaveLength(1);
+
+			const usersEvent = dbEvents.find((e) => e[0].collection === "users");
+			expect(usersEvent[0].added).toHaveLength(1);
 		});
 	});
 });
