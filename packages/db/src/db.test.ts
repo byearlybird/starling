@@ -429,7 +429,7 @@ test("begin: transaction isolation - external changes not visible inside tx", ()
 		expect(updatedInTx?.title).toBe("Updated in tx");
 	});
 
-	expect(taskInsideTx?.title).toBe("Original");
+	expect((taskInsideTx as any)?.title).toBe("Original");
 });
 
 test("begin: nested operations within transaction", () => {
