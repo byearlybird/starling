@@ -164,6 +164,9 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 			remove(id) {
 				collections[name].remove(id);
 			},
+			merge(document) {
+				collections[name].merge(document);
+			},
 			get(id, opts) {
 				return collections[name].get(id, opts);
 			},

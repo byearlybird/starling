@@ -1,3 +1,4 @@
+import type { JsonDocument } from "@byearlybird/starling";
 import type { Collection, CollectionMutationEvent } from "./collection";
 import type { StandardSchemaV1 } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
@@ -11,6 +12,7 @@ export type CollectionHandle<Schema extends AnyObjectSchema> = {
 		updates: Partial<StandardSchemaV1.InferInput<Schema>>,
 	): void;
 	remove(id: string): void;
+	merge(document: JsonDocument<StandardSchemaV1.InferOutput<Schema>>): void;
 	get(
 		id: string,
 		opts?: { includeDeleted?: boolean },
@@ -47,6 +49,10 @@ export function createCollectionHandle<Schema extends AnyObjectSchema>(
 
 		remove(id) {
 			collection.remove(id);
+		},
+
+		merge(document) {
+			collection.merge(document);
 		},
 
 		get(id, opts) {

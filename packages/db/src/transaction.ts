@@ -164,5 +164,9 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 		remove(id) {
 			ensureCloned().remove(id);
 		},
+
+		merge(document) {
+			ensureCloned().merge(document);
+		},
 	};
 }
