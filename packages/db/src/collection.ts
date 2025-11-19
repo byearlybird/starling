@@ -6,6 +6,17 @@ import {
 } from "@byearlybird/starling";
 import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
+import { createEmitter, type Emitter } from "./emitter";
+
+export type CollectionMutationEvent<T> = {
+	added: Array<{ id: string; item: T }>;
+	updated: Array<{ id: string; before: T; after: T }>;
+	removed: Array<{ id: string; item: T }>;
+};
+
+export type CollectionEvents<T> = {
+	mutation: CollectionMutationEvent<T>;
+};
 
 export type Collection<T extends AnyObjectSchema> = {
 	get(
@@ -26,6 +37,19 @@ export type Collection<T extends AnyObjectSchema> = {
 	update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>): void;
 	remove(id: string): void;
 	data(): Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>;
+	on(
+		event: "mutation",
+		handler: (
+			payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
+		) => void,
+	): () => void;
+	_flushMutations(): void;
+	_getPendingMutations(): CollectionMutationEvent<
+		StandardSchemaV1.InferOutput<T>
+	>;
+	_emitMutations(
+		mutations: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
+	): void;
 };
 
 export function createCollection<T extends AnyObjectSchema>(
@@ -34,10 +58,45 @@ export function createCollection<T extends AnyObjectSchema>(
 	getId: (item: StandardSchemaV1.InferOutput<T>) => string,
 	getEventstamp: () => string,
 	initialData?: Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>,
+	options?: { autoFlush?: boolean },
 ): Collection<T> {
+	const autoFlush = options?.autoFlush ?? true;
 	const data =
 		initialData ??
 		new Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>();
+
+	const emitter =
+		createEmitter<
+			CollectionEvents<StandardSchemaV1.InferOutput<T>>
+		>();
+
+	// Pending mutations buffer
+	const pendingMutations: CollectionMutationEvent<
+		StandardSchemaV1.InferOutput<T>
+	> = {
+		added: [],
+		updated: [],
+		removed: [],
+	};
+
+	const flushMutations = () => {
+		if (
+			pendingMutations.added.length > 0 ||
+			pendingMutations.updated.length > 0 ||
+			pendingMutations.removed.length > 0
+		) {
+			emitter.emit("mutation", {
+				added: [...pendingMutations.added],
+				updated: [...pendingMutations.updated],
+				removed: [...pendingMutations.removed],
+			});
+
+			// Clear the buffer
+			pendingMutations.added = [];
+			pendingMutations.updated = [];
+			pendingMutations.removed = [];
+		}
+	};
 
 	return {
 		get(id: string, opts: { includeDeleted?: boolean } = {}) {
@@ -100,6 +159,15 @@ export function createCollection<T extends AnyObjectSchema>(
 
 			const resource = makeResource(name, id, validated, getEventstamp());
 			data.set(id, resource);
+
+			// Buffer the add mutation
+			pendingMutations.added.push({ id, item: validated });
+
+			// Flush immediately for non-transaction operations
+			if (autoFlush) {
+				flushMutations();
+			}
+
 			return validated;
 		},
 
@@ -110,6 +178,9 @@ export function createCollection<T extends AnyObjectSchema>(
 				throw new IdNotFoundError(id);
 			}
 
+			// Capture the before state
+			const before = existing.attributes;
+
 			const merged = mergeResources(
 				existing,
 				makeResource(name, id, updates, getEventstamp()),
@@ -118,6 +189,18 @@ export function createCollection<T extends AnyObjectSchema>(
 			standardValidate(schema, merged.attributes);
 
 			data.set(id, merged);
+
+			// Buffer the update mutation
+			pendingMutations.updated.push({
+				id,
+				before,
+				after: merged.attributes,
+			});
+
+			// Flush immediately for non-transaction operations
+			if (autoFlush) {
+				flushMutations();
+			}
 		},
 
 		remove(id: string) {
@@ -126,13 +209,50 @@ export function createCollection<T extends AnyObjectSchema>(
 				throw new IdNotFoundError(id);
 			}
 
+			// Capture the item before deletion
+			const item = existing.attributes;
+
 			const removed = deleteResource(existing, getEventstamp());
 
 			data.set(id, removed);
+
+			// Buffer the remove mutation
+			pendingMutations.removed.push({ id, item });
+
+			// Flush immediately for non-transaction operations
+			if (autoFlush) {
+				flushMutations();
+			}
 		},
 
 		data() {
 			return new Map(data);
+		},
+
+		on(event, handler) {
+			return emitter.on(event, handler);
+		},
+
+		_flushMutations() {
+			flushMutations();
+		},
+
+		_getPendingMutations() {
+			return {
+				added: [...pendingMutations.added],
+				updated: [...pendingMutations.updated],
+				removed: [...pendingMutations.removed],
+			};
+		},
+
+		_emitMutations(mutations) {
+			if (
+				mutations.added.length > 0 ||
+				mutations.updated.length > 0 ||
+				mutations.removed.length > 0
+			) {
+				emitter.emit("mutation", mutations);
+			}
 		},
 	};
 }

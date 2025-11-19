@@ -65,6 +65,7 @@ export function executeTransaction<
 					config.getId,
 					getEventstamp,
 					originalCollection.data(),
+					{ autoFlush: false }, // Don't auto-flush during transactions
 				);
 				clonedCollections.set(name, cloned);
 			}
@@ -100,6 +101,13 @@ export function executeTransaction<
 	if (!shouldRollback) {
 		for (const [name, clonedCollection] of clonedCollections.entries()) {
 			const config = configs[name];
+			const originalCollection = collections[name];
+
+			// Get pending mutations from the cloned collection
+			const pendingMutations = clonedCollection._getPendingMutations();
+
+			// Replace the collection with the committed version FIRST
+			// This ensures the new data is in place when events are emitted
 			collections[name] = createCollection(
 				name as string,
 				config.schema,
@@ -107,6 +115,10 @@ export function executeTransaction<
 				getEventstamp,
 				clonedCollection.data(),
 			);
+
+			// Emit the batched mutation event on the original collection
+			// (which still has the event subscriptions)
+			originalCollection._emitMutations(pendingMutations);
 		}
 	}
 

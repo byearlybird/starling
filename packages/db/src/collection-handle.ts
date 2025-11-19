@@ -1,4 +1,4 @@
-import type { Collection } from "./collection";
+import type { Collection, CollectionMutationEvent } from "./collection";
 import type { StandardSchemaV1 } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
 
@@ -25,6 +25,12 @@ export type CollectionHandle<Schema extends AnyObjectSchema> = {
 			sort?: (a: U, b: U) => number;
 		},
 	): U[];
+	on(
+		event: "mutation",
+		handler: (
+			payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<Schema>>,
+		) => void,
+	): () => void;
 };
 
 export function createCollectionHandle<Schema extends AnyObjectSchema>(
@@ -53,6 +59,10 @@ export function createCollectionHandle<Schema extends AnyObjectSchema>(
 
 		find(filter, opts) {
 			return collection.find(filter, opts);
+		},
+
+		on(event, handler) {
+			return collection.on(event, handler);
 		},
 	};
 }
