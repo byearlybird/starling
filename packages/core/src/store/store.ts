@@ -5,10 +5,7 @@ import {
 	executeDisposeHooks,
 	executeInitHooks,
 } from "./plugin-manager";
-import {
-	createResourceMap,
-	createResourceMapFromDocument,
-} from "./resource-map";
+import { createMap, createMapFromDocument } from "./resource-map";
 import { decodeActive, hasChanges, mapChangesToEntries } from "./utils";
 
 type NotPromise<T> = T extends Promise<any> ? never : T;
@@ -261,7 +258,7 @@ export function createStore<T extends AnyObject>(
 	config: StoreConfig = {},
 ): Store<T> {
 	const type = config.type ?? collectionKey;
-	let crdt = createResourceMap<T>(new Map(), type);
+	let crdt = createMap<T>(type);
 	const getId = config.getId ?? (() => crypto.randomUUID());
 
 	const onInitHandlers: Array<NonNullable<PluginHooks<T>["onInit"]>> = [];
@@ -313,7 +310,7 @@ export function createStore<T extends AnyObject>(
 		const result = mergeDocuments<T>(currentCollection, document);
 
 		// Replace the ResourceMap with the merged state
-		crdt = createResourceMapFromDocument<T>(result.document);
+		crdt = createMapFromDocument<T>(type, result.document);
 
 		const addEntries = mapChangesToEntries(result.changes.added);
 		const updateEntries = mapChangesToEntries(result.changes.updated);
@@ -335,7 +332,7 @@ export function createStore<T extends AnyObject>(
 		const deleteKeys: Array<string> = [];
 
 		// Create a staging ResourceMap by cloning the current state
-		const staging = createResourceMapFromDocument<T>(crdt.snapshot());
+		const staging = createMapFromDocument<T>(type, crdt.snapshot());
 		let rolledBack = false;
 
 		const tx: StoreSetTransaction<T> = {
