@@ -1,16 +1,15 @@
 # @byearlybird/starling
 
-**Lightweight local-first reactive data store sync for JavaScript apps.**
+**Lightweight CRDT primitives for local-first sync in JavaScript apps.**
 
-Starling is a lightweight data store for building offline-capable tools without dragging in heavy infrastructure. It keeps replicas in sync using field-level Last-Write-Wins powered by a hybrid logical clock, so documents converge automatically.
+Starling provides the core building blocks for state-based replication with field-level Last-Write-Wins conflict resolution, powered by hybrid logical clocks. Use it directly to build custom sync solutions, or use higher-level packages for complete data store functionality.
 
 ## Highlights
 
-- Simple Store API with CRUD operations
-- Event-based reactivity for building custom solutions
+- Field-level Last-Write-Wins conflict resolution
+- Hybrid logical clock with eventstamps
+- State-based document merging (no operation logs)
 - Framework agnostic -- works with anything that JavaScript runs
-- Transactional API with batched notifications and rollback support
-- State-based sync with field-level Last-Write-Wins
 - ~4KB core build with zero required runtime dependencies
 
 ## Installation
@@ -19,36 +18,41 @@ Starling is a lightweight data store for building offline-capable tools without 
 bun add @byearlybird/starling
 ```
 
+## Core Package
+
+The `@byearlybird/starling` core package provides:
+
+- **Clock** - Hybrid logical clock for generating monotonic eventstamps
+- **Document** - JsonDocument format and merging primitives
+- **ResourceMap** - CRDT data structure for managing resources with field-level LWW
+
+For a complete data store with CRUD operations, transactions, and event subscriptions, see:
+- **[@byearlybird/starling-db](packages/db)** - Database utilities including store implementation, queries, and persistence (in development)
+
 ## Quick Start
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
+import { ResourceMap } from "@byearlybird/starling";
 
-// Create a store
-const todoStore = createStore<{ text: string; completed: boolean }>('todos');
+// Create a resource map for managing todos
+const todos = new ResourceMap<{ text: string; completed: boolean }>("todos");
 
-// Simple mutations (single operations)
-const id = todoStore.add({ text: "Learn Starling", completed: false });
-todoStore.update(id, { completed: true });
-todoStore.remove(id);
+// Add resources
+todos.set("todo-1", { text: "Learn Starling", completed: false });
+todos.set("todo-2", { text: "Build an app", completed: false });
 
-// Transactions for multiple operations or rollback support
-const todo1Id = todoStore.begin((tx) => {
-  const generatedId = tx.add({ text: "Learn Starling", completed: false });
-  tx.add({ text: "Build an app", completed: false }, { withId: "todo-2" });
-  return generatedId; // Return value becomes begin()'s return value
-});
+// Update with partial data (field-level merge)
+todos.set("todo-1", { completed: true });
 
-// Subscribe to changes
-const unsubscribe = todoStore.on('add', (entries) => {
-  for (const [id, todo] of entries) {
-    console.log(`Added todo ${id}:`, todo);
-  }
-});
+// Soft delete
+todos.delete("todo-2");
 
-// Clean up
-unsubscribe();
-todoStore.dispose();
+// Export to document for persistence or sync
+const document = todos.toDocument();
+
+// Merge documents from other replicas
+const otherDocument = /* ... load from storage or receive from network ... */;
+const merged = ResourceMap.fromDocument("todos", otherDocument);
 ```
 
 ## How Sync Works
@@ -62,6 +66,7 @@ Conflict resolution recursively merges each field of a plain JavaScript object, 
 ### Eventstamps
 
 Eventstamps capture a single operation using a Hybrid Logical Clock. They combine ISO8601 timestamps with a hex counter and random nonce (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter|nonce`). This ensures that even if two clients have identical system clocks—or one clock drifts backward—each write gets a unique, comparable timestamp. The counter increments locally when the timestamp doesn't advance, guaranteeing monotonicity. In the event that a conflict occurs, the nonce acts as a tie-breaker.
+
 To address clock drift, the latest eventstamp is persisted and shared with each data store, so nodes may fast forward clocks to match.
 
 ### Data Type Support
@@ -86,177 +91,113 @@ If you need support for mergeable array operations, semantic operations, or soph
 
 ## Core API
 
-Starling provides a simple API for mutations, queries, and sync. Hover over methods in your IDE to see inline documentation, or check the [Store class source](packages/core/src/store/store.ts) for complete API details.
+The core package provides low-level primitives for building sync solutions:
 
-### Quick Reference
+### ResourceMap
 
-**Mutations**: `add()`, `update()`, `remove()` - CRUD operations
-**Transactions**: `begin()` - Batch operations with rollback support
-**Sync**: `merge()`, `collection()` - State-based replication
-**Events**: `on()` - Subscribe to mutations
-**Lifecycle**: `dispose()` - Clean up resources
-
-### Creating a Store
+`ResourceMap` is a CRDT data structure that manages resources with field-level Last-Write-Wins semantics:
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
+import { ResourceMap } from "@byearlybird/starling";
 
-// Create a basic store
-const store = createStore<YourType>('your-collection');
+const map = new ResourceMap<YourType>("collection-name");
 
-// Optionally provide a custom ID generator
-const deterministicStore = createStore<YourType>('your-collection', {
-  getId: () => crypto.randomUUID(),
-});
+// Add or update resources
+map.set(id, value);
+map.set(id, partialValue); // Merges with existing
 
-// To listen to store mutations, use the on() method (see "Event Subscriptions" below)
-```
+// Get resources
+const resource = map.get(id);
+const hasResource = map.has(id);
 
-### Common Patterns
-
-**Direct mutations** (single operations):
-
-```typescript
-const id = store.add({ name: "Alice", email: "alice@example.com" });
-store.update(id, { email: "alice@newdomain.com" });
-store.remove(id);
-```
-
-**Transactions** (multiple operations or rollback support):
-
-```typescript
-// Multiple operations
-const userId = store.begin((tx) => {
-  const generatedId = tx.add({ name: "Alice", email: "alice@example.com" });
-  tx.add({ name: "Bob" }, { withId: "user-1" });
-  return generatedId; // This value is returned by begin()
-});
-
-// Rollback on validation failure
-store.begin((tx) => {
-  const id = tx.add({ name: "Dave", email: "invalid" });
-
-  if (!validateEmail(tx.get(id)?.email)) {
-    tx.rollback(); // Abort all changes in this transaction
-    return;
-  }
-
-  tx.update(id, { verified: true });
-});
-
-// Rollback on API error
-try {
-  store.begin((tx) => {
-    const id = tx.add({ name: "Eve" });
-
-    // If validation fails, we can rollback
-    if (!isValidTodo(tx.get(id))) {
-      tx.rollback();
-      return;
-    }
-  });
-} catch (error) {
-  console.error("Transaction failed:", error);
+// Iterate
+for (const [id, resource] of map.entries()) {
+  console.log(id, resource.attributes);
 }
+
+// Soft delete
+map.delete(id);
+
+// Export/import documents
+const document = map.toDocument();
+const restored = ResourceMap.fromDocument("collection-name", document);
 ```
 
-### Event Subscriptions
+### Document Merging
 
-Subscribe to store events to build reactive features:
+Merge documents from different replicas:
 
 ```typescript
-import { createStore } from "@byearlybird/starling";
+import { mergeDocuments } from "@byearlybird/starling";
 
-const store = createStore<{ name: string }>('users');
+const result = mergeDocuments(localDocument, remoteDocument);
 
-// Subscribe to add events
-const unsubscribeAdd = store.on('add', (entries) => {
-  for (const [id, user] of entries) {
-    console.log(`Added user ${id}:`, user);
-  }
-});
+// Access merged document
+console.log(result.document);
 
-// Subscribe to update events
-const unsubscribeUpdate = store.on('update', (entries) => {
-  for (const [id, user] of entries) {
-    console.log(`Updated user ${id}:`, user);
-  }
-});
+// Track changes for notifications
+console.log(result.changes.added);    // Map of newly added resources
+console.log(result.changes.updated);  // Map of updated resources
+console.log(result.changes.deleted);  // Set of deleted resource IDs
+```
 
-// Subscribe to remove events
-const unsubscribeRemove = store.on('remove', (ids) => {
-  for (const id of ids) {
-    console.log(`Removed user ${id}`);
-  }
-});
+### Hybrid Logical Clock
 
-// Mutations trigger the appropriate events
-store.add({ name: "Alice" }, { withId: "user-1" });
-store.update("user-1", { name: "Alice Smith" });
-store.remove("user-1");
+Generate monotonic eventstamps:
 
-// Clean up
-unsubscribeAdd();
-unsubscribeUpdate();
-unsubscribeRemove();
-store.dispose();
+```typescript
+import { Clock } from "@byearlybird/starling";
+
+const clock = new Clock();
+
+// Generate eventstamps
+const stamp1 = clock.now();  // "2025-01-01T00:00:00.000Z|0001|a7f2"
+const stamp2 = clock.now();  // Always greater than stamp1
+
+// Forward clock when observing remote eventstamps
+clock.forward(remoteEventstamp);
 ```
 
 ## Building on Top
 
-The core store is intentionally minimal. For additional functionality like queries and persistence, see:
+The core package provides minimal primitives for sync. For higher-level features:
 
-- **[@byearlybird/starling-db](packages/db)** - Database utilities including plugins, queries, and persistence (in development)
+- **[@byearlybird/starling-db](packages/db)** - Store implementation with CRUD operations, transactions, queries, and persistence (in development)
 
-Build your own features using the event system:
+Build your own solutions using the core primitives:
 
 ```typescript
-// Example: Simple in-memory query
-function createQuery<T>(
-  store: Store<T>,
-  predicate: (value: T) => boolean
-) {
-  const results = new Map<string, T>();
+import { ResourceMap, mergeDocuments } from "@byearlybird/starling";
 
-  // Initial population
-  for (const [id, value] of store.entries()) {
-    if (predicate(value)) {
-      results.set(id, value);
-    }
+// Example: Custom sync layer
+class SyncManager<T> {
+  private local: ResourceMap<T>;
+
+  constructor(collectionName: string) {
+    this.local = new ResourceMap<T>(collectionName);
   }
 
-  // Subscribe to updates
-  const unsubAdd = store.on('add', (entries) => {
-    for (const [id, value] of entries) {
-      if (predicate(value)) results.set(id, value);
-    }
-  });
+  async sync(remote: JsonDocument<T>): Promise<void> {
+    const localDoc = this.local.toDocument();
+    const result = mergeDocuments(localDoc, remote);
 
-  const unsubUpdate = store.on('update', (entries) => {
-    for (const [id, value] of entries) {
-      if (predicate(value)) {
-        results.set(id, value);
-      } else {
-        results.delete(id);
-      }
-    }
-  });
+    // Replace local state with merged result
+    this.local = ResourceMap.fromDocument(
+      this.local.type,
+      result.document
+    );
 
-  const unsubRemove = store.on('remove', (ids) => {
-    for (const id of ids) {
-      results.delete(id);
+    // Handle changes
+    for (const [id, resource] of result.changes.added) {
+      console.log('Added:', id, resource.attributes);
     }
-  });
-
-  return {
-    results: () => Array.from(results.entries()),
-    dispose: () => {
-      unsubAdd();
-      unsubUpdate();
-      unsubRemove();
-      results.clear();
+    for (const [id, resource] of result.changes.updated) {
+      console.log('Updated:', id, resource.attributes);
     }
-  };
+    for (const id of result.changes.deleted) {
+      console.log('Deleted:', id);
+    }
+  }
 }
 ```
 
@@ -283,9 +224,9 @@ bun run demo:solid
 ## Project Status
 
 - Starling core is in **alpha**. The core API is stable but may have minor changes as additional testing occurs.
-- The scope and guiding philosophy are firm: provide a lightweight, minimal core for sync with field-level Last-Write-Wins, letting higher-level packages handle queries, persistence, and framework integrations.
-- The core package focuses on CRUD operations, transactions, and state-based sync. Higher-level features like queries and persistence have been moved to separate packages.
-- Near-term work focuses on the `@byearlybird/starling-db` package for queries and persistence, framework integrations, and smarter change detection for sync.
+- The scope and guiding philosophy are firm: provide lightweight, minimal CRDT primitives for sync with field-level Last-Write-Wins, letting higher-level packages handle store management, queries, persistence, and framework integrations.
+- The core package focuses on document merging, resource management, and hybrid logical clocks. Higher-level features like CRUD operations, transactions, queries, and persistence are being moved to separate packages.
+- Near-term work focuses on the `@byearlybird/starling-db` package for store implementation, queries, and persistence.
 
 ## Development
 
