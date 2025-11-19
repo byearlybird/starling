@@ -1,8 +1,8 @@
 # Solid + Starling Todo Demo
 
-A todo list example demonstrating Starling's built-in reactive queries and the unstorage plugin for persistence within a SolidJS application.
+A small todo app that demonstrates Starling’s Store + plugin API in a SolidJS application.
 
-> **Note:** This demo uses the Store implementation which is being moved from `@byearlybird/starling` core to `@byearlybird/starling-db`. The demo will be updated once the migration is complete.
+> **Status:** This demo targets the earlier `createStore`, `queryPlugin`, and `unstoragePlugin` APIs from `@byearlybird/starling` 0.6.x. The core library in this repo now focuses on CRDT primitives and `@byearlybird/starling-db`. The demo will be updated once the new Store API is in place.
 
 ## Getting Started
 
@@ -11,21 +11,21 @@ bun install
 bun --filter demo-starling-solid dev
 ```
 
-Then open [http://localhost:5173](http://localhost:5173).
+Then open `http://localhost:5173`.
 
 ## Available Scripts
 
-- `bun dev` – run Vite in development mode.
-- `bun build` – type-check and build for production.
-- `bun preview` – preview the production output locally.
+- `bun dev` – run Vite in development mode
+- `bun build` – type-check and build for production
+- `bun preview` – preview the production output locally
 
-## Starling Highlights
+## What This Demo Shows
 
-- `src/store/task-store.ts` configures the Starling store with localStorage and HTTP sync using the unstorage plugin. It also demonstrates:
+- `src/store/task-store.ts` configures a Starling store with localStorage and HTTP sync via the unstorage plugin, including:
   - Storage multiplexing (local + remote persistence)
-  - Conditional sync with the `skip` option
+  - Conditional sync with a `skip` function
   - Data transformation with `onBeforeSet` and `onAfterGet` hooks
-  - Creating typed SolidJS hooks with `createStoreHooks`
-- `src/App.tsx` contains the UI that reads from and writes to the Starling store using built-in reactive queries with SolidJS primitives (`For`, `Show`).
+  - Typed SolidJS hooks created with `createStoreHooks`
+- `src/App.tsx` contains the UI that reads from and writes to the store using reactive queries and Solid primitives such as `For` and `Show`.
 
-For deployment guidance see the [Vite docs](https://vite.dev/guide/static-deploy.html).
+For deployment guidance, see the Vite docs: https://vite.dev/guide/static-deploy.html.

@@ -8,19 +8,19 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceMap`, `Eventstamp`, `Clock`) for state-based replication |
-| `packages/db` | Store implementation with CRUD operations, transactions, event-based reactivity, queries, and persistence (in development) |
-| `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
-| `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
+| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
+| `packages/db` | Database utilities with typed collections, transactions, and mutation events built on the core primitives |
+| `packages/react` | React hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
+| `packages/solid` | SolidJS hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
 
 **Key points:**
 
-- Follows a Functional Core, Imperative Shell design—core packages stay pure/predictable while adapters handle IO, frameworks, and persistence
-- Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management
-- Higher-level features (Store implementation, queries, persistence, plugins) live in `packages/db`
-- Framework integrations live in separate packages (`packages/react`, `packages/solid`)
-- All packages are TypeScript modules bundled via `tsdown`
-- Tests live alongside implementation: `packages/core/src/**/*.test.ts`
+- Follows a Functional Core, Imperative Shell design—core packages stay predictable while adapters handle IO, frameworks, and persistence.
+- Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management.
+- Higher-level database features (collections, transactions, mutation events) live in `packages/db`.
+- Framework integrations live in separate packages (`packages/react`, `packages/solid`) and still target the earlier Store + plugin API.
+- All packages are TypeScript modules bundled via `tsdown`.
+- Tests live alongside implementation: `packages/core/src/**/*.test.ts`.
 
 ## Eventstamps
 
@@ -92,7 +92,7 @@ State-based replication keeps the implementation focused and efficient:
 - **Merge idempotency**: Applying the same state multiple times produces the same result—natural retry safety
 - **Works everywhere**: Any transport that can move JSON works—HTTP, WebSocket, filesystem, USB stick
 
-**Current implementation**: Starling ships entire snapshots over the wire. Near-term work focuses on delta compression to send only changed fields while maintaining the state-based model.
+**Current implementation**: Starling ships entire snapshots over the wire. Delta-style helpers could be added later, but the merge model stays state-based.
 
 ### Merge Behavior
 
@@ -210,22 +210,12 @@ This design separates merge logic from higher-level store implementations, enabl
 
 Starling focuses on the 80/20 of sync for personal and small-team apps:
 
-**What Starling provides:**
+- Automatic convergence via field-level LWW so all replicas eventually agree.
+- Simple mental model: “newest write wins” at each field.
+- Small, embeddable core with no runtime dependencies.
+- Works with any framework that can run JavaScript.
 
-- **Automatic convergence**: Field-level Last-Write-Wins ensures all replicas eventually agree
-- **Simple mental model**: "Newest write wins" is easy to explain and reason about
-- **Embeddable**: Tiny footprint (~4KB core) with zero required dependencies
-- **Framework-agnostic**: Works with React, SolidJS, Vue, Svelte, or vanilla JavaScript
-
-**Specialized use cases:**
-
-For real-time collaboration, strict causal ordering, or complex operational transforms, consider specialized libraries:
-
-- **Collaborative text editing**: [Yjs](https://docs.yjs.dev/) or [Diamond Types](https://github.com/josephg/diamond-types) provide mergeable text CRDTs
-- **Rich document collaboration**: [Automerge](https://automerge.org/) offers a full CRDT suite with causal consistency
-- **Distributed systems with high clock skew**: Vector clock-based systems like [Riak](https://riak.com/) handle multi-datacenter scenarios
-
-Starling can complement these tools—use it for application state while delegating collaborative data structures to specialized CRDTs.
+For real-time collaborative editing, strict causal ordering, or complex operational transforms, specialized CRDT libraries (for example, Automerge or Yjs) are usually a better fit. Starling can manage application state alongside those tools.
 
 ## Module Overview
 
@@ -261,21 +251,29 @@ mergeDocuments(into, from) → Resource merge (mergeResources)
 
 ## Package Exports
 
-Starling ships as a monorepo with minimal exports:
+Starling ships as a monorepo with minimal exports.
 
-### `@byearlybird/starling` (Core)
+### `@byearlybird/starling` (core)
 
-**Exports**: `ResourceMap`, `ResourceObject`, `JsonDocument`, `AnyObject`, `Clock`, `mergeDocuments`, `MIN_EVENTSTAMP`, `isValidEventstamp`
-**Dependencies**: Zero runtime dependencies
+**Exports (simplified):**
 
-Provides minimal CRDT primitives for state-based replication: document merging, resource management, and hybrid logical clocks.
+- Clocks: `createClock`, `createClockFromEventstamp`, `MIN_EVENTSTAMP`, `isValidEventstamp`
+- Documents: `makeDocument`, `mergeDocuments`, types `JsonDocument`, `AnyObject`, `DocumentChanges`, `MergeDocumentsResult`
+- Resources: `makeResource`, `mergeResources`, `deleteResource`, type `ResourceObject`
+- Resource maps: `createMap`, `createMapFromDocument`
+
+These primitives implement state-based replication, document merging, resource management, and hybrid logical clocks.
 
 ### `@byearlybird/starling-db`
 
-**Status**: In development
-**Planned exports**: `Store`, `createStore`, queries, persistence adapters, plugins
+**Exports (current):**
 
-Higher-level store implementation with CRUD operations, transactions, event subscriptions, queries, and persistence built on the core primitives.
+- Database: `createDatabase`, types `Database`, `DbConfig`
+- Collections: `Collection`, `CollectionHandle`, `CollectionConfig`
+- Transactions and events: `TransactionContext`, `DatabaseMutationEvent`
+- Schema utilities: `StandardSchemaV1`
+
+This package wires core primitives into typed collections with CRUD operations, transactions, and mutation events. Query helpers and persistence adapters are planned but not implemented here yet.
 
 ## Testing Strategy
 
