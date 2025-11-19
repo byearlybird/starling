@@ -1,1 +1,1 @@
-export { ResourceMap } from "./resource-map";
+export { createMap, createMapFromDocument } from "./resource-map";
