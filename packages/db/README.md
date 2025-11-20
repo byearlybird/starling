@@ -136,18 +136,160 @@ const unsubscribeDb = db.on("mutation", (events) => {
 
 During a transaction, all mutations in that transaction are batched into a single event per collection when the transaction commits.
 
+## Plugins
+
+Plugins extend the database with custom lifecycle hooks for persistence, synchronization, logging, and other cross-cutting concerns.
+
+### Plugin Structure
+
+A plugin is an object with optional `init` and `dispose` handlers:
+
+```ts
+import type { DatabasePlugin } from "@byearlybird/starling-db";
+
+const myPlugin: DatabasePlugin<{ tasks: typeof taskSchema }> = {
+  handlers: {
+    init: async (db) => {
+      // Called when db.init() is invoked
+      // Load data, establish connections, subscribe to events, etc.
+    },
+    dispose: async (db) => {
+      // Called when db.dispose() is invoked
+      // Save data, close connections, clean up resources, etc.
+    },
+  },
+};
+```
+
+Both handlers receive the full database instance and can be sync or async.
+
+### Using Plugins
+
+Register plugins when creating the database:
+
+```ts
+const db = createDatabase({
+  schema: {
+    tasks: { schema: taskSchema, getId: (task) => task.id },
+  },
+  plugins: [idbPlugin, httpPlugin],
+});
+
+// Initialize the database (runs all plugin init handlers)
+await db.init();
+
+// Use the database
+db.tasks.add({ id: "1", title: "Learn Starling", completed: false });
+
+// Clean up (runs all plugin dispose handlers)
+await db.dispose();
+```
+
+### Execution Order
+
+- **Init handlers** run in registration order: `[plugin1, plugin2, plugin3]`
+- **Dispose handlers** run in reverse order (LIFO): `[plugin3, plugin2, plugin1]`
+
+This ensures proper cleanup when plugins depend on each other.
+
+### Plugin Capabilities
+
+Plugins have full access to the database instance:
+
+- **Collections**: Read, write, merge data via collection handles
+- **Events**: Subscribe to mutation events with `db.on("mutation", ...)`
+- **Transactions**: Run multi-collection operations with `db.begin(...)`
+- **Export**: Get snapshots for all collections with `db.toDocuments()`
+
+### Example: IndexedDB Persistence
+
+```ts
+const idbPlugin: DatabasePlugin<{ tasks: typeof taskSchema }> = {
+  handlers: {
+    init: async (db) => {
+      // Load persisted data
+      const saved = await loadFromIndexedDB();
+      if (saved.tasks) {
+        db.tasks.merge(saved.tasks);
+      }
+
+      // Subscribe to changes and persist on mutation
+      db.on("mutation", async () => {
+        const docs = db.toDocuments();
+        await saveToIndexedDB(docs);
+      });
+    },
+    dispose: async (db) => {
+      // Final save on cleanup
+      const docs = db.toDocuments();
+      await saveToIndexedDB(docs);
+    },
+  },
+};
+```
+
+### Example: HTTP Sync
+
+```ts
+const httpPlugin: DatabasePlugin<{ tasks: typeof taskSchema }> = {
+  handlers: {
+    init: async (db) => {
+      // Fetch initial data
+      const response = await fetch("https://api.example.com/sync");
+      const data = await response.json();
+      if (data.tasks) {
+        db.tasks.merge(data.tasks);
+      }
+
+      // Poll for updates every 5 seconds
+      const interval = setInterval(async () => {
+        const response = await fetch("https://api.example.com/sync");
+        const data = await response.json();
+        if (data.tasks) {
+          db.tasks.merge(data.tasks);
+        }
+      }, 5000);
+
+      // Store interval ID for cleanup
+      (httpPlugin as any)._interval = interval;
+    },
+    dispose: async (db) => {
+      // Clear polling interval
+      clearInterval((httpPlugin as any)._interval);
+
+      // Push final state to server
+      const docs = db.toDocuments();
+      await fetch("https://api.example.com/sync", {
+        method: "POST",
+        body: JSON.stringify(docs),
+      });
+    },
+  },
+};
+```
+
+### Lifecycle Methods
+
+The database exposes two async methods for plugin lifecycle:
+
+- `db.init(): Promise<void>` - Execute all plugin init handlers
+- `db.dispose(): Promise<void>` - Execute all plugin dispose handlers
+
+These are the **only async methods** on the database. All CRUD operations remain synchronous.
+
 ## Development Status
 
 This package is early but functional:
 
 - Collections, transactions, and mutation events are implemented and tested.
+- Plugin system with init/dispose lifecycle hooks is implemented and tested.
 - Schema integration is intentionally minimal to keep the API small.
 
 Planned (not implemented here yet):
 
 - A higher-level Store API built on `createDatabase`
 - Query helpers for common patterns
-- Persistence adapters and integration guides
+- Built-in persistence and sync plugins
 
 ## License
 

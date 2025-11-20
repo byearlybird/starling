@@ -10,7 +10,12 @@ export {
 	IdNotFoundError,
 } from "./collection";
 export { CollectionHandle } from "./collection-handle";
-export type { CollectionConfig, Database, DbConfig } from "./db";
+export type {
+	CollectionConfig,
+	Database,
+	DatabasePlugin,
+	DbConfig,
+} from "./db";
 // Core Database API
 export { createDatabase } from "./db";
 // Type utilities
