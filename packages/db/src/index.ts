@@ -22,3 +22,6 @@ export { createDatabase } from "./db";
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
 export type { TransactionContext } from "./transaction";
+
+// Plugins
+export { idbPlugin, type IdbPluginConfig } from "./plugins/idb";
