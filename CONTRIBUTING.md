@@ -28,10 +28,10 @@ bun test
 bun test --watch
 
 # Specific test file
-bun test packages/core/src/store/store.test.ts
+bun test packages/core/src/document/document.test.ts
 ```
 
-- The `core` suite exercises every CRDT primitive; run it whenever you touch merge logic, transaction behavior, or event system.
+- The `core` suite exercises CRDT primitives and document merging; run it whenever you touch merge logic or the event system.
 - Add tests alongside the implementation in the same directory.
 
 ## Linting and Formatting
