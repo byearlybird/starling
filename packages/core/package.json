@@ -12,16 +12,6 @@
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
-		"./plugin-query": {
-			"types": "./dist/plugins/query/plugin.d.ts",
-			"import": "./dist/plugins/query/plugin.js",
-			"default": "./dist/plugins/query/plugin.js"
-		},
-		"./plugin-unstorage": {
-			"types": "./dist/plugins/unstorage/plugin.d.ts",
-			"import": "./dist/plugins/unstorage/plugin.js",
-			"default": "./dist/plugins/unstorage/plugin.js"
-		},
 		"./crdt": {
 			"types": "./dist/crdt/index.d.ts",
 			"import": "./dist/crdt/index.js",
@@ -34,14 +24,6 @@
 	"scripts": {
 		"build": "bun run build.ts",
 		"prepublishOnly": "bun run build.ts"
-	},
-	"peerDependencies": {
-		"unstorage": "^1.17.1"
-	},
-	"peerDependenciesMeta": {
-		"unstorage": {
-			"optional": true
-		}
 	},
 	"publishConfig": {
 		"access": "public"

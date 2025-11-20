@@ -5,6 +5,7 @@ import {
 	generateNonce,
 	isValidEventstamp,
 	MIN_EVENTSTAMP,
+	maxEventstamp,
 } from "./eventstamp";
 
 test("decode() extracts timestamp and counter correctly", () => {
@@ -139,4 +140,44 @@ test("isValidEventstamp() returns false for extra parts", () => {
 	expect(isValidEventstamp("2025-01-01T00:00:00.000Z|0001|a1b2|extra")).toBe(
 		false,
 	);
+});
+
+// ============================================================================
+// maxEventstamp() tests
+// ============================================================================
+
+test("maxEventstamp() returns MIN_EVENTSTAMP for empty array", () => {
+	expect(maxEventstamp([])).toBe(MIN_EVENTSTAMP);
+});
+
+test("maxEventstamp() returns the only eventstamp for single-element array", () => {
+	const stamp = "2025-01-01T00:00:00.000Z|0001|a1b2";
+	expect(maxEventstamp([stamp])).toBe(stamp);
+});
+
+test("maxEventstamp() returns the maximum eventstamp", () => {
+	const stamps = [
+		"2025-01-01T00:00:00.000Z|0001|a1b2",
+		"2025-01-01T00:05:00.000Z|0001|c3d4",
+		"2025-01-01T00:02:00.000Z|0001|b2c3",
+	];
+	expect(maxEventstamp(stamps)).toBe("2025-01-01T00:05:00.000Z|0001|c3d4");
+});
+
+test("maxEventstamp() handles counters correctly", () => {
+	const stamps = [
+		"2025-01-01T00:00:00.000Z|0001|a1b2",
+		"2025-01-01T00:00:00.000Z|0005|c3d4",
+		"2025-01-01T00:00:00.000Z|0003|b2c3",
+	];
+	expect(maxEventstamp(stamps)).toBe("2025-01-01T00:00:00.000Z|0005|c3d4");
+});
+
+test("maxEventstamp() handles nonces correctly as tie-breaker", () => {
+	const stamps = [
+		"2025-01-01T00:00:00.000Z|0001|a1b2",
+		"2025-01-01T00:00:00.000Z|0001|ffff",
+		"2025-01-01T00:00:00.000Z|0001|b2c3",
+	];
+	expect(maxEventstamp(stamps)).toBe("2025-01-01T00:00:00.000Z|0001|ffff");
 });

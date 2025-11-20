@@ -3,8 +3,34 @@
  * Database utilities for Starling stores
  */
 
-export const version = "0.1.0";
+// Collection utilities
+export {
+	type Collection,
+	DuplicateIdError,
+	IdNotFoundError,
+} from "./collection";
+export { CollectionHandle } from "./collection-handle";
+export type {
+	CollectionConfig,
+	Database,
+	DatabasePlugin,
+	DbConfig,
+} from "./db";
+// Core Database API
+export { createDatabase } from "./db";
+// Plugins
+export { type IdbPluginConfig, idbPlugin } from "./plugins/idb";
+export {
+	type HttpPluginConfig,
+	type RequestContext,
+	type RequestHookResult,
+	type ResponseHookResult,
+	httpPlugin,
+} from "./plugins/http";
+// Type utilities
+export type { StandardSchemaV1 } from "./standard-schema";
+// Transaction utilities
+export type { TransactionContext } from "./transaction";
 
-// Re-export query system when it's ready
-// Note: Query system will be exported as subpath export
+// Query system available as subpath export:
 // import { createQuery } from "@byearlybird/starling-db/query"

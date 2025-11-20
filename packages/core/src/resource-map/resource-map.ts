@@ -1,5 +1,9 @@
 import { createClock } from "../clock/clock";
-import type { AnyObject, JsonDocument } from "../document/document";
+import type {
+	AnyObject,
+	JsonDocument,
+	MergeDocumentsResult,
+} from "../document/document";
 import { mergeDocuments } from "../document/document";
 import type { ResourceObject } from "../document/resource";
 import {
@@ -7,9 +11,10 @@ import {
 	makeResource,
 	mergeResources,
 } from "../document/resource";
+import { documentToMap, mapToDocument } from "../document/utils";
 
 /**
- * A dumb ResourceMap container for storing and managing ResourceObjects.
+ * A ResourceMap container for storing and managing ResourceObjects.
  *
  * This factory function creates a ResourceMap with state-based replication
  * and automatic convergence via Last-Write-Wins conflict resolution.
@@ -21,17 +26,17 @@ import {
  *
  * @example
  * ```typescript
- * const resourceMap = createResourceMap(new Map(), "default");
+ * const resourceMap = createMap("todos");
  * resourceMap.set("id1", { name: "Alice" });
  * const resource = resourceMap.get("id1"); // ResourceObject with metadata
  * ```
  */
-export function createResourceMap<T extends AnyObject>(
-	map: Map<string, ResourceObject<T>> = new Map(),
-	resourceType: string = "default",
+export function createMap<T extends AnyObject>(
+	resourceType: string,
+	initialMap: Map<string, ResourceObject<T>> = new Map(),
 	eventstamp?: string,
 ) {
-	let internalMap = map;
+	let internalMap = initialMap;
 	const clock = createClock();
 
 	if (eventstamp) {
@@ -94,46 +99,43 @@ export function createResourceMap<T extends AnyObject>(
 			return new Map(internalMap);
 		},
 
-		snapshot(): JsonDocument<T> {
-			return {
-				jsonapi: { version: "1.1" },
-				meta: {
-					latest: clock.latest(),
-				},
-				data: Array.from(internalMap.values()),
-			};
+		/**
+		 * Export the current state as a JsonDocument snapshot.
+		 */
+		toDocument(): JsonDocument<T> {
+			return mapToDocument(internalMap, clock.latest());
 		},
 
 		/**
 		 * Merge another document into this ResourceMap using field-level Last-Write-Wins.
-		 * @param collection - JsonDocument from another replica or storage
+		 * @returns The merge result containing the merged document and tracked changes
+		 * @param document - JsonDocument from another replica or storage
 		 */
-		merge(collection: JsonDocument<T>): void {
-			const currentCollection = this.snapshot();
-			const result = mergeDocuments(currentCollection, collection);
+		merge(document: JsonDocument<T>): MergeDocumentsResult<T> {
+			const currentDocument = mapToDocument(internalMap, clock.latest());
+			const result = mergeDocuments(currentDocument, document);
 
 			clock.forward(result.document.meta.latest);
-			internalMap = new Map(
-				result.document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
-			);
+			internalMap = documentToMap(result.document);
+			return result;
 		},
 	};
 }
 
 /**
  * Create a ResourceMap from a JsonDocument snapshot.
- * @param collection - JsonDocument containing resource data
  * @param type - Resource type identifier (defaults to "default")
+ * @param document - JsonDocument containing resource data
  */
-export function createResourceMapFromDocument<U extends AnyObject>(
-	collection: JsonDocument<U>,
-	type: string = "default",
-): ReturnType<typeof createResourceMap<U>> {
+export function createMapFromDocument<U extends AnyObject>(
+	type: string,
+	document: JsonDocument<U>,
+): ReturnType<typeof createMap<U>> {
 	// Infer type from first resource if available, otherwise use provided type
-	const inferredType = collection.data[0]?.type ?? type;
-	return createResourceMap<U>(
-		new Map(collection.data.map((doc) => [doc.id, doc as ResourceObject<U>])),
+	const inferredType = document.data[0]?.type ?? type;
+	return createMap<U>(
 		inferredType,
-		collection.meta.latest,
+		documentToMap(document),
+		document.meta.latest,
 	);
 }

@@ -1,3 +1,5 @@
+import { InvalidEventstampError } from "./errors";
+
 export function generateNonce(): string {
 	// Generate a random 4-character hex nonce for tie-breaking
 	return Math.random().toString(16).slice(2, 6).padStart(4, "0");
@@ -13,6 +15,9 @@ export function encodeEventstamp(
 	return `${isoString}|${counterHex}|${nonce}`;
 }
 
+const EVENTSTAMP_REGEX =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{4,}\|[0-9a-f]{4}$/;
+
 /**
  * Validates whether a string is a properly formatted eventstamp.
  * Expected format: YYYY-MM-DDTHH:mm:ss.SSSZ|HHHH+|HHHH
@@ -20,9 +25,7 @@ export function encodeEventstamp(
  * and HHHH represents exactly 4 hex characters for the nonce.
  */
 export function isValidEventstamp(stamp: string): boolean {
-	return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]{4,}\|[0-9a-f]{4}$/.test(
-		stamp,
-	);
+	return EVENTSTAMP_REGEX.test(stamp);
 }
 
 export function decodeEventstamp(eventstamp: string): {
@@ -31,9 +34,7 @@ export function decodeEventstamp(eventstamp: string): {
 	nonce: string;
 } {
 	if (!isValidEventstamp(eventstamp)) {
-		throw new Error(
-			`Invalid eventstamp format: "${eventstamp}". Expected format: YYYY-MM-DDTHH:mm:ss.SSSZ|HHHH+|HHHH`,
-		);
+		throw new InvalidEventstampError(eventstamp);
 	}
 
 	const parts = eventstamp.split("|");
@@ -49,3 +50,16 @@ export function decodeEventstamp(eventstamp: string): {
 }
 
 export const MIN_EVENTSTAMP = encodeEventstamp(0, 0, "0000");
+
+/**
+ * Find the maximum eventstamp from an array of eventstamps.
+ * Returns MIN_EVENTSTAMP if the array is empty.
+ * @param eventstamps - Array of eventstamp strings
+ * @returns The maximum eventstamp
+ */
+export function maxEventstamp(eventstamps: string[]): string {
+	if (eventstamps.length === 0) {
+		return MIN_EVENTSTAMP;
+	}
+	return eventstamps.reduce((max, stamp) => (stamp > max ? stamp : max));
+}

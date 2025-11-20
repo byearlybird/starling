@@ -1,6 +1,8 @@
 # @byearlybird/starling-react
 
-React hooks for [Starling](https://github.com/byearlybird/starling) stores.
+React hooks for Starling stores.
+
+> **Status:** This package still targets the earlier `Store` + plugin API from Starling 0.6.x (for example, `createStore`, `queryPlugin`). The core library in this repo now focuses on CRDT primitives and `@byearlybird/starling-db`. Until a new Store API is available, treat this package as experimental/legacy.
 
 ## Installation
 
@@ -8,146 +10,20 @@ React hooks for [Starling](https://github.com/byearlybird/starling) stores.
 bun add @byearlybird/starling @byearlybird/starling-react
 ```
 
-## Quick Start
+## Overview
 
-```tsx
-import { Store } from "@byearlybird/starling";
-import { createStoreHooks } from "@byearlybird/starling-react";
+`@byearlybird/starling-react` exposes a single factory:
 
-// Create your store
-const todoStore = await new Store<Todo>().init();
+- `createStoreHooks(store)` – returns `{ StoreProvider, useStore, useQuery }`
 
-// Create typed hooks from your store - do this once at module level
-export const { StoreProvider, useStore, useQuery } = createStoreHooks(todoStore);
+These hooks are wired to the Store type exported by older versions of `@byearlybird/starling` and depend on the query plugin (`store.query`).
 
-// Wrap your app with StoreProvider
-function App() {
-  return (
-    <StoreProvider>
-      <TodoList />
-    </StoreProvider>
-  );
-}
+This repository does not yet define the next-generation Store API on top of `@byearlybird/starling-db`, so the existing examples are intentionally omitted here to avoid documenting an API surface that is about to change.
 
-// Use hooks in your components - fully typed without type parameters!
-function TodoList() {
-  const store = useStore(); // ✅ Fully typed, no type parameter needed
+For concrete examples, refer to:
 
-  // Access store methods
-  const handleAdd = () => {
-    store.add({ text: "New todo", completed: false });
-  };
-
-  // Subscribe to reactive queries
-  const activeTodos = useQuery({
-    where: (todo) => !todo.completed
-  });
-
-  return (
-    <div>
-      <button onClick={handleAdd}>Add Todo</button>
-      <ul>
-        {activeTodos.map(([id, todo]) => (
-          <li key={id}>{todo.text}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
-
-## API
-
-### `createStoreHooks<T>(store)`
-
-Factory function that creates typed hooks for a Starling store. Call this once at module level to get fully typed hooks without needing type parameters in components.
-
-```tsx
-export const { StoreProvider, useStore, useQuery } = createStoreHooks(todoStore);
-```
-
-**Parameters:**
-- `store` - Your Starling store instance
-
-**Returns:** Object with three items:
-- `StoreProvider` - Context provider component
-- `useStore` - Hook to access the store
-- `useQuery` - Hook to create reactive queries
-
-### `StoreProvider`
-
-Provides the Starling store to child components via React Context.
-
-```tsx
-<StoreProvider>
-  <App />
-</StoreProvider>
-```
-
-**Props:**
-- `children` - Child components that can access the store
-
-### `useStore()`
-
-Access the Starling store from React Context. Must be used within a `StoreProvider`.
-
-**No type parameters needed** - types are inferred from the factory function!
-
-```tsx
-function MyComponent() {
-  const store = useStore(); // ✅ Fully typed automatically
-
-  const handleUpdate = (id: string) => {
-    store.update(id, { completed: true });
-  };
-
-  // ...
-}
-```
-
-**Returns:** Store instance with full API (add, update, del, get, entries, etc.)
-
-### `useQuery<U>(config)`
-
-Create and subscribe to a reactive query. Automatically re-renders when matching documents change.
-
-```tsx
-function ActiveTodos() {
-  const activeTodos = useQuery({
-    where: (todo) => !todo.completed
-  });
-
-  return (
-    <ul>
-      {activeTodos.map(([id, todo]) => (
-        <li key={id}>{todo.text}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-**Parameters:**
-- `config.where` - Filter predicate function (required)
-- `config.select` (optional) - Transform/projection function
-- `config.order` (optional) - Sort comparator
-
-**Returns:** Array of `[id, document]` tuples for matching documents
-
-**Performance tip:** For stable queries, create the config at module level:
-
-```tsx
-const activeQuery = { where: (todo: Todo) => !todo.completed };
-
-function OptimizedTodos() {
-  const activeTodos = useQuery(activeQuery); // Stable reference
-  // ...
-}
-```
-
-## Examples
-
-See the [demo React app](../../apps/demo-starling-react) for a complete example with localStorage and HTTP sync.
+- The demo app in `apps/demo-starling-react`
+- The Store + plugin documentation for the 0.6.x series of Starling
 
 ## License
 
