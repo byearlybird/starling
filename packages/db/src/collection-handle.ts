@@ -27,6 +27,7 @@ export type CollectionHandle<Schema extends AnyObjectSchema> = {
 			sort?: (a: U, b: U) => number;
 		},
 	): U[];
+	toDocument(): JsonDocument<StandardSchemaV1.InferOutput<Schema>>;
 	on(
 		event: "mutation",
 		handler: (
@@ -65,6 +66,10 @@ export function createCollectionHandle<Schema extends AnyObjectSchema>(
 
 		find(filter, opts) {
 			return collection.find(filter, opts);
+		},
+
+		toDocument() {
+			return collection.toDocument();
 		},
 
 		on(event, handler) {

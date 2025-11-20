@@ -176,6 +176,9 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 			find(filter, opts) {
 				return collections[name].find(filter, opts);
 			},
+			toDocument() {
+				return collections[name].toDocument();
+			},
 			on(event, handler) {
 				return collections[name].on(event, handler);
 			},

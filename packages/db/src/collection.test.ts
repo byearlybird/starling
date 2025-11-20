@@ -469,4 +469,60 @@ describe("Collection", () => {
 			expect(events).toHaveLength(0);
 		});
 	});
+
+	describe("toDocument", () => {
+		test("returns JsonDocument representation of current state", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.tasks.add({ id: "task-2", title: "Walk dog", completed: true });
+
+			const doc = db.tasks.toDocument();
+
+			expect(doc.jsonapi.version).toBe("1.1");
+			expect(doc.meta.latest).toBeDefined();
+			expect(doc.data).toHaveLength(2);
+			expect(doc.data[0].type).toBe("tasks");
+			expect(doc.data[0].id).toBe("task-1");
+			expect(doc.data[0].attributes.title).toBe("Buy milk");
+			expect(doc.data[1].id).toBe("task-2");
+			expect(doc.data[1].attributes.title).toBe("Walk dog");
+		});
+
+		test("returns empty document for empty collection", () => {
+			const db = createTestDb();
+
+			const doc = db.tasks.toDocument();
+
+			expect(doc.jsonapi.version).toBe("1.1");
+			expect(doc.meta.latest).toBeDefined();
+			expect(doc.data).toHaveLength(0);
+		});
+
+		test("includes soft-deleted items in document", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.tasks.remove("task-1");
+
+			const doc = db.tasks.toDocument();
+
+			expect(doc.data).toHaveLength(1);
+			expect(doc.data[0].meta.deletedAt).toBeDefined();
+			expect(doc.data[0].meta.deletedAt).not.toBeNull();
+		});
+
+		test("includes correct latest eventstamp", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.tasks.add({ id: "task-2", title: "Walk dog", completed: true });
+
+			const doc = db.tasks.toDocument();
+
+			// The latest should be the maximum of all resource eventstamps
+			expect(doc.meta.latest).toBeDefined();
+			expect(typeof doc.meta.latest).toBe("string");
+
+			// Verify it matches the format
+			expect(doc.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+		});
+	});
 });
