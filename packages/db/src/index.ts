@@ -20,6 +20,13 @@ export type {
 export { createDatabase } from "./db";
 // Plugins
 export { type IdbPluginConfig, idbPlugin } from "./plugins/idb";
+export {
+	type HttpPluginConfig,
+	type RequestContext,
+	type RequestHookResult,
+	type ResponseHookResult,
+	httpPlugin,
+} from "./plugins/http";
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
