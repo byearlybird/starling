@@ -65,8 +65,9 @@ describe("Query System", () => {
 			});
 
 			// Query reflects added items
-			expect(activeTodos.results().length).toBe(1);
-			expect(activeTodos.results()[0].text).toBe("Active");
+			const results = activeTodos.results();
+			expect(results.length).toBe(1);
+			expect(results[0].text).toBe("Active");
 
 			activeTodos.dispose();
 		});
@@ -159,6 +160,45 @@ describe("Query System", () => {
 
 			activeTodos.dispose();
 		});
+
+		it("handles item removal", async () => {
+			const db = await createDatabase({
+				schema: {
+					todos: {
+						schema: todoSchema,
+						getId: (t) => t.id,
+					},
+				},
+			}).init();
+
+			const activeTodos = createQuery(
+				db,
+				"todos",
+				(todo) => !todo.completed,
+			);
+
+			db.todos.add({
+				id: "1",
+				text: "Task 1",
+				completed: false,
+				ownerId: "user1",
+			});
+			db.todos.add({
+				id: "2",
+				text: "Task 2",
+				completed: false,
+				ownerId: "user1",
+			});
+
+			expect(activeTodos.results().length).toBe(2);
+
+			db.todos.remove("1");
+
+			expect(activeTodos.results().length).toBe(1);
+			expect(activeTodos.results()[0].id).toBe("2");
+
+			activeTodos.dispose();
+		});
 	});
 
 	describe("Multi-Collection Queries", () => {
@@ -171,8 +211,18 @@ describe("Query System", () => {
 			}).init();
 
 			// Add test data
-			db.users.add({ id: "u1", name: "Alice", email: "alice@test.com", active: true });
-			db.users.add({ id: "u2", name: "Bob", email: "bob@test.com", active: true });
+			db.users.add({
+				id: "u1",
+				name: "Alice",
+				email: "alice@test.com",
+				active: true,
+			});
+			db.users.add({
+				id: "u2",
+				name: "Bob",
+				email: "bob@test.com",
+				active: true,
+			});
 
 			db.todos.add({
 				id: "t1",
@@ -234,7 +284,12 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			db.users.add({ id: "u1", name: "Alice", email: "alice@test.com", active: true });
+			db.users.add({
+				id: "u1",
+				name: "Alice",
+				email: "alice@test.com",
+				active: true,
+			});
 			db.todos.add({
 				id: "t1",
 				text: "Task 1",
@@ -276,7 +331,47 @@ describe("Query System", () => {
 			todosWithOwners.dispose();
 		});
 
-		it("handles complex joins with multiple collections", async () => {
+		it("only tracks accessed collections", async () => {
+			const db = await createDatabase({
+				schema: {
+					todos: { schema: todoSchema, getId: (t) => t.id },
+					users: { schema: userSchema, getId: (u) => u.id },
+					projects: { schema: projectSchema, getId: (p) => p.id },
+				},
+			}).init();
+
+			db.todos.add({
+				id: "t1",
+				text: "Task",
+				completed: false,
+				ownerId: "u1",
+			});
+
+			// Query only accesses todos
+			const simpleTodos = createQuery(db, (collections) => {
+				return collections.todos.getAll().map((t) => ({ text: t.text }));
+			});
+
+			const onChange = mock(() => {});
+			simpleTodos.onChange(onChange);
+
+			// Change in todos → notification
+			db.todos.update("t1", { text: "Updated" });
+			expect(onChange).toHaveBeenCalledTimes(1);
+
+			// Change in unaccessed collection → no notification
+			db.users.add({
+				id: "u1",
+				name: "Alice",
+				email: "alice@test.com",
+				active: true,
+			});
+			expect(onChange).toHaveBeenCalledTimes(1); // Still 1
+
+			simpleTodos.dispose();
+		});
+
+		it("handles three-way joins", async () => {
 			const db = await createDatabase({
 				schema: {
 					todos: { schema: todoSchema, getId: (t) => t.id },
@@ -286,7 +381,12 @@ describe("Query System", () => {
 			}).init();
 
 			// Setup data
-			db.users.add({ id: "u1", name: "Alice", email: "alice@test.com", active: true });
+			db.users.add({
+				id: "u1",
+				name: "Alice",
+				email: "alice@test.com",
+				active: true,
+			});
 			db.projects.add({ id: "p1", name: "Project Alpha", archived: false });
 
 			db.todos.add({
@@ -337,41 +437,6 @@ describe("Query System", () => {
 			});
 
 			enrichedTodos.dispose();
-		});
-
-		it("only tracks accessed collections", async () => {
-			const db = await createDatabase({
-				schema: {
-					todos: { schema: todoSchema, getId: (t) => t.id },
-					users: { schema: userSchema, getId: (u) => u.id },
-					projects: { schema: projectSchema, getId: (p) => p.id },
-				},
-			}).init();
-
-			db.todos.add({
-				id: "t1",
-				text: "Task",
-				completed: false,
-				ownerId: "u1",
-			});
-
-			// Query only accesses todos
-			const simpleTodos = createQuery(db, (collections) => {
-				return collections.todos.getAll().map((t) => ({ text: t.text }));
-			});
-
-			const onChange = mock(() => {});
-			simpleTodos.onChange(onChange);
-
-			// Change in todos → notification
-			db.todos.update("t1", { text: "Updated" });
-			expect(onChange).toHaveBeenCalledTimes(1);
-
-			// Change in unaccessed collection → no notification
-			db.users.add({ id: "u1", name: "Alice", email: "alice@test.com", active: true });
-			expect(onChange).toHaveBeenCalledTimes(1); // Still 1
-
-			simpleTodos.dispose();
 		});
 	});
 
@@ -445,6 +510,27 @@ describe("Query System", () => {
 			expect(listener2).toHaveBeenCalledTimes(2); // Incremented
 
 			query.dispose();
+		});
+
+		it("returns empty array when disposed", async () => {
+			const db = await createDatabase({
+				schema: {
+					todos: { schema: todoSchema, getId: (t) => t.id },
+				},
+			}).init();
+
+			db.todos.add({
+				id: "1",
+				text: "Task",
+				completed: false,
+				ownerId: "user1",
+			});
+
+			const query = createQuery(db, "todos", (todo) => !todo.completed);
+			expect(query.results().length).toBe(1);
+
+			query.dispose();
+			expect(query.results().length).toBe(0);
 		});
 	});
 });
