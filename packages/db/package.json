@@ -11,6 +11,11 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./query": {
+			"types": "./dist/query/index.d.ts",
+			"import": "./dist/query/index.js",
+			"default": "./dist/query/index.js"
 		}
 	},
 	"files": [

@@ -110,14 +110,13 @@ const DB_METHOD_NAMES = [
 	"on",
 	"init",
 	"dispose",
-	"find", // If we add db.find()
 ] as const;
 
 /**
  * Create collection accessors for all collections in a database.
  *
  * Automatically extracts collection keys by filtering out database methods.
- * This is the DRY helper used by both db.find() and createQuery().
+ * This is the DRY helper used by createQuery() and multi-collection queries.
  *
  * @param db - Database instance
  * @param trackAccess - Optional callback to track which collections are accessed
