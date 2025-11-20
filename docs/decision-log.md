@@ -41,7 +41,7 @@ Internal metadata fields (IDs, timestamps, deletion markers) need to be:
 
 Prefix all system-reserved keys with a tilde (`~`): `~id`, `~deletedAt`, `~createdAt`.
 
-This decision applies to higher-level store schemas that expose raw documents to users. The core CRDT types in `packages/core` use JSON:API-style `type`, `id`, `attributes`, and `meta` fields instead.
+This applies to higher-level database schemas. The core CRDT types in `packages/core` use JSON:API-style `type`, `id`, `attributes`, and `meta` fields instead.
 
 **Rationale**
 
@@ -90,7 +90,7 @@ This design makes specific compromises:
 
 2. **Silent overwrites**: Concurrent edits to the same field result in one value winning. There's no "conflict detected" callback. Users must structure data to minimize collisions (e.g., keyed records instead of arrays).
 
-3. **Eventstamp persistence required**: Each device must persist the highest eventstamp it's seen. Without this, a device coming back online with a stale clock could lose writes (the `unstorage` plugin handles this automatically).
+3. **Eventstamp persistence required**: Each device must persist the highest eventstamp it's seen. Without this, a device coming back online with a stale clock could lose writes. Persistence plugins should handle this automatically.
 
 **Alternatives Considered**
 

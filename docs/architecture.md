@@ -10,15 +10,14 @@ This document covers the design and internals of Starling, including the state-b
 | --- | --- |
 | `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
 | `packages/db` | Database utilities with typed collections, transactions, and mutation events built on the core primitives |
-| `packages/react` | React hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
-| `packages/solid` | SolidJS hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
+| `packages/react` | React hooks (legacy; targets pre-1.0 API) |
+| `packages/solid` | SolidJS hooks (legacy; targets pre-1.0 API) |
 
 **Key points:**
 
 - Follows a Functional Core, Imperative Shell design—core packages stay predictable while adapters handle IO, frameworks, and persistence.
 - Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management.
 - Higher-level database features (collections, transactions, mutation events) live in `packages/db`.
-- Framework integrations live in separate packages (`packages/react`, `packages/solid`) and still target the earlier Store + plugin API.
 - All packages are TypeScript modules bundled via `tsdown`.
 - Tests live alongside implementation: `packages/core/src/**/*.test.ts`.
 
@@ -85,14 +84,14 @@ Starling uses **state-based replication**: it syncs full document snapshots, not
 
 **Why state-based?**
 
-State-based replication keeps the implementation focused and efficient:
+State-based replication keeps the implementation simple:
 
-- **Simple to reason about**: Syncing is just "send current state, merge on arrival"—no operation logs to manage
-- **Small codebase**: Eliminates transformation functions, causality tracking, and replay logic
-- **Merge idempotency**: Applying the same state multiple times produces the same result—natural retry safety
-- **Works everywhere**: Any transport that can move JSON works—HTTP, WebSocket, filesystem, USB stick
+- Syncing is just "send current state, merge on arrival"
+- No operation logs, transformation functions, or causality tracking
+- Merge idempotency provides natural retry safety
+- Works with any transport that can move JSON
 
-**Current implementation**: Starling ships entire snapshots over the wire. Delta-style helpers could be added later, but the merge model stays state-based.
+Starling ships entire snapshots. Delta optimizations could be added later while maintaining the state-based model.
 
 ### Merge Behavior
 
@@ -198,24 +197,24 @@ export type ResourceObject = {
 
 ### Merging Documents
 
-The `mergeDocuments(into, from)` function handles document-level merging with automatic change detection:
+The `mergeDocuments(into, from)` function handles document-level merging:
 
-1. **Field-level LWW**: Each resource pair merges using `mergeResources`, preserving the newest eventstamp for each field
-2. **Clock forwarding**: The resulting document's latest value is the maximum of both input eventstamps
-3. **Change tracking**: Returns categorized changes (added, updated, deleted) for event notifications
+1. Merges each resource pair using field-level LWW via `mergeResources`
+2. Forwards the clock to the maximum eventstamp from both documents
+3. Returns categorized changes (added, updated, deleted) for event notifications
 
-This design separates merge logic from higher-level store implementations, enabling independent testing and reuse of document operations.
+This separates merge logic from higher-level implementations, enabling independent testing and reuse.
 
 ## Design Scope
 
-Starling focuses on the 80/20 of sync for personal and small-team apps:
+Starling targets personal and small-team apps with these principles:
 
-- Automatic convergence via field-level LWW so all replicas eventually agree.
-- Simple mental model: “newest write wins” at each field.
-- Small, embeddable core with no runtime dependencies.
-- Works with any framework that can run JavaScript.
+- Automatic convergence via field-level LWW
+- Simple mental model: newest write wins
+- Small, embeddable core (zero dependencies)
+- Framework-agnostic
 
-For real-time collaborative editing, strict causal ordering, or complex operational transforms, specialized CRDT libraries (for example, Automerge or Yjs) are usually a better fit. Starling can manage application state alongside those tools.
+For real-time collaborative editing or complex operational transforms, use specialized CRDT libraries (Automerge, Yjs). Starling can manage application state alongside those tools.
 
 ## Module Overview
 
@@ -255,25 +254,19 @@ Starling ships as a monorepo with minimal exports.
 
 ### `@byearlybird/starling` (core)
 
-**Exports (simplified):**
-
-- Clocks: `createClock`, `createClockFromEventstamp`, `MIN_EVENTSTAMP`, `isValidEventstamp`
-- Documents: `makeDocument`, `mergeDocuments`, types `JsonDocument`, `AnyObject`, `DocumentChanges`, `MergeDocumentsResult`
-- Resources: `makeResource`, `mergeResources`, `deleteResource`, type `ResourceObject`
+**Exports:**
+- Clocks: `createClock`, `createClockFromEventstamp`
+- Documents: `makeDocument`, `mergeDocuments`, `JsonDocument`, `ResourceObject`
 - Resource maps: `createMap`, `createMapFromDocument`
-
-These primitives implement state-based replication, document merging, resource management, and hybrid logical clocks.
 
 ### `@byearlybird/starling-db`
 
-**Exports (current):**
+**Exports:**
+- Database: `createDatabase`, `Database`, `DbConfig`
+- Collections: `CollectionHandle`, `TransactionContext`
+- Events: `DatabaseMutationEvent`
 
-- Database: `createDatabase`, types `Database`, `DbConfig`
-- Collections: `Collection`, `CollectionHandle`, `CollectionConfig`
-- Transactions and events: `TransactionContext`, `DatabaseMutationEvent`
-- Schema utilities: `StandardSchemaV1`
-
-This package wires core primitives into typed collections with CRUD operations, transactions, and mutation events. Query helpers and persistence adapters are planned but not implemented here yet.
+Provides typed collections with CRUD operations, transactions, and mutation events built on core primitives.
 
 ## Testing Strategy
 
