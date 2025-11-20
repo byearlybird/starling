@@ -41,10 +41,18 @@ export type CollectionConfig<T extends AnyObjectSchema> = {
 	getId: (item: StandardSchemaV1.InferOutput<T>) => string;
 };
 
+export type DatabasePlugin<Schemas extends Record<string, AnyObjectSchema>> = {
+	handlers: {
+		init?: (db: Database<Schemas>) => Promise<void> | void;
+		dispose?: (db: Database<Schemas>) => Promise<void> | void;
+	};
+};
+
 export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
 	schema: {
 		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 	};
+	plugins?: DatabasePlugin<Schemas>[];
 };
 
 export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
@@ -58,6 +66,8 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 		event: "mutation",
 		handler: (payload: DatabaseMutationEvent<Schemas>) => void,
 	): () => void;
+	init(): Promise<void>;
+	dispose(): Promise<void>;
 };
 
 /**
@@ -110,7 +120,9 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 		});
 	}
 
-	return {
+	const plugins = config.plugins ?? [];
+
+	const db = {
 		...handles,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
 			return executeTransaction(
@@ -134,7 +146,26 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 		on(event, handler) {
 			return dbEmitter.on(event, handler);
 		},
-	};
+		async init() {
+			// Execute all plugin init handlers sequentially
+			for (const plugin of plugins) {
+				if (plugin.handlers.init) {
+					await plugin.handlers.init(db);
+				}
+			}
+		},
+		async dispose() {
+			// Execute all plugin dispose handlers sequentially (in reverse order)
+			for (let i = plugins.length - 1; i >= 0; i--) {
+				const plugin = plugins[i];
+				if (plugin.handlers.dispose) {
+					await plugin.handlers.dispose(db);
+				}
+			}
+		},
+	} as Database<Schemas>;
+
+	return db;
 }
 
 function makeCollections<Schemas extends Record<string, AnyObjectSchema>>(
