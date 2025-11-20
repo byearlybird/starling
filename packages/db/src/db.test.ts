@@ -112,4 +112,62 @@ describe("Database", () => {
 			expect(usersEvent[0].added).toHaveLength(1);
 		});
 	});
+
+	describe("toDocuments", () => {
+		test("returns documents for all collections", () => {
+			const db = createMultiCollectionDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.tasks.add({ id: "task-2", title: "Walk dog", completed: true });
+			db.users.add({ id: "user-1", name: "Alice", email: "alice@example.com" });
+
+			const documents = db.toDocuments();
+
+			expect(documents.tasks).toBeDefined();
+			expect(documents.users).toBeDefined();
+			expect(documents.tasks.jsonapi.version).toBe("1.1");
+			expect(documents.users.jsonapi.version).toBe("1.1");
+			expect(documents.tasks.data).toHaveLength(2);
+			expect(documents.users.data).toHaveLength(1);
+		});
+
+		test("returns empty documents for empty collections", () => {
+			const db = createMultiCollectionDb();
+
+			const documents = db.toDocuments();
+
+			expect(documents.tasks).toBeDefined();
+			expect(documents.users).toBeDefined();
+			expect(documents.tasks.data).toHaveLength(0);
+			expect(documents.users.data).toHaveLength(0);
+			expect(documents.tasks.meta.latest).toBeDefined();
+			expect(documents.users.meta.latest).toBeDefined();
+		});
+
+		test("includes soft-deleted items in documents", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.tasks.remove("task-1");
+
+			const documents = db.toDocuments();
+
+			expect(documents.tasks.data).toHaveLength(1);
+			expect(documents.tasks.data[0].meta.deletedAt).toBeDefined();
+			expect(documents.tasks.data[0].meta.deletedAt).not.toBeNull();
+		});
+
+		test("includes correct latest eventstamps for each collection", () => {
+			const db = createMultiCollectionDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			db.users.add({ id: "user-1", name: "Alice", email: "alice@example.com" });
+
+			const documents = db.toDocuments();
+
+			expect(documents.tasks.meta.latest).toBeDefined();
+			expect(documents.users.meta.latest).toBeDefined();
+			expect(typeof documents.tasks.meta.latest).toBe("string");
+			expect(typeof documents.users.meta.latest).toBe("string");
+			expect(documents.tasks.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+			expect(documents.users.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+		});
+	});
 });
