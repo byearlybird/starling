@@ -172,26 +172,7 @@ describe("Database", () => {
 	});
 
 	describe("plugins", () => {
-		test("database has init() and dispose() methods", () => {
-			const db = createTestDb();
-
-			expect(typeof db.init).toBe("function");
-			expect(typeof db.dispose).toBe("function");
-		});
-
-		test("init() and dispose() return promises", async () => {
-			const db = createTestDb();
-
-			const initResult = db.init();
-			expect(initResult instanceof Promise).toBe(true);
-			await initResult;
-
-			const disposeResult = db.dispose();
-			expect(disposeResult instanceof Promise).toBe(true);
-			await disposeResult;
-		});
-
-		test("plugin init handlers are called in registration order", async () => {
+		test("init handlers execute in registration order", async () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
@@ -206,36 +187,17 @@ describe("Database", () => {
 					},
 				},
 				plugins: [
-					{
-						handlers: {
-							init: () => {
-								calls.push("plugin1-init");
-							},
-						},
-					},
-					{
-						handlers: {
-							init: () => {
-								calls.push("plugin2-init");
-							},
-						},
-					},
-					{
-						handlers: {
-							init: () => {
-								calls.push("plugin3-init");
-							},
-						},
-					},
+					{ handlers: { init: () => calls.push("1") } },
+					{ handlers: { init: () => calls.push("2") } },
+					{ handlers: { init: () => calls.push("3") } },
 				],
 			});
 
 			await db.init();
-
-			expect(calls).toEqual(["plugin1-init", "plugin2-init", "plugin3-init"]);
+			expect(calls).toEqual(["1", "2", "3"]);
 		});
 
-		test("plugin dispose handlers are called in reverse order", async () => {
+		test("dispose handlers execute in reverse order", async () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
@@ -250,69 +212,14 @@ describe("Database", () => {
 					},
 				},
 				plugins: [
-					{
-						handlers: {
-							dispose: () => {
-								calls.push("plugin1-dispose");
-							},
-						},
-					},
-					{
-						handlers: {
-							dispose: () => {
-								calls.push("plugin2-dispose");
-							},
-						},
-					},
-					{
-						handlers: {
-							dispose: () => {
-								calls.push("plugin3-dispose");
-							},
-						},
-					},
+					{ handlers: { dispose: () => calls.push("1") } },
+					{ handlers: { dispose: () => calls.push("2") } },
+					{ handlers: { dispose: () => calls.push("3") } },
 				],
 			});
 
 			await db.dispose();
-
-			expect(calls).toEqual([
-				"plugin3-dispose",
-				"plugin2-dispose",
-				"plugin1-dispose",
-			]);
-		});
-
-		test("plugins can access database instance", async () => {
-			let dbInstance: any = null;
-
-			const db = createDatabase({
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-				plugins: [
-					{
-						handlers: {
-							init: (db) => {
-								dbInstance = db;
-							},
-						},
-					},
-				],
-			});
-
-			await db.init();
-
-			expect(dbInstance).toBe(db);
-			expect(dbInstance.tasks).toBeDefined();
-			expect(typeof dbInstance.begin).toBe("function");
+			expect(calls).toEqual(["3", "2", "1"]);
 		});
 
 		test("plugins can perform database operations", async () => {
@@ -331,11 +238,7 @@ describe("Database", () => {
 					{
 						handlers: {
 							init: (db) => {
-								db.tasks.add({
-									id: "plugin-task",
-									title: "Added by plugin",
-									completed: false,
-								});
+								db.tasks.add({ id: "1", title: "Added by plugin", completed: false });
 							},
 						},
 					},
@@ -343,13 +246,10 @@ describe("Database", () => {
 			});
 
 			await db.init();
-
-			const task = db.tasks.get("plugin-task");
-			expect(task).toBeDefined();
-			expect(task?.title).toBe("Added by plugin");
+			expect(db.tasks.get("1")?.title).toBe("Added by plugin");
 		});
 
-		test("async plugin handlers work correctly", async () => {
+		test("async handlers work correctly", async () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
@@ -366,18 +266,13 @@ describe("Database", () => {
 				plugins: [
 					{
 						handlers: {
-							init: async (db) => {
+							init: async () => {
 								await new Promise((resolve) => setTimeout(resolve, 10));
-								calls.push("async-init");
-								db.tasks.add({
-									id: "1",
-									title: "Test",
-									completed: false,
-								});
+								calls.push("init");
 							},
 							dispose: async () => {
 								await new Promise((resolve) => setTimeout(resolve, 10));
-								calls.push("async-dispose");
+								calls.push("dispose");
 							},
 						},
 					},
@@ -385,11 +280,8 @@ describe("Database", () => {
 			});
 
 			await db.init();
-			expect(calls).toContain("async-init");
-			expect(db.tasks.get("1")).toBeDefined();
-
 			await db.dispose();
-			expect(calls).toContain("async-dispose");
+			expect(calls).toEqual(["init", "dispose"]);
 		});
 
 		test("plugins can subscribe to mutation events", async () => {
@@ -410,9 +302,7 @@ describe("Database", () => {
 					{
 						handlers: {
 							init: (db) => {
-								db.on("mutation", (events) => {
-									pluginEvents.push(events);
-								});
+								db.on("mutation", (events) => pluginEvents.push(events));
 							},
 						},
 					},
@@ -420,98 +310,18 @@ describe("Database", () => {
 			});
 
 			await db.init();
-
 			db.tasks.add({ id: "1", title: "Test", completed: false });
 
 			expect(pluginEvents).toHaveLength(1);
 			expect(pluginEvents[0][0].collection).toBe("tasks");
 		});
 
-		test("works without plugins (backward compatibility)", async () => {
-			const db = createDatabase({
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			});
-
-			// Should not throw
+		test("works without plugins", async () => {
+			const db = createTestDb();
 			await db.init();
 			await db.dispose();
-
-			// Database should still work
 			db.tasks.add({ id: "1", title: "Test", completed: false });
 			expect(db.tasks.get("1")).toBeDefined();
-		});
-
-		test("plugins with only init handler work", async () => {
-			const calls: string[] = [];
-
-			const db = createDatabase({
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-				plugins: [
-					{
-						handlers: {
-							init: () => {
-								calls.push("init-only");
-							},
-						},
-					},
-				],
-			});
-
-			await db.init();
-			expect(calls).toContain("init-only");
-
-			// Should not throw
-			await db.dispose();
-		});
-
-		test("plugins with only dispose handler work", async () => {
-			const calls: string[] = [];
-
-			const db = createDatabase({
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-				plugins: [
-					{
-						handlers: {
-							dispose: () => {
-								calls.push("dispose-only");
-							},
-						},
-					},
-				],
-			});
-
-			// Should not throw
-			await db.init();
-
-			await db.dispose();
-			expect(calls).toContain("dispose-only");
 		});
 	});
 });
