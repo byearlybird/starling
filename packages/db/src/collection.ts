@@ -2,6 +2,7 @@ import {
 	deleteResource,
 	type JsonDocument,
 	makeResource,
+	mapToDocument,
 	mergeDocuments,
 	mergeResources,
 	type ResourceObject,
@@ -40,6 +41,7 @@ export type Collection<T extends AnyObjectSchema> = {
 	remove(id: string): void;
 	merge(document: JsonDocument<StandardSchemaV1.InferOutput<T>>): void;
 	data(): Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>;
+	toDocument(): JsonDocument<StandardSchemaV1.InferOutput<T>>;
 	on(
 		event: "mutation",
 		handler: (
@@ -234,17 +236,7 @@ export function createCollection<T extends AnyObjectSchema>(
 			}
 
 			// Build current document from collection state
-			const currentResources = Array.from(data.values());
-			const currentLatest = currentResources.reduce(
-				(max, r) => (r.meta.latest > max ? r.meta.latest : max),
-				getEventstamp(),
-			);
-
-			const currentDoc: JsonDocument<StandardSchemaV1.InferOutput<T>> = {
-				jsonapi: { version: "1.1" },
-				meta: { latest: currentLatest },
-				data: currentResources,
-			};
+			const currentDoc = mapToDocument(data, getEventstamp());
 
 			// Merge using core mergeDocuments
 			const result = mergeDocuments(currentDoc, document);
@@ -288,6 +280,10 @@ export function createCollection<T extends AnyObjectSchema>(
 
 		data() {
 			return new Map(data);
+		},
+
+		toDocument() {
+			return mapToDocument(data, getEventstamp());
 		},
 
 		on(event, handler) {

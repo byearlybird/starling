@@ -1,4 +1,8 @@
-import { type AnyObject, createClock } from "@byearlybird/starling";
+import {
+	type AnyObject,
+	createClock,
+	type JsonDocument,
+} from "@byearlybird/starling";
 import { type Collection, createCollection } from "./collection";
 import type { CollectionHandle } from "./collection-handle";
 import { createEmitter } from "./emitter";
@@ -47,6 +51,9 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
 } & {
 	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
+	toDocuments(): {
+		[K in keyof Schemas]: JsonDocument<StandardSchemaV1.InferOutput<Schemas[K]>>;
+	};
 	on(
 		event: "mutation",
 		handler: (payload: DatabaseMutationEvent<Schemas>) => void,
@@ -113,6 +120,17 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 				callback,
 			);
 		},
+		toDocuments() {
+			const documents = {} as {
+				[K in keyof Schemas]: JsonDocument<StandardSchemaV1.InferOutput<Schemas[K]>>;
+			};
+
+			for (const name of Object.keys(collections) as (keyof Schemas)[]) {
+				documents[name] = collections[name].toDocument();
+			}
+
+			return documents;
+		},
 		on(event, handler) {
 			return dbEmitter.on(event, handler);
 		},
@@ -175,6 +193,9 @@ function makeHandles<Schemas extends Record<string, AnyObjectSchema>>(
 			},
 			find(filter, opts) {
 				return collections[name].find(filter, opts);
+			},
+			toDocument() {
+				return collections[name].toDocument();
 			},
 			on(event, handler) {
 				return collections[name].on(event, handler);

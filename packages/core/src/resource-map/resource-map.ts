@@ -11,17 +11,7 @@ import {
 	makeResource,
 	mergeResources,
 } from "../document/resource";
-
-/**
- * Convert a JsonDocument's data array into a Map keyed by resource ID.
- */
-function documentToMap<T extends AnyObject>(
-	document: JsonDocument<T>,
-): Map<string, ResourceObject<T>> {
-	return new Map(
-		document.data.map((doc) => [doc.id, doc as ResourceObject<T>]),
-	);
-}
+import { documentToMap, mapToDocument } from "../document/utils";
 
 /**
  * A ResourceMap container for storing and managing ResourceObjects.
@@ -113,13 +103,7 @@ export function createMap<T extends AnyObject>(
 		 * Export the current state as a JsonDocument snapshot.
 		 */
 		toDocument(): JsonDocument<T> {
-			return {
-				jsonapi: { version: "1.1" },
-				meta: {
-					latest: clock.latest(),
-				},
-				data: Array.from(internalMap.values()),
-			};
+			return mapToDocument(internalMap, clock.latest());
 		},
 
 		/**
@@ -128,13 +112,7 @@ export function createMap<T extends AnyObject>(
 		 * @param document - JsonDocument from another replica or storage
 		 */
 		merge(document: JsonDocument<T>): MergeDocumentsResult<T> {
-			const currentDocument: JsonDocument<T> = {
-				jsonapi: { version: "1.1" },
-				meta: {
-					latest: clock.latest(),
-				},
-				data: Array.from(internalMap.values()),
-			};
+			const currentDocument = mapToDocument(internalMap, clock.latest());
 			const result = mergeDocuments(currentDocument, document);
 
 			clock.forward(result.document.meta.latest);

@@ -50,3 +50,16 @@ export function decodeEventstamp(eventstamp: string): {
 }
 
 export const MIN_EVENTSTAMP = encodeEventstamp(0, 0, "0000");
+
+/**
+ * Find the maximum eventstamp from an array of eventstamps.
+ * Returns MIN_EVENTSTAMP if the array is empty.
+ * @param eventstamps - Array of eventstamp strings
+ * @returns The maximum eventstamp
+ */
+export function maxEventstamp(eventstamps: string[]): string {
+	if (eventstamps.length === 0) {
+		return MIN_EVENTSTAMP;
+	}
+	return eventstamps.reduce((max, stamp) => (stamp > max ? stamp : max));
+}
