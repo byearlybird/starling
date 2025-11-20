@@ -139,17 +139,6 @@ export function createQuery<
 		collections: CollectionAccessors<Schemas>,
 	) => Result[];
 
-	// Extract collection keys from database
-	const collectionKeys = Object.keys(db).filter((key) => {
-		// Skip database methods
-		return (
-			key !== "begin" &&
-			key !== "toDocuments" &&
-			key !== "on" &&
-			key !== "init" &&
-			key !== "dispose"
-		);
-	}) as (keyof Schemas)[];
-
-	return createMultiCollectionQuery(db, collectionKeys, compute) as Query<Result>;
+	// Collection keys are automatically extracted by createAccessorsForDatabase
+	return createMultiCollectionQuery(db, compute) as Query<Result>;
 }

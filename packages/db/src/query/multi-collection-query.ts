@@ -6,7 +6,7 @@ import type { AnyObjectSchema } from "../types";
 import type { Query } from "./types";
 import {
 	type CollectionAccessors,
-	createCollectionAccessors,
+	createAccessorsForDatabase,
 } from "./collection-accessor";
 
 /**
@@ -16,7 +16,6 @@ import {
  * to their mutations. Recomputes results when any accessed collection changes.
  *
  * @param db - Database instance
- * @param collectionKeys - All collection keys in the database
  * @param compute - Function that computes query results from collection accessors
  */
 export function createMultiCollectionQuery<
@@ -24,7 +23,6 @@ export function createMultiCollectionQuery<
 	Result,
 >(
 	db: any, // Database instance
-	collectionKeys: (keyof Schemas)[],
 	compute: (collections: CollectionAccessors<Schemas>) => Result[],
 ): Query<Result> {
 	// Mutable state (imperative shell)
@@ -40,9 +38,9 @@ export function createMultiCollectionQuery<
 		accessedCollections.add(key as keyof Schemas);
 	};
 
-	// Create collection accessors
+	// Create collection accessors (DRY helper extracts collection keys)
 	const createAccessors = (): CollectionAccessors<Schemas> => {
-		return createCollectionAccessors(db, collectionKeys, trackAccess);
+		return createAccessorsForDatabase(db, trackAccess);
 	};
 
 	// Initial computation to discover dependencies (functional core)
