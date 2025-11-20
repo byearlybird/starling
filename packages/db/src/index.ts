@@ -31,3 +31,6 @@ export {
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
 export type { TransactionContext } from "./transaction";
+
+// Query system available as subpath export:
+// import { createQuery } from "@byearlybird/starling-db/query"
