@@ -18,10 +18,9 @@ export type {
 } from "./db";
 // Core Database API
 export { createDatabase } from "./db";
+// Plugins
+export { type IdbPluginConfig, idbPlugin } from "./plugins/idb";
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
 export type { TransactionContext } from "./transaction";
-
-// Plugins
-export { idbPlugin, type IdbPluginConfig } from "./plugins/idb";

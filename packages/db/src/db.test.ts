@@ -166,8 +166,12 @@ describe("Database", () => {
 			expect(documents.users.meta.latest).toBeDefined();
 			expect(typeof documents.tasks.meta.latest).toBe("string");
 			expect(typeof documents.users.meta.latest).toBe("string");
-			expect(documents.tasks.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
-			expect(documents.users.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+			expect(documents.tasks.meta.latest).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
+			);
+			expect(documents.users.meta.latest).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
+			);
 		});
 	});
 
@@ -238,7 +242,11 @@ describe("Database", () => {
 					{
 						handlers: {
 							init: (db) => {
-								db.tasks.add({ id: "1", title: "Added by plugin", completed: false });
+								db.tasks.add({
+									id: "1",
+									title: "Added by plugin",
+									completed: false,
+								});
 							},
 						},
 					},

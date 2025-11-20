@@ -1,8 +1,8 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
-import { idbPlugin } from "./idb";
-import { createTestDb, makeTask, taskSchema } from "../test-helpers";
 import { createDatabase } from "../db";
+import { createTestDb, makeTask, taskSchema } from "../test-helpers";
+import { idbPlugin } from "./idb";
 
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
@@ -190,7 +190,12 @@ describe("idbPlugin", () => {
 
 		// Add items to both collections
 		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
-		db.users.add({ id: "u1", title: "User 1", email: "user@example.com", completed: false });
+		db.users.add({
+			id: "u1",
+			title: "User 1",
+			email: "user@example.com",
+			completed: false,
+		});
 
 		// Wait for mutations
 		await new Promise((resolve) => setTimeout(resolve, 10));
