@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@byearlybird/starling": "workspace:*",
+		"@byearlybird/starling-db": "workspace:*",
 		"@byearlybird/starling-react": "workspace:*",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",

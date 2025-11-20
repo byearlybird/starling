@@ -3,6 +3,6 @@ export { createClock, createClockFromEventstamp } from "./clock";
 export { InvalidEventstampError } from "./errors";
 export {
 	isValidEventstamp,
-	maxEventstamp,
 	MIN_EVENTSTAMP,
+	maxEventstamp,
 } from "./eventstamp";

@@ -151,8 +151,8 @@ describe("Database", () => {
 			const documents = db.toDocuments();
 
 			expect(documents.tasks.data).toHaveLength(1);
-			expect(documents.tasks.data[0].meta.deletedAt).toBeDefined();
-			expect(documents.tasks.data[0].meta.deletedAt).not.toBeNull();
+			expect(documents.tasks.data[0]?.meta.deletedAt).toBeDefined();
+			expect(documents.tasks.data[0]?.meta.deletedAt).not.toBeNull();
 		});
 
 		test("includes correct latest eventstamps for each collection", () => {
@@ -166,8 +166,170 @@ describe("Database", () => {
 			expect(documents.users.meta.latest).toBeDefined();
 			expect(typeof documents.tasks.meta.latest).toBe("string");
 			expect(typeof documents.users.meta.latest).toBe("string");
-			expect(documents.tasks.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
-			expect(documents.users.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+			expect(documents.tasks.meta.latest).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
+			);
+			expect(documents.users.meta.latest).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
+			);
+		});
+	});
+
+	describe("plugins", () => {
+		test("init handlers execute in registration order", async () => {
+			const calls: string[] = [];
+
+			const db = createDatabase({
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
+				},
+				plugins: [
+					{ handlers: { init: () => calls.push("1") } },
+					{ handlers: { init: () => calls.push("2") } },
+					{ handlers: { init: () => calls.push("3") } },
+				],
+			});
+
+			await db.init();
+			expect(calls).toEqual(["1", "2", "3"]);
+		});
+
+		test("dispose handlers execute in reverse order", async () => {
+			const calls: string[] = [];
+
+			const db = createDatabase({
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
+				},
+				plugins: [
+					{ handlers: { dispose: () => calls.push("1") } },
+					{ handlers: { dispose: () => calls.push("2") } },
+					{ handlers: { dispose: () => calls.push("3") } },
+				],
+			});
+
+			await db.dispose();
+			expect(calls).toEqual(["3", "2", "1"]);
+		});
+
+		test("plugins can perform database operations", async () => {
+			const db = createDatabase({
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
+				},
+				plugins: [
+					{
+						handlers: {
+							init: (db) => {
+								db.tasks.add({
+									id: "1",
+									title: "Added by plugin",
+									completed: false,
+								});
+							},
+						},
+					},
+				],
+			});
+
+			await db.init();
+			expect(db.tasks.get("1")?.title).toBe("Added by plugin");
+		});
+
+		test("async handlers work correctly", async () => {
+			const calls: string[] = [];
+
+			const db = createDatabase({
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
+				},
+				plugins: [
+					{
+						handlers: {
+							init: async () => {
+								await new Promise((resolve) => setTimeout(resolve, 10));
+								calls.push("init");
+							},
+							dispose: async () => {
+								await new Promise((resolve) => setTimeout(resolve, 10));
+								calls.push("dispose");
+							},
+						},
+					},
+				],
+			});
+
+			await db.init();
+			await db.dispose();
+			expect(calls).toEqual(["init", "dispose"]);
+		});
+
+		test("plugins can subscribe to mutation events", async () => {
+			const pluginEvents: any[] = [];
+
+			const db = createDatabase({
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
+				},
+				plugins: [
+					{
+						handlers: {
+							init: (db) => {
+								db.on("mutation", (events) => pluginEvents.push(events));
+							},
+						},
+					},
+				],
+			});
+
+			await db.init();
+			db.tasks.add({ id: "1", title: "Test", completed: false });
+
+			expect(pluginEvents).toHaveLength(1);
+			expect(pluginEvents[0][0].collection).toBe("tasks");
+		});
+
+		test("works without plugins", async () => {
+			const db = createTestDb();
+			await db.init();
+			await db.dispose();
+			db.tasks.add({ id: "1", title: "Test", completed: false });
+			expect(db.tasks.get("1")).toBeDefined();
 		});
 	});
 });
