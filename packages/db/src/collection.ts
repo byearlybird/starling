@@ -136,6 +136,11 @@ export function createCollection<T extends AnyObjectSchema>(
 			const results: U[] = [];
 
 			for (const [, resource] of data.entries()) {
+				// Skip soft-deleted items
+				if (resource.meta.deletedAt) {
+					continue;
+				}
+
 				const attributes = resource.attributes;
 
 				if (filter(attributes)) {

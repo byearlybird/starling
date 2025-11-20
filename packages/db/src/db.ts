@@ -157,6 +157,7 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 					await plugin.handlers.init(db);
 				}
 			}
+			return db;
 		},
 		async dispose() {
 			// Execute all plugin dispose handlers sequentially (in reverse order)

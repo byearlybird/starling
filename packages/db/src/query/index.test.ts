@@ -1,32 +1,32 @@
 import { describe, expect, it, mock } from "bun:test";
-import { v, type InferOutput } from "@valibot/valibot";
+import { z } from "zod";
 import { createDatabase } from "../db";
 import { createQuery } from "./index";
 
-const todoSchema = v.object({
-	id: v.string(),
-	text: v.string(),
-	completed: v.boolean(),
-	ownerId: v.string(),
-	projectId: v.optional(v.string()),
+const todoSchema = z.object({
+	id: z.string(),
+	text: z.string(),
+	completed: z.boolean(),
+	ownerId: z.string(),
+	projectId: z.string().optional(),
 });
 
-const userSchema = v.object({
-	id: v.string(),
-	name: v.string(),
-	email: v.string(),
-	active: v.boolean(),
+const userSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	email: z.string(),
+	active: z.boolean(),
 });
 
-const projectSchema = v.object({
-	id: v.string(),
-	name: v.string(),
-	archived: v.boolean(),
+const projectSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	archived: z.boolean(),
 });
 
-type Todo = InferOutput<typeof todoSchema>;
-type User = InferOutput<typeof userSchema>;
-type Project = InferOutput<typeof projectSchema>;
+type Todo = z.infer<typeof todoSchema>;
+type User = z.infer<typeof userSchema>;
+type Project = z.infer<typeof projectSchema>;
 
 describe("Query System", () => {
 	describe("Single-Collection Queries", () => {
@@ -41,11 +41,9 @@ describe("Query System", () => {
 			}).init();
 
 			// Create reactive query
-			const activeTodos = createQuery(
-				db,
-				"todos",
-				(todo) => !todo.completed,
-			);
+			const activeTodos = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 
 			// Initially empty
 			expect(activeTodos.results().length).toBe(0);
@@ -82,15 +80,12 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			const todoTexts = createQuery(
-				db,
-				"todos",
-				(todo) => !todo.completed,
-				{
-					map: (todo) => todo.text,
-					sort: (a, b) => a.localeCompare(b),
-				},
-			);
+			const todoTexts = createQuery(db, (collections) => {
+				return collections.todos
+					.find((todo) => !todo.completed)
+					.map((todo) => todo.text)
+					.sort((a, b) => a.localeCompare(b));
+			});
 
 			db.todos.add({
 				id: "1",
@@ -127,11 +122,9 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			const activeTodos = createQuery(
-				db,
-				"todos",
-				(todo) => !todo.completed,
-			);
+			const activeTodos = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 
 			const onChange = mock(() => {});
 			activeTodos.onChange(onChange);
@@ -149,14 +142,14 @@ describe("Query System", () => {
 			db.todos.update("1", { completed: true });
 			expect(onChange).toHaveBeenCalledTimes(2);
 
-			// Add non-matching item (no notification)
+			// Add non-matching item (still notifies because collection changed)
 			db.todos.add({
 				id: "2",
 				text: "Done",
 				completed: true,
 				ownerId: "user1",
 			});
-			expect(onChange).toHaveBeenCalledTimes(2);
+			expect(onChange).toHaveBeenCalledTimes(3);
 
 			activeTodos.dispose();
 		});
@@ -171,11 +164,9 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			const activeTodos = createQuery(
-				db,
-				"todos",
-				(todo) => !todo.completed,
-			);
+			const activeTodos = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 
 			db.todos.add({
 				id: "1",
@@ -448,7 +439,9 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			const query = createQuery(db, "todos", (todo) => !todo.completed);
+			const query = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 			const onChange = mock(() => {});
 			query.onChange(onChange);
 
@@ -479,7 +472,9 @@ describe("Query System", () => {
 				},
 			}).init();
 
-			const query = createQuery(db, "todos", (todo) => !todo.completed);
+			const query = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 
 			const listener1 = mock(() => {});
 			const listener2 = mock(() => {});
@@ -526,7 +521,9 @@ describe("Query System", () => {
 				ownerId: "user1",
 			});
 
-			const query = createQuery(db, "todos", (todo) => !todo.completed);
+			const query = createQuery(db, (collections) => {
+				return collections.todos.find((todo) => !todo.completed);
+			});
 			expect(query.results().length).toBe(1);
 
 			query.dispose();

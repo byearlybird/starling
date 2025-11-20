@@ -8,9 +8,9 @@ The query system is available as a subpath export:
 import { createQuery } from "@byearlybird/starling-db/query";
 ```
 
-## Single-Collection Queries
+## Basic Usage
 
-Reactive queries for a single collection:
+All queries use the same simple API - a compute function that receives collection accessors:
 
 ```typescript
 import { createDatabase } from "@byearlybird/starling-db";
@@ -23,9 +23,9 @@ const db = await createDatabase({
 }).init();
 
 // Create reactive query
-const activeTodos = createQuery(db, "todos",
-  (todo) => !todo.completed
-);
+const activeTodos = createQuery(db, (collections) => {
+  return collections.todos.find(todo => !todo.completed);
+});
 
 // Read results
 console.log(activeTodos.results());
@@ -35,22 +35,28 @@ const unsubscribe = activeTodos.onChange(() => {
   console.log("Active todos changed:", activeTodos.results());
 });
 
-// With map and sort
-const todoTexts = createQuery(db, "todos",
-  (todo) => !todo.completed,
-  {
-    map: (todo) => todo.text,
-    sort: (a, b) => a.localeCompare(b)
-  }
-);
-
 // Cleanup
 activeTodos.dispose();
 ```
 
+## Map and Sort
+
+Use standard JavaScript array methods:
+
+```typescript
+const todoTexts = createQuery(db, (collections) => {
+  return collections.todos
+    .find(todo => !todo.completed)
+    .map(todo => todo.text)
+    .sort((a, b) => a.localeCompare(b));
+});
+
+todoTexts.results(); // string[]
+```
+
 ## Multi-Collection Queries
 
-Query across multiple collections with automatic dependency tracking:
+Query across multiple collections - dependency tracking is automatic:
 
 ```typescript
 const db = await createDatabase({
@@ -60,28 +66,19 @@ const db = await createDatabase({
   }
 }).init();
 
-// Multi-collection query
 const todosWithOwners = createQuery(db, (collections) => {
-  const results = [];
   const todos = collections.todos.find(t => !t.completed);
   const users = collections.users.getAll();
 
   // Build lookup map for efficiency
   const userMap = new Map(users.map(u => [u.id, u]));
 
-  for (const todo of todos) {
-    const owner = userMap.get(todo.ownerId);
-    if (owner) {
-      results.push({
-        id: todo.id,
-        text: todo.text,
-        ownerName: owner.name,
-        ownerEmail: owner.email
-      });
-    }
-  }
-
-  return results;
+  return todos.map(todo => ({
+    id: todo.id,
+    text: todo.text,
+    ownerName: userMap.get(todo.ownerId)?.name,
+    ownerEmail: userMap.get(todo.ownerId)?.email
+  }));
 });
 
 // Automatically reacts to changes in BOTH collections
@@ -92,7 +89,7 @@ todosWithOwners.onChange(() => {
 
 ## Read-Only Collection Accessors
 
-Multi-collection queries receive read-only accessors that exclude mutation methods:
+The compute function receives read-only accessors (no mutations allowed):
 
 ```typescript
 // ✅ Available methods:
@@ -108,18 +105,18 @@ collections.todos.remove(id)     // Error
 
 ## Dependency Tracking
 
-The query system automatically tracks which collections you access:
+The query automatically tracks which collections you access:
 
 ```typescript
 // This query only subscribes to "todos" mutations
 const simpleTodos = createQuery(db, (collections) => {
-  return collections.todos.getAll(); // Only accesses todos
+  return collections.todos.getAll();
 });
 
 // This query subscribes to BOTH "todos" and "users" mutations
 const enrichedTodos = createQuery(db, (collections) => {
-  const todos = collections.todos.getAll(); // Accesses todos
-  const users = collections.users.getAll(); // Accesses users
+  const todos = collections.todos.getAll();
+  const users = collections.users.getAll();
   return join(todos, users);
 });
 ```
@@ -127,7 +124,9 @@ const enrichedTodos = createQuery(db, (collections) => {
 ## Query Lifecycle
 
 ```typescript
-const query = createQuery(db, "todos", (todo) => !todo.completed);
+const query = createQuery(db, (collections) => {
+  return collections.todos.find(todo => !todo.completed);
+});
 
 // Read results (computed on-demand)
 const results = query.results();
@@ -158,19 +157,13 @@ const currentResults = createQuery(db, (collections) => {
 
 // Or just use collection methods directly
 const todos = db.todos.getAll();
-const users = db.users.getAll();
 ```
 
 ## Performance Tips
 
-### Single-Collection Queries
-- Uses incremental index updates
-- O(1) per mutation
-- Very efficient for filtering
+### Efficient Joins
 
-### Multi-Collection Queries
-- Recomputes entire result on any mutation
-- Use Map lookups for joins (not nested loops)
+Use Map lookups instead of nested loops:
 
 ```typescript
 // ❌ Inefficient: O(n*m)
@@ -180,7 +173,7 @@ const todosWithOwners = createQuery(db, (collections) => {
 
   return todos.map(todo => ({
     ...todo,
-    owner: users.find(u => u.id === todo.ownerId) // O(n) for each todo
+    owner: users.find(u => u.id === todo.ownerId) // O(m) for each todo
   }));
 });
 
@@ -199,24 +192,65 @@ const todosWithOwners = createQuery(db, (collections) => {
 });
 ```
 
+### Recomputation Behavior
+
+Queries recompute entirely when any accessed collection changes. For most use cases with reasonable data sizes, this performs well. If you need more control, optimize your compute function.
+
+## Real-World Example
+
+```typescript
+const projectDashboard = createQuery(db, (collections) => {
+  // Get active data
+  const todos = collections.todos.find(t => !t.completed);
+  const users = collections.users.find(u => u.active);
+  const projects = collections.projects.find(p => !p.archived);
+
+  // Build efficient lookups
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+
+  // Group todos by project
+  const byProject = new Map();
+  for (const todo of todos) {
+    const projectId = todo.projectId;
+    if (!byProject.has(projectId)) {
+      byProject.set(projectId, []);
+    }
+    byProject.get(projectId).push({
+      ...todo,
+      ownerName: userMap.get(todo.ownerId)?.name
+    });
+  }
+
+  // Build final result
+  return Array.from(byProject.entries()).map(([projectId, todos]) => ({
+    project: projectMap.get(projectId),
+    todos,
+    stats: {
+      total: todos.length,
+      highPriority: todos.filter(t => t.priority === 'high').length
+    }
+  }));
+});
+```
+
 ## Type Safety
 
 TypeScript fully infers types throughout:
 
 ```typescript
-// Single-collection: type flows through
-const texts = createQuery(db, "todos",
-  (todo) => !todo.completed, // todo is Todo
-  { map: (todo) => todo.text } // todo is Todo
-);
-texts.results(); // string[]
-
-// Multi-collection: return type inferred
-const joined = createQuery(db, (collections) => {
-  return collections.todos.getAll().map(t => ({
+// Return type automatically inferred
+const query = createQuery(db, (collections) => {
+  return collections.todos.find(t => !t.completed).map(t => ({
     id: t.id,
     text: t.text
   }));
 });
-joined.results(); // Array<{ id: string; text: string }>
+
+// TypeScript knows the exact shape:
+const results: Array<{ id: string; text: string }> = query.results();
+
+// Autocomplete works:
+results[0].text // ✅ string
+results[0].completed // ❌ Error: Property doesn't exist
 ```
