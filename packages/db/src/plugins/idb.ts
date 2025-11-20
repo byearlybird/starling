@@ -16,6 +16,11 @@ export type IdbPluginConfig = {
 	 * @default 1
 	 */
 	version?: number;
+	/**
+	 * Use BroadcastChannel API for instant cross-tab sync
+	 * @default true
+	 */
+	useBroadcastChannel?: boolean;
 };
 
 /**
@@ -24,7 +29,12 @@ export type IdbPluginConfig = {
  * The plugin:
  * - Loads existing documents from IndexedDB on init
  * - Persists all documents to IndexedDB on every mutation
+ * - Enables instant cross-tab sync via BroadcastChannel API
  * - Gracefully closes the database connection on dispose
+ *
+ * Cross-tab sync uses the BroadcastChannel API to notify other tabs
+ * of changes in real-time. When a mutation occurs in one tab, other tabs
+ * are instantly notified and reload the data from IndexedDB.
  *
  * @param config - IndexedDB configuration
  * @returns A DatabasePlugin instance
@@ -40,13 +50,23 @@ export type IdbPluginConfig = {
  *
  * await db.init();
  * ```
+ *
+ * @example Disable BroadcastChannel
+ * ```typescript
+ * plugins: [idbPlugin({
+ *   dbName: 'my-app',
+ *   useBroadcastChannel: false, // Disable cross-tab sync
+ * })],
+ * ```
  */
 export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 	config: IdbPluginConfig,
 ): DatabasePlugin<Schemas> {
-	const { dbName, version = 1 } = config;
+	const { dbName, version = 1, useBroadcastChannel = true } = config;
 	let dbInstance: IDBDatabase | null = null;
 	let unsubscribe: (() => void) | null = null;
+	let broadcastChannel: BroadcastChannel | null = null;
+	const instanceId = crypto.randomUUID();
 
 	return {
 		handlers: {
@@ -79,11 +99,56 @@ export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 					if (dbInstance) {
 						const docs = db.toDocuments();
 						await saveDocuments(dbInstance, docs);
+
+						// Broadcast changes to other tabs via BroadcastChannel
+						if (broadcastChannel) {
+							broadcastChannel.postMessage({
+								type: "mutation",
+								instanceId,
+								timestamp: Date.now(),
+							});
+						}
 					}
 				});
+
+				// Set up BroadcastChannel for instant cross-tab sync
+				if (useBroadcastChannel && typeof BroadcastChannel !== "undefined") {
+					broadcastChannel = new BroadcastChannel(`starling:${dbName}`);
+
+					// Listen for changes from other tabs
+					broadcastChannel.onmessage = async (event) => {
+						// Ignore our own broadcasts
+						if (event.data.instanceId === instanceId) {
+							return;
+						}
+
+						if (event.data.type === "mutation" && dbInstance) {
+							// Another tab made changes - reload and merge
+							const savedDocs = await loadDocuments<Schemas>(
+								dbInstance,
+								Object.keys(db) as (keyof Schemas)[],
+							);
+
+							for (const collectionName of Object.keys(
+								savedDocs,
+							) as (keyof Schemas)[]) {
+								const doc = savedDocs[collectionName];
+								if (doc) {
+									db[collectionName].merge(doc);
+								}
+							}
+						}
+					};
+				}
 			},
 
 			async dispose(db: Database<Schemas>) {
+				// Close BroadcastChannel
+				if (broadcastChannel) {
+					broadcastChannel.close();
+					broadcastChannel = null;
+				}
+
 				// Unsubscribe from mutation events
 				if (unsubscribe) {
 					unsubscribe();

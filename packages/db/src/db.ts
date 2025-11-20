@@ -162,7 +162,7 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 			// Execute all plugin dispose handlers sequentially (in reverse order)
 			for (let i = plugins.length - 1; i >= 0; i--) {
 				const plugin = plugins[i];
-				if (plugin.handlers.dispose) {
+				if (plugin?.handlers.dispose) {
 					await plugin.handlers.dispose(db);
 				}
 			}
