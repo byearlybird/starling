@@ -60,7 +60,9 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 } & {
 	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
 	toDocuments(): {
-		[K in keyof Schemas]: JsonDocument<StandardSchemaV1.InferOutput<Schemas[K]>>;
+		[K in keyof Schemas]: JsonDocument<
+			StandardSchemaV1.InferOutput<Schemas[K]>
+		>;
 	};
 	on(
 		event: "mutation",
@@ -134,7 +136,9 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 		},
 		toDocuments() {
 			const documents = {} as {
-				[K in keyof Schemas]: JsonDocument<StandardSchemaV1.InferOutput<Schemas[K]>>;
+				[K in keyof Schemas]: JsonDocument<
+					StandardSchemaV1.InferOutput<Schemas[K]>
+				>;
 			};
 
 			for (const name of Object.keys(collections) as (keyof Schemas)[]) {
@@ -158,7 +162,7 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 			// Execute all plugin dispose handlers sequentially (in reverse order)
 			for (let i = plugins.length - 1; i >= 0; i--) {
 				const plugin = plugins[i];
-				if (plugin.handlers.dispose) {
+				if (plugin?.handlers.dispose) {
 					await plugin.handlers.dispose(db);
 				}
 			}

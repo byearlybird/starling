@@ -4,8 +4,8 @@ import {
 	encodeEventstamp,
 	generateNonce,
 	isValidEventstamp,
-	maxEventstamp,
 	MIN_EVENTSTAMP,
+	maxEventstamp,
 } from "./eventstamp";
 
 test("decode() extracts timestamp and counter correctly", () => {

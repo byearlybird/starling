@@ -522,7 +522,9 @@ describe("Collection", () => {
 			expect(typeof doc.meta.latest).toBe("string");
 
 			// Verify it matches the format
-			expect(doc.meta.latest).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/);
+			expect(doc.meta.latest).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
+			);
 		});
 	});
 });
