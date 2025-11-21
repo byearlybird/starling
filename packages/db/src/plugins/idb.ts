@@ -3,10 +3,6 @@ import type { Database, DatabasePlugin } from "../db";
 
 export type IdbPluginConfig = {
 	/**
-	 * Name of the IndexedDB database
-	 */
-	dbName: string;
-	/**
 	 * Version of the IndexedDB database
 	 * @default 1
 	 */
@@ -36,27 +32,24 @@ export type IdbPluginConfig = {
  *
  * @example
  * ```typescript
- * const db = await createDatabase({
- *   schema: {
- *     tasks: { schema: taskSchema, getId: (task) => task.id },
- *   }
+ * const db = await createDatabase("my-app", {
+ *   tasks: { schema: taskSchema, getId: (task) => task.id },
  * })
- *   .use(idbPlugin({ dbName: 'my-app' }))
+ *   .use(idbPlugin())
  *   .init();
  * ```
  *
  * @example Disable BroadcastChannel
  * ```typescript
- * const db = await createDatabase({ schema: {...} })
- *   .use(idbPlugin({
- *     dbName: 'my-app',
- *     useBroadcastChannel: false, // Disable cross-tab sync
- *   }))
+ * const db = await createDatabase("my-app", {
+ *   tasks: { schema: taskSchema, getId: (task) => task.id },
+ * })
+ *   .use(idbPlugin({ useBroadcastChannel: false }))
  *   .init();
  * ```
  */
-export function idbPlugin(config: IdbPluginConfig): DatabasePlugin<any> {
-	const { dbName, version = 1, useBroadcastChannel = true } = config;
+export function idbPlugin(config: IdbPluginConfig = {}): DatabasePlugin<any> {
+	const { version = 1, useBroadcastChannel = true } = config;
 	let dbInstance: IDBDatabase | null = null;
 	let unsubscribe: (() => void) | null = null;
 	let broadcastChannel: BroadcastChannel | null = null;
@@ -67,7 +60,7 @@ export function idbPlugin(config: IdbPluginConfig): DatabasePlugin<any> {
 			async init(db: Database<any>) {
 				// Open IndexedDB connection
 				dbInstance = await openDatabase(
-					dbName,
+					db.name,
 					version,
 					Object.keys(db) as string[],
 				);
@@ -106,7 +99,7 @@ export function idbPlugin(config: IdbPluginConfig): DatabasePlugin<any> {
 
 				// Set up BroadcastChannel for instant cross-tab sync
 				if (useBroadcastChannel && typeof BroadcastChannel !== "undefined") {
-					broadcastChannel = new BroadcastChannel(`starling:${dbName}`);
+					broadcastChannel = new BroadcastChannel(`starling:${db.name}`);
 
 					// Listen for changes from other tabs
 					broadcastChannel.onmessage = async (event) => {

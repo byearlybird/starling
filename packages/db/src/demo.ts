@@ -24,23 +24,21 @@ const taskSchema = z.object({
 	createdAt: z.iso.datetime().default(() => new Date().toISOString()),
 });
 
-const db = await createDatabase({
-	schema: {
-		entries: {
-			schema: entrySchema,
-			getId: (entry) => entry.id,
-		},
-		comments: {
-			schema: commentSchema,
-			getId: (comment) => comment.id,
-		},
-		tasks: {
-			schema: taskSchema,
-			getId: (task) => task.id,
-		},
+const db = await createDatabase("journal", {
+	entries: {
+		schema: entrySchema,
+		getId: (entry) => entry.id,
+	},
+	comments: {
+		schema: commentSchema,
+		getId: (comment) => comment.id,
+	},
+	tasks: {
+		schema: taskSchema,
+		getId: (task) => task.id,
 	},
 })
-	.use(idbPlugin({ dbName: "journal" }))
+	.use(idbPlugin())
 	.init();
 
 const task = db.tasks.add({ title: "To do" });
