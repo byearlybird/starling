@@ -11,14 +11,13 @@ This document covers the design and internals of Starling, including the state-b
 | `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
 | `packages/db` | Database utilities with typed collections, transactions, and mutation events built on the core primitives |
 | `packages/react` | React hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
-| `packages/solid` | SolidJS hooks for Starling’s higher-level Store API (legacy; pending update to `@byearlybird/starling-db`) |
 
 **Key points:**
 
 - Follows a Functional Core, Imperative Shell design—core packages stay predictable while adapters handle IO, frameworks, and persistence.
 - Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management.
 - Higher-level database features (collections, transactions, mutation events) live in `packages/db`.
-- Framework integrations live in separate packages (`packages/react`, `packages/solid`) and still target the earlier Store + plugin API.
+- Framework integrations live in separate packages (e.g. `packages/react`) and still target the earlier Store + plugin API.
 - All packages are TypeScript modules bundled via `tsdown`.
 - Tests live alongside implementation: `packages/core/src/**/*.test.ts`.
 
