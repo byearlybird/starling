@@ -1,10 +1,5 @@
 import type { JsonDocument } from "@byearlybird/starling";
 import type { Database, DatabasePlugin } from "../db";
-import type { StandardSchemaV1 } from "../standard-schema";
-
-type AnyObjectSchema<
-	T extends Record<string, unknown> = Record<string, unknown>,
-> = StandardSchemaV1<T>;
 
 export type IdbPluginConfig = {
 	/**
@@ -41,27 +36,26 @@ export type IdbPluginConfig = {
  *
  * @example
  * ```typescript
- * const db = createDatabase({
+ * const db = await createDatabase({
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
- *   },
- *   plugins: [idbPlugin({ dbName: 'my-app' })],
- * });
- *
- * await db.init();
+ *   }
+ * })
+ *   .use(idbPlugin({ dbName: 'my-app' }))
+ *   .init();
  * ```
  *
  * @example Disable BroadcastChannel
  * ```typescript
- * plugins: [idbPlugin({
- *   dbName: 'my-app',
- *   useBroadcastChannel: false, // Disable cross-tab sync
- * })],
+ * const db = await createDatabase({ schema: {...} })
+ *   .use(idbPlugin({
+ *     dbName: 'my-app',
+ *     useBroadcastChannel: false, // Disable cross-tab sync
+ *   }))
+ *   .init();
  * ```
  */
-export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
-	config: IdbPluginConfig,
-): DatabasePlugin<Schemas> {
+export function idbPlugin(config: IdbPluginConfig): DatabasePlugin<any> {
 	const { dbName, version = 1, useBroadcastChannel = true } = config;
 	let dbInstance: IDBDatabase | null = null;
 	let unsubscribe: (() => void) | null = null;
@@ -70,27 +64,26 @@ export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 
 	return {
 		handlers: {
-			async init(db: Database<Schemas>) {
+			async init(db: Database<any>) {
 				// Open IndexedDB connection
 				dbInstance = await openDatabase(
 					dbName,
 					version,
-					Object.keys(db) as (keyof Schemas)[],
+					Object.keys(db) as string[],
 				);
 
 				// Load existing documents from IndexedDB
-				const savedDocs = await loadDocuments<Schemas>(
+				const savedDocs = await loadDocuments(
 					dbInstance,
-					Object.keys(db) as (keyof Schemas)[],
+					Object.keys(db) as string[],
 				);
 
 				// Merge loaded documents into each collection
-				for (const collectionName of Object.keys(
-					savedDocs,
-				) as (keyof Schemas)[]) {
+				for (const collectionName of Object.keys(savedDocs)) {
 					const doc = savedDocs[collectionName];
-					if (doc) {
-						db[collectionName].merge(doc);
+					const collection = db[collectionName];
+					if (doc && collection) {
+						collection.merge(doc);
 					}
 				}
 
@@ -124,17 +117,16 @@ export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 
 						if (event.data.type === "mutation" && dbInstance) {
 							// Another tab made changes - reload and merge
-							const savedDocs = await loadDocuments<Schemas>(
+							const savedDocs = await loadDocuments(
 								dbInstance,
-								Object.keys(db) as (keyof Schemas)[],
+								Object.keys(db) as string[],
 							);
 
-							for (const collectionName of Object.keys(
-								savedDocs,
-							) as (keyof Schemas)[]) {
+							for (const collectionName of Object.keys(savedDocs)) {
 								const doc = savedDocs[collectionName];
-								if (doc) {
-									db[collectionName].merge(doc);
+								const collection = db[collectionName];
+								if (doc && collection) {
+									collection.merge(doc);
 								}
 							}
 						}
@@ -142,7 +134,7 @@ export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 				}
 			},
 
-			async dispose(db: Database<Schemas>) {
+			async dispose(db: Database<any>) {
 				// Close BroadcastChannel
 				if (broadcastChannel) {
 					broadcastChannel.close();
@@ -172,10 +164,10 @@ export function idbPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 /**
  * Open an IndexedDB database and create object stores for each collection
  */
-function openDatabase<Schemas extends Record<string, AnyObjectSchema>>(
+function openDatabase(
 	dbName: string,
 	version: number,
-	collectionNames: (keyof Schemas)[],
+	collectionNames: string[],
 ): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
 		const request = indexedDB.open(dbName, version);
@@ -193,9 +185,8 @@ function openDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 
 			// Create object stores for each collection if they don't exist
 			for (const collectionName of collectionNames) {
-				const storeName = String(collectionName);
-				if (!db.objectStoreNames.contains(storeName)) {
-					db.createObjectStore(storeName);
+				if (!db.objectStoreNames.contains(collectionName)) {
+					db.createObjectStore(collectionName);
 				}
 			}
 		};
@@ -205,26 +196,19 @@ function openDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 /**
  * Load documents from IndexedDB for all collections
  */
-async function loadDocuments<Schemas extends Record<string, AnyObjectSchema>>(
+async function loadDocuments(
 	db: IDBDatabase,
-	collectionNames: (keyof Schemas)[],
-): Promise<{
-	[K in keyof Schemas]?: JsonDocument<StandardSchemaV1.InferOutput<Schemas[K]>>;
-}> {
-	const documents = {} as {
-		[K in keyof Schemas]?: JsonDocument<
-			StandardSchemaV1.InferOutput<Schemas[K]>
-		>;
-	};
+	collectionNames: string[],
+): Promise<Record<string, JsonDocument<any>>> {
+	const documents: Record<string, JsonDocument<any>> = {};
 
 	for (const collectionName of collectionNames) {
-		const storeName = String(collectionName);
-		if (db.objectStoreNames.contains(storeName)) {
-			const doc = await getFromStore<
-				JsonDocument<
-					StandardSchemaV1.InferOutput<Schemas[typeof collectionName]>
-				>
-			>(db, storeName, "document");
+		if (db.objectStoreNames.contains(collectionName)) {
+			const doc = await getFromStore<JsonDocument<any>>(
+				db,
+				collectionName,
+				"document",
+			);
 			if (doc) {
 				documents[collectionName] = doc;
 			}
@@ -237,21 +221,16 @@ async function loadDocuments<Schemas extends Record<string, AnyObjectSchema>>(
 /**
  * Save documents to IndexedDB for all collections
  */
-async function saveDocuments<Schemas extends Record<string, AnyObjectSchema>>(
+async function saveDocuments(
 	db: IDBDatabase,
-	documents: {
-		[K in keyof Schemas]: JsonDocument<
-			StandardSchemaV1.InferOutput<Schemas[K]>
-		>;
-	},
+	documents: Record<string, JsonDocument<any>>,
 ): Promise<void> {
 	const promises: Promise<void>[] = [];
 
-	for (const collectionName of Object.keys(documents) as (keyof Schemas)[]) {
-		const storeName = String(collectionName);
-		if (db.objectStoreNames.contains(storeName)) {
+	for (const collectionName of Object.keys(documents)) {
+		if (db.objectStoreNames.contains(collectionName)) {
 			promises.push(
-				putToStore(db, storeName, "document", documents[collectionName]),
+				putToStore(db, collectionName, "document", documents[collectionName]),
 			);
 		}
 	}

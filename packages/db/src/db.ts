@@ -43,8 +43,8 @@ export type CollectionConfig<T extends AnyObjectSchema> = {
 
 export type DatabasePlugin<Schemas extends Record<string, AnyObjectSchema>> = {
 	handlers: {
-		init?: (db: Database<Schemas>) => Promise<void> | void;
-		dispose?: (db: Database<Schemas>) => Promise<void> | void;
+		init?: (db: Database<Schemas>) => Promise<unknown> | unknown;
+		dispose?: (db: Database<Schemas>) => Promise<unknown> | unknown;
 	};
 };
 
@@ -52,7 +52,6 @@ export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
 	schema: {
 		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 	};
-	plugins?: DatabasePlugin<Schemas>[];
 };
 
 export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
@@ -66,9 +65,10 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 	};
 	on(
 		event: "mutation",
-		handler: (payload: DatabaseMutationEvent<Schemas>) => void,
+		handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
 	): () => void;
-	init(): Promise<void>;
+	use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
+	init(): Promise<Database<Schemas>>;
 	dispose(): Promise<void>;
 };
 
@@ -83,7 +83,9 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
  *   }
- * });
+ * })
+ *   .use(idbPlugin({ dbName: 'my-app' }))
+ *   .init();
  *
  * const task = db.tasks.add({ title: 'Learn Starling' });
  * ```
@@ -122,7 +124,7 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 		});
 	}
 
-	const plugins = config.plugins ?? [];
+	const plugins: DatabasePlugin<Schemas>[] = [];
 
 	const db = {
 		...handles,
@@ -150,6 +152,10 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 		on(event, handler) {
 			return dbEmitter.on(event, handler);
 		},
+		use(plugin: DatabasePlugin<Schemas>) {
+			plugins.push(plugin);
+			return db;
+		},
 		async init() {
 			// Execute all plugin init handlers sequentially
 			for (const plugin of plugins) {
@@ -157,6 +163,7 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 					await plugin.handlers.init(db);
 				}
 			}
+			return db;
 		},
 		async dispose() {
 			// Execute all plugin dispose handlers sequentially (in reverse order)

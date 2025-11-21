@@ -151,8 +151,8 @@ describe("Database", () => {
 			const documents = db.toDocuments();
 
 			expect(documents.tasks.data).toHaveLength(1);
-			expect(documents.tasks.data[0].meta.deletedAt).toBeDefined();
-			expect(documents.tasks.data[0].meta.deletedAt).not.toBeNull();
+			expect(documents.tasks.data[0]?.meta.deletedAt).toBeDefined();
+			expect(documents.tasks.data[0]?.meta.deletedAt).not.toBeNull();
 		});
 
 		test("includes correct latest eventstamps for each collection", () => {
