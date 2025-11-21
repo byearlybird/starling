@@ -57,6 +57,7 @@ export type DbConfig<Schemas extends Record<string, AnyObjectSchema>> = {
 export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
 } & {
+	name: string;
 	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
 	toDocuments(): {
 		[K in keyof Schemas]: JsonDocument<
@@ -74,28 +75,30 @@ export type Database<Schemas extends Record<string, AnyObjectSchema>> = {
 
 /**
  * Create a typed database instance with collection access.
- * @param config - Database configuration with schema definitions
+ * @param name - Database name used for persistence and routing
+ * @param schema - Collection schema definitions
  * @returns A database instance with typed collection properties
  *
  * @example
  * ```typescript
- * const db = createDatabase({
- *   schema: {
- *     tasks: { schema: taskSchema, getId: (task) => task.id },
- *   }
+ * const db = await createDatabase("my-app", {
+ *   tasks: { schema: taskSchema, getId: (task) => task.id },
  * })
- *   .use(idbPlugin({ dbName: 'my-app' }))
+ *   .use(idbPlugin())
  *   .init();
  *
  * const task = db.tasks.add({ title: 'Learn Starling' });
  * ```
  */
 export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
-	config: DbConfig<Schemas>,
+	name: string,
+	schema: {
+		[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
+	},
 ): Database<Schemas> {
 	const clock = createClock();
 	const getEventstamp = () => clock.now();
-	const collections = makeCollections(config.schema, getEventstamp);
+	const collections = makeCollections(schema, getEventstamp);
 	const handles = makeHandles(collections);
 
 	// Database-level emitter
@@ -128,9 +131,10 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 
 	const db = {
 		...handles,
+		name,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
 			return executeTransaction(
-				config.schema,
+				schema,
 				collections,
 				getEventstamp,
 				callback,
@@ -143,8 +147,8 @@ export function createDatabase<Schemas extends Record<string, AnyObjectSchema>>(
 				>;
 			};
 
-			for (const name of Object.keys(collections) as (keyof Schemas)[]) {
-				documents[name] = collections[name].toDocument();
+			for (const dbName of Object.keys(collections) as (keyof Schemas)[]) {
+				documents[dbName] = collections[dbName].toDocument();
 			}
 
 			return documents;

@@ -301,7 +301,7 @@ async function fetchCollection<Schemas extends Record<string, AnyObjectSchema>>(
 	initialDelay = 1000,
 	maxDelay = 30000,
 ): Promise<void> {
-	const url = `${baseUrl}/${String(collectionName)}`;
+	const url = `${baseUrl}/${db.name}/${String(collectionName)}`;
 
 	// Call onRequest hook
 	const requestResult = onRequest?.({
@@ -390,7 +390,7 @@ async function pushCollection<Schemas extends Record<string, AnyObjectSchema>>(
 	initialDelay = 1000,
 	maxDelay = 30000,
 ): Promise<void> {
-	const url = `${baseUrl}/${String(collectionName)}`;
+	const url = `${baseUrl}/${db.name}/${String(collectionName)}`;
 
 	// Get current document
 	const document = db[collectionName].toDocument();
