@@ -1,7 +1,14 @@
 /**
  * @byearlybird/starling-db
  * Database utilities for Starling stores
+ *
+ * Plugins are available as separate optional imports:
+ * - @byearlybird/starling-db/plugin-idb - IndexedDB persistence
+ * - @byearlybird/starling-db/plugin-http - HTTP sync
  */
+
+// Re-export core types from starling
+export type { JsonDocument } from "@byearlybird/starling";
 
 // Collection utilities
 export {
@@ -9,7 +16,7 @@ export {
 	DuplicateIdError,
 	IdNotFoundError,
 } from "./collection";
-export { CollectionHandle } from "./collection-handle";
+export type { CollectionHandle } from "./collection-handle";
 export type {
 	CollectionConfig,
 	Database,
@@ -18,15 +25,6 @@ export type {
 } from "./db";
 // Core Database API
 export { createDatabase } from "./db";
-// Plugins
-export { type IdbPluginConfig, idbPlugin } from "./plugins/idb";
-export {
-	type HttpPluginConfig,
-	type RequestContext,
-	type RequestHookResult,
-	type ResponseHookResult,
-	httpPlugin,
-} from "./plugins/http";
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities

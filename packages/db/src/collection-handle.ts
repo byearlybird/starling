@@ -1,23 +1,21 @@
-import type { JsonDocument } from "@byearlybird/starling";
-import type { Collection, CollectionMutationEvent } from "./collection";
-import type { StandardSchemaV1 } from "./standard-schema";
+import type { Collection } from "./collection";
 import type { AnyObjectSchema, SchemasMap } from "./types";
 
 export type CollectionHandle<Schema extends AnyObjectSchema> = Pick<
-        Collection<Schema>,
-        | "add"
-        | "update"
-        | "remove"
-        | "merge"
-        | "get"
-        | "getAll"
-        | "find"
-        | "toDocument"
-        | "on"
+	Collection<Schema>,
+	| "add"
+	| "update"
+	| "remove"
+	| "merge"
+	| "get"
+	| "getAll"
+	| "find"
+	| "toDocument"
+	| "on"
 >;
 
 export type CollectionHandles<Schemas extends SchemasMap> = {
-        [K in keyof Schemas]: CollectionHandle<Schemas[K]>;
+	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
 };
 
 export function createCollectionHandle<Schema extends AnyObjectSchema>(
@@ -36,28 +34,28 @@ export function createCollectionHandle<Schema extends AnyObjectSchema>(
 			collection.remove(id);
 		},
 
-                merge(document) {
-                        collection.merge(document);
-                },
+		merge(document) {
+			collection.merge(document);
+		},
 
-                toDocument() {
-                        return collection.toDocument();
-                },
+		toDocument() {
+			return collection.toDocument();
+		},
 
-                get(id, opts) {
-                        return collection.get(id, opts);
-                },
+		get(id, opts) {
+			return collection.get(id, opts);
+		},
 
-                getAll(opts) {
+		getAll(opts) {
 			return collection.getAll(opts);
 		},
 
-                find(filter, opts) {
-                        return collection.find(filter, opts);
-                },
+		find(filter, opts) {
+			return collection.find(filter, opts);
+		},
 
-                on(event, handler) {
-                        return collection.on(event, handler);
-                },
-        };
+		on(event, handler) {
+			return collection.on(event, handler);
+		},
+	};
 }

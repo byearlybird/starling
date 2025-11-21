@@ -124,7 +124,7 @@ describe("Collection", () => {
 			const allTasks = db.tasks.getAll();
 
 			expect(allTasks).toHaveLength(1);
-			expect(allTasks[0].id).toBe("1");
+			expect(allTasks[0]?.id).toBe("1");
 		});
 	});
 
@@ -138,8 +138,8 @@ describe("Collection", () => {
 			const incomplete = db.tasks.find((task) => !task.completed);
 
 			expect(incomplete).toHaveLength(2);
-			expect(incomplete[0].id).toBe("1");
-			expect(incomplete[1].id).toBe("3");
+			expect(incomplete[0]?.id).toBe("1");
+			expect(incomplete[1]?.id).toBe("3");
 		});
 
 		test("supports map and sort options", () => {
@@ -481,11 +481,11 @@ describe("Collection", () => {
 			expect(doc.jsonapi.version).toBe("1.1");
 			expect(doc.meta.latest).toBeDefined();
 			expect(doc.data).toHaveLength(2);
-			expect(doc.data[0].type).toBe("tasks");
-			expect(doc.data[0].id).toBe("task-1");
-			expect(doc.data[0].attributes.title).toBe("Buy milk");
-			expect(doc.data[1].id).toBe("task-2");
-			expect(doc.data[1].attributes.title).toBe("Walk dog");
+			expect(doc.data[0]?.type).toBe("tasks");
+			expect(doc.data[0]?.id).toBe("task-1");
+			expect(doc.data[0]?.attributes.title).toBe("Buy milk");
+			expect(doc.data[1]?.id).toBe("task-2");
+			expect(doc.data[1]?.attributes.title).toBe("Walk dog");
 		});
 
 		test("returns empty document for empty collection", () => {
@@ -506,8 +506,8 @@ describe("Collection", () => {
 			const doc = db.tasks.toDocument();
 
 			expect(doc.data).toHaveLength(1);
-			expect(doc.data[0].meta.deletedAt).toBeDefined();
-			expect(doc.data[0].meta.deletedAt).not.toBeNull();
+			expect(doc.data[0]?.meta.deletedAt).toBeDefined();
+			expect(doc.data[0]?.meta.deletedAt).not.toBeNull();
 		});
 
 		test("includes correct latest eventstamp", () => {

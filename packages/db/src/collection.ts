@@ -12,9 +12,9 @@ import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
 
 export type MutationBatch<T> = {
-        added: Array<{ id: string; item: T }>;
-        updated: Array<{ id: string; before: T; after: T }>;
-        removed: Array<{ id: string; item: T }>;
+	added: Array<{ id: string; item: T }>;
+	updated: Array<{ id: string; before: T; after: T }>;
+	removed: Array<{ id: string; item: T }>;
 };
 
 export type CollectionMutationEvent<T> = MutationBatch<T>;
@@ -138,6 +138,10 @@ export function createCollection<T extends AnyObjectSchema>(
 			const results: U[] = [];
 
 			for (const [, resource] of data.entries()) {
+				if (resource.meta.deletedAt) {
+					continue;
+				}
+
 				const attributes = resource.attributes;
 
 				if (filter(attributes)) {

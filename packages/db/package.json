@@ -2,18 +2,28 @@
 	"name": "@byearlybird/starling-db",
 	"version": "0.1.0",
 	"main": "./dist/index.js",
+	"dependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
 	"devDependencies": {
 		"happy-dom": "^20.0.10",
 		"zod": "^4.1.12"
-	},
-	"peerDependencies": {
-		"@byearlybird/starling": "workspace:*"
 	},
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./plugin-idb": {
+			"types": "./dist/plugin-idb.d.ts",
+			"import": "./dist/plugin-idb.js",
+			"default": "./dist/plugin-idb.js"
+		},
+		"./plugin-http": {
+			"types": "./dist/plugin-http.d.ts",
+			"import": "./dist/plugin-http.js",
+			"default": "./dist/plugin-http.js"
 		}
 	},
 	"description": "Database utilities for Starling stores",

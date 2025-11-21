@@ -1,23 +1,23 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
-import { createDatabase } from "../db";
-import { createTestDb, makeTask, taskSchema } from "../test-helpers";
-import { idbPlugin } from "./idb";
+import { createDatabase } from "../../db";
+import { makeTask, taskSchema } from "../../test-helpers";
+import { idbPlugin } from "./index";
 
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
 		// Create database with plugin
-		const db1 = createDatabase({
+		const db1 = await createDatabase({
+			name: "test-db",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "test-db" })],
-		});
-
-		await db1.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Add a task
 		const task = makeTask({ id: "1", title: "Test Task" });
@@ -29,18 +29,18 @@ describe("idbPlugin", () => {
 		// Dispose to save
 		await db1.dispose();
 
-		// Create a new database instance and load
-		const db2 = createDatabase({
+		// Create a new database instance and load (same db name to load persisted data)
+		const db2 = await createDatabase({
+			name: "test-db",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "test-db" })],
-		});
-
-		await db2.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Verify task was loaded
 		const loadedTask = db2.tasks.get("1");
@@ -51,17 +51,17 @@ describe("idbPlugin", () => {
 	});
 
 	test("creates object stores on upgrade", async () => {
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "upgrade-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "upgrade-test" })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Verify database was created without errors
 		expect(db.tasks.getAll()).toEqual([]);
@@ -70,17 +70,17 @@ describe("idbPlugin", () => {
 	});
 
 	test("handles empty database gracefully", async () => {
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "empty-db",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "empty-db" })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Should not throw and should have no tasks
 		expect(db.tasks.getAll()).toEqual([]);
@@ -89,17 +89,17 @@ describe("idbPlugin", () => {
 	});
 
 	test("uses custom version", async () => {
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "version-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "version-test", version: 5 })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin({ version: 5 }))
+			.init();
 
 		// If init completes without error, the version was set correctly
 		expect(db.tasks.getAll()).toEqual([]);
@@ -108,17 +108,17 @@ describe("idbPlugin", () => {
 	});
 
 	test("persists on mutations", async () => {
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "mutation-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "mutation-test" })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Add task
 		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
@@ -126,40 +126,40 @@ describe("idbPlugin", () => {
 		// Wait for mutation event
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
-		// Dispose and reload to verify persistence
+		// Dispose and reload to verify persistence (same db name)
 		await db.dispose();
 
-		const db2 = createDatabase({
+		const db2 = await createDatabase({
+			name: "mutation-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "mutation-test" })],
-		});
-
-		await db2.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		const tasks = db2.tasks.getAll();
 		expect(tasks).toHaveLength(1);
-		expect(tasks[0].title).toBe("Task 1");
+		expect(tasks[0]?.title).toBe("Task 1");
 
 		await db2.dispose();
 	});
 
 	test("closes database on dispose", async () => {
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "dispose-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
 					getId: (task) => task.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "dispose-test" })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin())
+			.init();
 		await db.dispose();
 
 		// The database should have been closed
@@ -172,7 +172,8 @@ describe("idbPlugin", () => {
 			email: taskSchema.shape.title,
 		});
 
-		const db = createDatabase({
+		const db = await createDatabase({
+			name: "multi-collection-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
@@ -183,10 +184,9 @@ describe("idbPlugin", () => {
 					getId: (user) => user.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "multi-collection-test" })],
-		});
-
-		await db.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		// Add items to both collections
 		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
@@ -202,8 +202,9 @@ describe("idbPlugin", () => {
 
 		await db.dispose();
 
-		// Reload and verify both collections persisted
-		const db2 = createDatabase({
+		// Reload and verify both collections persisted (same db name)
+		const db2 = await createDatabase({
+			name: "multi-collection-test",
 			schema: {
 				tasks: {
 					schema: taskSchema,
@@ -214,10 +215,9 @@ describe("idbPlugin", () => {
 					getId: (user) => user.id,
 				},
 			},
-			plugins: [idbPlugin({ dbName: "multi-collection-test" })],
-		});
-
-		await db2.init();
+		})
+			.use(idbPlugin())
+			.init();
 
 		expect(db2.tasks.getAll()).toHaveLength(1);
 		expect(db2.users.getAll()).toHaveLength(1);

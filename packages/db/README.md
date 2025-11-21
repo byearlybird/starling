@@ -47,16 +47,15 @@ const taskSchema = z.object({
 
 type Task = z.infer<typeof taskSchema>;
 
-const config: DbConfig<{ tasks: typeof taskSchema }> = {
+const db = createDatabase({
+  name: "my-app",
   schema: {
     tasks: {
       schema: taskSchema,
       getId: (task) => task.id,
     },
   },
-};
-
-const db = createDatabase(config);
+});
 ```
 
 The resulting `db` has a `tasks` collection handle with typed methods.
@@ -169,11 +168,11 @@ Register plugins when creating the database:
 
 ```ts
 const db = createDatabase({
+  name: "my-app",
   schema: {
     tasks: { schema: taskSchema, getId: (task) => task.id },
   },
-  plugins: [idbPlugin, httpPlugin],
-});
+}).use(idbPlugin).use(httpPlugin);
 
 // Initialize the database (runs all plugin init handlers)
 await db.init();

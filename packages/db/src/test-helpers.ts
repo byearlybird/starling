@@ -21,6 +21,7 @@ export type User = z.infer<typeof userSchema>;
 // Database factories
 export function createTestDb() {
 	return createDatabase({
+		name: "test-db",
 		schema: {
 			tasks: {
 				schema: taskSchema,
@@ -32,6 +33,7 @@ export function createTestDb() {
 
 export function createMultiCollectionDb() {
 	return createDatabase({
+		name: "multi-collection-db",
 		schema: {
 			tasks: {
 				schema: taskSchema,

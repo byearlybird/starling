@@ -26,6 +26,7 @@ describe("Database", () => {
 
 		test("supports custom getId functions", () => {
 			const db = createDatabase({
+				name: "kv-db",
 				schema: {
 					kv: {
 						schema: z.object({
@@ -180,6 +181,7 @@ describe("Database", () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
+				name: "plugins-db",
 				schema: {
 					tasks: {
 						schema: z.object({
@@ -190,12 +192,10 @@ describe("Database", () => {
 						getId: (task) => task.id,
 					},
 				},
-				plugins: [
-					{ handlers: { init: () => calls.push("1") } },
-					{ handlers: { init: () => calls.push("2") } },
-					{ handlers: { init: () => calls.push("3") } },
-				],
-			});
+			})
+				.use({ handlers: { init: () => calls.push("1") } })
+				.use({ handlers: { init: () => calls.push("2") } })
+				.use({ handlers: { init: () => calls.push("3") } });
 
 			await db.init();
 			expect(calls).toEqual(["1", "2", "3"]);
@@ -205,6 +205,7 @@ describe("Database", () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
+				name: "plugins-db",
 				schema: {
 					tasks: {
 						schema: z.object({
@@ -215,12 +216,10 @@ describe("Database", () => {
 						getId: (task) => task.id,
 					},
 				},
-				plugins: [
-					{ handlers: { dispose: () => calls.push("1") } },
-					{ handlers: { dispose: () => calls.push("2") } },
-					{ handlers: { dispose: () => calls.push("3") } },
-				],
-			});
+			})
+				.use({ handlers: { dispose: () => calls.push("1") } })
+				.use({ handlers: { dispose: () => calls.push("2") } })
+				.use({ handlers: { dispose: () => calls.push("3") } });
 
 			await db.dispose();
 			expect(calls).toEqual(["3", "2", "1"]);
@@ -228,6 +227,7 @@ describe("Database", () => {
 
 		test("plugins can perform database operations", async () => {
 			const db = createDatabase({
+				name: "plugins-db",
 				schema: {
 					tasks: {
 						schema: z.object({
@@ -238,19 +238,16 @@ describe("Database", () => {
 						getId: (task) => task.id,
 					},
 				},
-				plugins: [
-					{
-						handlers: {
-							init: (db) => {
-								db.tasks.add({
-									id: "1",
-									title: "Added by plugin",
-									completed: false,
-								});
-							},
-						},
+			}).use({
+				handlers: {
+					init: (db) => {
+						db.tasks.add({
+							id: "1",
+							title: "Added by plugin",
+							completed: false,
+						});
 					},
-				],
+				},
 			});
 
 			await db.init();
@@ -261,6 +258,7 @@ describe("Database", () => {
 			const calls: string[] = [];
 
 			const db = createDatabase({
+				name: "plugins-db",
 				schema: {
 					tasks: {
 						schema: z.object({
@@ -271,20 +269,17 @@ describe("Database", () => {
 						getId: (task) => task.id,
 					},
 				},
-				plugins: [
-					{
-						handlers: {
-							init: async () => {
-								await new Promise((resolve) => setTimeout(resolve, 10));
-								calls.push("init");
-							},
-							dispose: async () => {
-								await new Promise((resolve) => setTimeout(resolve, 10));
-								calls.push("dispose");
-							},
-						},
+			}).use({
+				handlers: {
+					init: async () => {
+						await new Promise((resolve) => setTimeout(resolve, 10));
+						calls.push("init");
 					},
-				],
+					dispose: async () => {
+						await new Promise((resolve) => setTimeout(resolve, 10));
+						calls.push("dispose");
+					},
+				},
 			});
 
 			await db.init();
@@ -296,6 +291,7 @@ describe("Database", () => {
 			const pluginEvents: any[] = [];
 
 			const db = createDatabase({
+				name: "plugins-db",
 				schema: {
 					tasks: {
 						schema: z.object({
@@ -306,15 +302,12 @@ describe("Database", () => {
 						getId: (task) => task.id,
 					},
 				},
-				plugins: [
-					{
-						handlers: {
-							init: (db) => {
-								db.on("mutation", (events) => pluginEvents.push(events));
-							},
-						},
+			}).use({
+				handlers: {
+					init: (db) => {
+						db.on("mutation", (events) => pluginEvents.push(events));
 					},
-				],
+				},
 			});
 
 			await db.init();

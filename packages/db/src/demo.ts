@@ -24,24 +24,27 @@ const taskSchema = z.object({
 	createdAt: z.iso.datetime().default(() => new Date().toISOString()),
 });
 
-const db = await createDatabase("journal", {
-	entries: {
-		schema: entrySchema,
-		getId: (entry) => entry.id,
-	},
-	comments: {
-		schema: commentSchema,
-		getId: (comment) => comment.id,
-	},
-	tasks: {
-		schema: taskSchema,
-		getId: (task) => task.id,
+const db = await createDatabase({
+	name: "journal",
+	schema: {
+		entries: {
+			schema: entrySchema,
+			getId: (entry) => entry.id,
+		},
+		comments: {
+			schema: commentSchema,
+			getId: (comment) => comment.id,
+		},
+		tasks: {
+			schema: taskSchema,
+			getId: (task) => task.id,
+		},
 	},
 })
 	.use(idbPlugin())
 	.init();
 
-const task = db.tasks.add({ title: "To do" });
+const _task = db.tasks.add({ title: "To do" });
 const entry = db.entries.add({ content: "Some entry" });
 
 db.comments.add({
@@ -49,7 +52,7 @@ db.comments.add({
 	content: "Interesting",
 });
 
-const entriesWithComments = db.begin((tx) => {
+const _entriesWithComments = db.begin((tx) => {
 	const entries = tx.entries.getAll();
 	const comments = new Map<string, Comment[]>();
 
