@@ -1,14 +1,13 @@
 import type { Collection } from "./collection";
 import { createCollection } from "./collection";
 import type { CollectionHandle, CollectionHandles } from "./collection-handle";
-import type { CollectionConfig, CollectionConfigMap } from "./db";
+import type { CollectionConfigMap } from "./db";
 import type { SchemasMap } from "./types";
 
-export type TransactionContext<
-        Schemas extends SchemasMap,
-> = CollectionHandles<Schemas> & {
-        rollback(): void;
-};
+export type TransactionContext<Schemas extends SchemasMap> =
+	CollectionHandles<Schemas> & {
+		rollback(): void;
+	};
 
 /**
  * Execute a transaction with snapshot isolation and copy-on-write optimization.
@@ -25,20 +24,17 @@ export type TransactionContext<
  * - Explicit rollback via tx.rollback() or implicit on exception
  * - Only modified collections are committed back
  */
-export function executeTransaction<
-        Schemas extends SchemasMap,
-        R,
->(
-        configs: CollectionConfigMap<Schemas>,
-        collections: { [K in keyof Schemas]: Collection<Schemas[K]> },
-        getEventstamp: () => string,
-        callback: (tx: TransactionContext<Schemas>) => R,
+export function executeTransaction<Schemas extends SchemasMap, R>(
+	configs: CollectionConfigMap<Schemas>,
+	collections: { [K in keyof Schemas]: Collection<Schemas[K]> },
+	getEventstamp: () => string,
+	callback: (tx: TransactionContext<Schemas>) => R,
 ): R {
 	// Track which collections have been cloned (copy-on-write optimization)
 	const clonedCollections = new Map<keyof Schemas, Collection<any>>();
 
 	// Create lazy transaction handles
-        const txHandles = {} as CollectionHandles<Schemas>;
+	const txHandles = {} as CollectionHandles<Schemas>;
 
 	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
 		const originalCollection = collections[name];
@@ -132,10 +128,10 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 		return cloned;
 	};
 
-        return {
-                get(id, opts) {
-                        return ensureCloned().get(id, opts);
-                },
+	return {
+		get(id, opts) {
+			return ensureCloned().get(id, opts);
+		},
 
 		getAll(opts) {
 			return ensureCloned().getAll(opts);
@@ -157,16 +153,16 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 			ensureCloned().remove(id);
 		},
 
-                merge(document) {
-                        ensureCloned().merge(document);
-                },
+		merge(document) {
+			ensureCloned().merge(document);
+		},
 
-                toDocument() {
-                        return ensureCloned().toDocument();
-                },
+		toDocument() {
+			return ensureCloned().toDocument();
+		},
 
-                on(event, handler) {
-                        return ensureCloned().on(event, handler);
-                },
-        };
+		on(event, handler) {
+			return ensureCloned().on(event, handler);
+		},
+	};
 }

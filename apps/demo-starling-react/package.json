@@ -11,10 +11,8 @@
 	"dependencies": {
 		"@byearlybird/starling": "workspace:*",
 		"@byearlybird/starling-db": "workspace:*",
-		"@byearlybird/starling-react": "workspace:*",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
-		"unstorage": "^1.17.1",
 		"zod": "^4.1.12"
 	},
 	"devDependencies": {

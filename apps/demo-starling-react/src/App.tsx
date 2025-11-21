@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { Column } from "./column";
 import { SearchInput } from "./search-input";
-import { taskSchema, useStore } from "./store/task-store";
+import { db, type TaskInput } from "./store/task-store";
 
 function App() {
-	const taskStore = useStore();
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const onAdd = () => {
 		const title = prompt("New task title");
-		if (!title) return;
-		const validated = taskSchema.parse({ title });
-		taskStore.add(validated);
+		if (title === null) return;
+		const newTask: TaskInput = { title };
+		db.tasks.add(newTask);
 	};
 
 	return (

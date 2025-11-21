@@ -41,7 +41,7 @@ const db = await createDatabase("journal", {
 	.use(idbPlugin())
 	.init();
 
-const task = db.tasks.add({ title: "To do" });
+const _task = db.tasks.add({ title: "To do" });
 const entry = db.entries.add({ content: "Some entry" });
 
 db.comments.add({
@@ -49,7 +49,7 @@ db.comments.add({
 	content: "Interesting",
 });
 
-const entriesWithComments = db.begin((tx) => {
+const _entriesWithComments = db.begin((tx) => {
 	const entries = tx.entries.getAll();
 	const comments = new Map<string, Comment[]>();
 

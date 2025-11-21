@@ -1,31 +1,25 @@
-import { createStore } from "@byearlybird/starling";
-import { queryPlugin } from "@byearlybird/starling/plugin-query";
-import { unstoragePlugin } from "@byearlybird/starling/plugin-unstorage";
-import { createStoreHooks } from "@byearlybird/starling-react";
-import { createStorage } from "unstorage";
-import httpDriver from "unstorage/drivers/http";
-import localStorageDriver from "unstorage/drivers/localstorage";
+import type { AnyObject, JsonDocument } from "@byearlybird/starling";
+import {
+	createDatabase,
+	httpPlugin,
+	idbPlugin,
+} from "@byearlybird/starling-db";
 import { z } from "zod";
 
 export const statusSchema = z.enum(["todo", "doing", "done"]);
 
-export const subtaskSchema = z.object({
-	title: z.string(),
-	status: statusSchema,
-});
-
 export const taskSchema = z.object({
+	id: z.uuid().default(() => crypto.randomUUID()),
 	status: statusSchema.default("todo"),
 	title: z.string().min(1),
-	tags: z.array(z.string()).default([]),
 	createdAt: z.string().default(() => new Date().toISOString()),
-	subtasks: z.record(z.string(), subtaskSchema).default({}),
-	priority: z.enum(["low", "medium", "high"]).default("medium"),
 });
 
 export type Task = z.infer<typeof taskSchema>;
-export type Subtask = z.infer<typeof subtaskSchema>;
+export type TaskInput = z.input<typeof taskSchema>;
 export type Status = z.infer<typeof statusSchema>;
+
+const syncBaseUrl = import.meta.env.VITE_STARLING_HTTP_BASE_URL;
 
 const pseudoEncrypt = (data: unknown): string => {
 	const jsonString = JSON.stringify(data);
@@ -36,6 +30,7 @@ const pseudoDecrypt = (encrypted: unknown): unknown => {
 	if (typeof encrypted !== "string") {
 		throw new Error("Expected encrypted data to be a string");
 	}
+
 	const jsonString = atob(encrypted);
 	return JSON.parse(jsonString);
 };
@@ -45,60 +40,76 @@ const isObject = (value: unknown): value is Record<string, unknown> => {
 };
 
 const mapLeafValues = (
-	obj: unknown,
+	value: unknown,
 	fn: (value: unknown) => unknown,
 ): unknown => {
-	if (isObject(obj)) {
+	if (Array.isArray(value)) {
+		return value.map((entry) => mapLeafValues(entry, fn));
+	}
+
+	if (isObject(value)) {
 		return Object.fromEntries(
-			Object.entries(obj).map(([key, value]) => [
+			Object.entries(value).map(([key, entry]) => [
 				key,
-				mapLeafValues(value, fn),
+				mapLeafValues(entry, fn),
 			]),
 		);
 	}
-	return fn(obj);
+
+	return fn(value);
 };
 
-const localStorage = unstoragePlugin<Task>(
-	createStorage({
-		driver: localStorageDriver({ base: "starling-todos:" }),
-	}),
-);
+const encryptDocument = <T extends AnyObject>(
+	document: JsonDocument<T>,
+): JsonDocument<T> => {
+	return {
+		...document,
+		data: document.data.map((resource) => ({
+			...resource,
+			attributes: mapLeafValues(resource.attributes, pseudoEncrypt) as T,
+		})),
+	} as JsonDocument<T>;
+};
 
-const remoteStorage = unstoragePlugin<Task>(
-	createStorage({
-		driver: httpDriver({ base: "http://localhost:3001/api" }),
-	}),
-	{
-		skip: () => !navigator.onLine,
-		pollIntervalMs: 1000, // set to 1 second for demo purposes
-		onBeforeSet: (data) => ({
-			...data,
-			data: data.data.map((doc) => ({
-				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoEncrypt) as Record<
-					string,
-					unknown
-				>,
-			})),
-		}),
-		onAfterGet: (data) => ({
-			...data,
-			data: data.data.map((doc) => ({
-				...doc,
-				attributes: mapLeafValues(doc.attributes, pseudoDecrypt) as Task,
-			})),
-		}),
+const decryptDocument = <T extends AnyObject>(
+	document: JsonDocument<T>,
+): JsonDocument<T> => {
+	return {
+		...document,
+		data: document.data.map((resource) => ({
+			...resource,
+			attributes: mapLeafValues(resource.attributes, pseudoDecrypt) as T,
+		})),
+	} as JsonDocument<T>;
+};
+
+const database = createDatabase("react-tasks", {
+	tasks: {
+		schema: taskSchema,
+		getId: (task) => task.id,
 	},
-);
+}).use(idbPlugin());
 
-// Create Starling store with local storage and HTTP Sync
-export const taskStore = await createStore<Task>("tasks")
-	.use(queryPlugin())
-	.use(localStorage)
-	.use(remoteStorage)
-	.init();
+if (syncBaseUrl) {
+	database.use(
+		httpPlugin({
+			baseUrl: syncBaseUrl,
+			onRequest: <T extends AnyObject>({
+				document,
+			}: {
+				document?: JsonDocument<T>;
+			}) => (document ? { document: encryptDocument(document) } : undefined),
+			onResponse: <T extends AnyObject>({
+				document,
+			}: {
+				document: JsonDocument<T>;
+			}) => ({
+				document: decryptDocument(document),
+			}),
+		}),
+	);
+}
 
-// Create typed React hooks from the store
-export const { StoreProvider, useStore, useQuery } =
-	createStoreHooks(taskStore);
+export const db = await database.init();
+
+export type TaskDatabase = typeof db;

@@ -12,9 +12,9 @@ import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
 
 export type MutationBatch<T> = {
-        added: Array<{ id: string; item: T }>;
-        updated: Array<{ id: string; before: T; after: T }>;
-        removed: Array<{ id: string; item: T }>;
+	added: Array<{ id: string; item: T }>;
+	updated: Array<{ id: string; before: T; after: T }>;
+	removed: Array<{ id: string; item: T }>;
 };
 
 export type CollectionMutationEvent<T> = MutationBatch<T>;
