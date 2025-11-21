@@ -19,7 +19,6 @@
       "dependencies": {
         "@byearlybird/starling": "workspace:*",
         "@byearlybird/starling-db": "workspace:*",
-        "@byearlybird/starling-react": "workspace:*",
         "react": "^19.1.1",
         "react-dom": "^19.1.1",
         "unstorage": "^1.17.1",
@@ -60,14 +59,6 @@
       },
       "peerDependencies": {
         "@byearlybird/starling": "workspace:*",
-      },
-    },
-    "packages/react": {
-      "name": "@byearlybird/starling-react",
-      "version": "0.1.0",
-      "peerDependencies": {
-        "@byearlybird/starling": "workspace:*",
-        "react": "^18.0.0 || ^19.0.0",
       },
     },
   },
@@ -133,8 +124,6 @@
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/core"],
 
     "@byearlybird/starling-db": ["@byearlybird/starling-db@workspace:packages/db"],
-
-    "@byearlybird/starling-react": ["@byearlybird/starling-react@workspace:packages/react"],
 
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
