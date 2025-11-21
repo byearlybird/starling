@@ -1,10 +1,7 @@
 import type { JsonDocument } from "@byearlybird/starling";
 import type { Database, DatabasePlugin } from "../db";
 import type { StandardSchemaV1 } from "../standard-schema";
-
-type AnyObjectSchema<
-	T extends Record<string, unknown> = Record<string, unknown>,
-> = StandardSchemaV1<T>;
+import type { SchemasMap } from "../types";
 
 /**
  * Context provided to the onRequest hook
@@ -35,7 +32,7 @@ export type ResponseHookResult<T = unknown> =
 /**
  * Configuration for the HTTP plugin
  */
-export type HttpPluginConfig<Schemas extends Record<string, AnyObjectSchema>> =
+export type HttpPluginConfig<Schemas extends SchemasMap> =
 	{
 		/**
 		 * Base URL for the HTTP server (e.g., "https://api.example.com")
@@ -139,8 +136,8 @@ export type HttpPluginConfig<Schemas extends Record<string, AnyObjectSchema>> =
  * })]
  * ```
  */
-export function httpPlugin<Schemas extends Record<string, AnyObjectSchema>>(
-	config: HttpPluginConfig<Schemas>,
+export function httpPlugin<Schemas extends SchemasMap>(
+        config: HttpPluginConfig<Schemas>,
 ): DatabasePlugin<Schemas> {
 	const {
 		baseUrl,
@@ -283,7 +280,7 @@ export function httpPlugin<Schemas extends Record<string, AnyObjectSchema>>(
 /**
  * Fetch a collection from the server (GET request)
  */
-async function fetchCollection<Schemas extends Record<string, AnyObjectSchema>>(
+async function fetchCollection<Schemas extends SchemasMap>(
 	db: Database<Schemas>,
 	collectionName: keyof Schemas,
 	baseUrl: string,
@@ -372,7 +369,7 @@ async function fetchCollection<Schemas extends Record<string, AnyObjectSchema>>(
 /**
  * Push a collection to the server (PATCH request)
  */
-async function pushCollection<Schemas extends Record<string, AnyObjectSchema>>(
+async function pushCollection<Schemas extends SchemasMap>(
 	db: Database<Schemas>,
 	collectionName: keyof Schemas,
 	baseUrl: string,
