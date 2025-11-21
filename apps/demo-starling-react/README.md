@@ -1,8 +1,6 @@
 # React + Starling Todo Demo
 
-A small todo app that demonstrates Starling’s Store + plugin API in a React application.
-
-> **Status:** This demo targets the earlier `createStore`, `queryPlugin`, and `unstoragePlugin` APIs from `@byearlybird/starling` 0.6.x. The core library in this repo now focuses on CRDT primitives and `@byearlybird/starling-db`. The demo will be updated once the new Store API is in place.
+A small todo app that demonstrates how to wire `@byearlybird/starling-db` directly into a React UI without additional hook packages.
 
 ## Getting Started
 
@@ -21,11 +19,9 @@ Then open `http://localhost:5173` while the dev server runs.
 
 ## What This Demo Shows
 
-- `src/store/task-store.ts` configures a Starling store with localStorage and HTTP sync via the unstorage plugin, including:
-  - Storage multiplexing (local + remote persistence)
-  - Conditional sync with a `skip` function
-  - Data transformation with `onBeforeSet` / `onAfterGet` hooks
-  - Typed React hooks created with `createStoreHooks`
-- `src/App.tsx` contains the UI that reads from and writes to the store using reactive queries.
+- `src/store/task-store.ts` defines the Starling database schema, configures IndexedDB persistence via `idbPlugin`, and wires in
+  `httpPlugin` (disabled unless `VITE_STARLING_HTTP_BASE_URL` is set) for optional HTTP sync with pseudo-encrypted payloads.
+- `src/store/use-tasks.ts` uses `db.on("mutation")` + `db.tasks.find(...)` to keep columns in sync with database changes.
+- `src/App.tsx` and `src/column.tsx` read/write tasks through the database to demonstrate CRUD flows.
 
 For deployment guidance, see the Vite docs: https://vite.dev/guide/static-deploy.html.
