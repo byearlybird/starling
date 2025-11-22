@@ -1,5 +1,5 @@
 import type { JsonDocument } from "@byearlybird/starling";
-import type { Database, DatabasePlugin } from "../db";
+import type { Database, DatabasePlugin } from "../../db";
 
 export type IdbPluginConfig = {
 	/**

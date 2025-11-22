@@ -14,6 +14,16 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./plugin-idb": {
+			"types": "./dist/plugin-idb.d.ts",
+			"import": "./dist/plugin-idb.js",
+			"default": "./dist/plugin-idb.js"
+		},
+		"./plugin-http": {
+			"types": "./dist/plugin-http.d.ts",
+			"import": "./dist/plugin-http.js",
+			"default": "./dist/plugin-http.js"
 		}
 	},
 	"description": "Database utilities for Starling stores",
