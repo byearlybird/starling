@@ -2,46 +2,44 @@ import { useEffect, useMemo, useState } from "react";
 import { db, type Status, type Task } from "./task-store";
 
 const sortByRecency = (a: Task, b: Task) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+	new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
 export const useTasks = (status: Status, searchQuery: string) => {
-        const normalizedQuery = useMemo(
-                () => searchQuery.trim().toLowerCase(),
-                [searchQuery],
-        );
+	const normalizedQuery = useMemo(
+		() => searchQuery.trim().toLowerCase(),
+		[searchQuery],
+	);
 
-        const selectTasks = () =>
-                db.tasks.find(
-                        (task) =>
-                                task.status === status &&
-                                (!normalizedQuery ||
-                                        task.title
-                                                .toLowerCase()
-                                                .includes(normalizedQuery)),
-                        {
-                                sort: sortByRecency,
-                        },
-                );
+	const selectTasks = () =>
+		db.tasks.find(
+			(task) =>
+				task.status === status &&
+				(!normalizedQuery ||
+					task.title.toLowerCase().includes(normalizedQuery)),
+			{
+				sort: sortByRecency,
+			},
+		);
 
-        const [tasks, setTasks] = useState<Task[]>(selectTasks);
+	const [tasks, setTasks] = useState<Task[]>(selectTasks);
 
-        useEffect(() => {
-                const updateTasks = () => setTasks(selectTasks());
+	useEffect(() => {
+		const updateTasks = () => setTasks(selectTasks());
 
-                updateTasks();
+		updateTasks();
 
-                const unsubscribe = db.on("mutation", (mutations) => {
-                        const hasTaskChanges = mutations.some(
-                                (mutation) => mutation.collection === "tasks",
-                        );
+		const unsubscribe = db.on("mutation", (mutations) => {
+			const hasTaskChanges = mutations.some(
+				(mutation) => mutation.collection === "tasks",
+			);
 
-                        if (hasTaskChanges) {
-                                updateTasks();
-                        }
-                });
+			if (hasTaskChanges) {
+				updateTasks();
+			}
+		});
 
-                return () => unsubscribe();
-        }, [normalizedQuery, status]);
+		return () => unsubscribe();
+	}, [selectTasks]);
 
-        return tasks;
+	return tasks;
 };

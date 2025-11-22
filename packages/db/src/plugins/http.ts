@@ -32,68 +32,67 @@ export type ResponseHookResult<T extends AnyObject = AnyObject> =
 /**
  * Configuration for the HTTP plugin
  */
-export type HttpPluginConfig<Schemas extends SchemasMap> =
-	{
+export type HttpPluginConfig<_Schemas extends SchemasMap> = {
+	/**
+	 * Base URL for the HTTP server (e.g., "https://api.example.com")
+	 */
+	baseUrl: string;
+
+	/**
+	 * Interval in milliseconds to poll for server updates
+	 * @default 5000
+	 */
+	pollingInterval?: number;
+
+	/**
+	 * Delay in milliseconds to debounce local mutations before pushing
+	 * @default 1000
+	 */
+	debounceDelay?: number;
+
+	/**
+	 * Hook called before each HTTP request
+	 * Return { skip: true } to abort the request
+	 * Return { headers } to add custom headers
+	 * Return { document } to transform the document (PATCH only)
+	 */
+	onRequest?: <T extends AnyObject>(
+		context: RequestContext<T>,
+	) => RequestHookResult<T>;
+
+	/**
+	 * Hook called after each successful HTTP response
+	 * Return { skip: true } to skip merging the response
+	 * Return { document } to transform the document before merging
+	 */
+	onResponse?: <T extends AnyObject>(context: {
+		collection: string;
+		document: JsonDocument<T>;
+	}) => ResponseHookResult<T>;
+
+	/**
+	 * Retry configuration for failed requests
+	 */
+	retry?: {
 		/**
-		 * Base URL for the HTTP server (e.g., "https://api.example.com")
+		 * Maximum number of retry attempts
+		 * @default 3
 		 */
-		baseUrl: string;
+		maxAttempts?: number;
 
 		/**
-		 * Interval in milliseconds to poll for server updates
-		 * @default 5000
-		 */
-		pollingInterval?: number;
-
-		/**
-		 * Delay in milliseconds to debounce local mutations before pushing
+		 * Initial delay in milliseconds before first retry
 		 * @default 1000
 		 */
-		debounceDelay?: number;
+		initialDelay?: number;
 
 		/**
-		 * Hook called before each HTTP request
-		 * Return { skip: true } to abort the request
-		 * Return { headers } to add custom headers
-		 * Return { document } to transform the document (PATCH only)
+		 * Maximum delay in milliseconds between retries
+		 * @default 30000
 		 */
-		onRequest?: <T extends AnyObject>(
-			context: RequestContext<T>,
-		) => RequestHookResult<T>;
-
-		/**
-		 * Hook called after each successful HTTP response
-		 * Return { skip: true } to skip merging the response
-		 * Return { document } to transform the document before merging
-		 */
-		onResponse?: <T extends AnyObject>(context: {
-			collection: string;
-			document: JsonDocument<T>;
-		}) => ResponseHookResult<T>;
-
-		/**
-		 * Retry configuration for failed requests
-		 */
-		retry?: {
-			/**
-			 * Maximum number of retry attempts
-			 * @default 3
-			 */
-			maxAttempts?: number;
-
-			/**
-			 * Initial delay in milliseconds before first retry
-			 * @default 1000
-			 */
-			initialDelay?: number;
-
-			/**
-			 * Maximum delay in milliseconds between retries
-			 * @default 30000
-			 */
-			maxDelay?: number;
-		};
+		maxDelay?: number;
 	};
+};
 
 /**
  * Create an HTTP sync plugin for Starling databases.
@@ -139,7 +138,7 @@ export type HttpPluginConfig<Schemas extends SchemasMap> =
  * ```
  */
 export function httpPlugin<Schemas extends SchemasMap>(
-        config: HttpPluginConfig<Schemas>,
+	config: HttpPluginConfig<Schemas>,
 ): DatabasePlugin<Schemas> {
 	const {
 		baseUrl,
@@ -150,17 +149,12 @@ export function httpPlugin<Schemas extends SchemasMap>(
 		retry = {},
 	} = config;
 
-	const {
-		maxAttempts = 3,
-		initialDelay = 1000,
-		maxDelay = 30000,
-	} = retry;
+	const { maxAttempts = 3, initialDelay = 1000, maxDelay = 30000 } = retry;
 
 	// Plugin state
 	let pollingTimer: ReturnType<typeof setInterval> | null = null;
 	let unsubscribe: (() => void) | null = null;
-	const debounceTimers: Map<string, ReturnType<typeof setTimeout>> =
-		new Map();
+	const debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 	return {
 		handlers: {
@@ -256,7 +250,7 @@ export function httpPlugin<Schemas extends SchemasMap>(
 				});
 			},
 
-			async dispose(db: Database<Schemas>) {
+			async dispose(_db: Database<Schemas>) {
 				// Clear polling timer
 				if (pollingTimer) {
 					clearInterval(pollingTimer);
@@ -287,7 +281,9 @@ async function fetchCollection<Schemas extends SchemasMap>(
 	collectionName: keyof Schemas,
 	baseUrl: string,
 	onRequest:
-		| (<T extends AnyObject>(context: RequestContext<T>) => RequestHookResult<T>)
+		| (<T extends AnyObject>(
+				context: RequestContext<T>,
+		  ) => RequestHookResult<T>)
 		| undefined,
 	onResponse:
 		| (<T extends AnyObject>(context: {
@@ -331,9 +327,7 @@ async function fetchCollection<Schemas extends SchemasMap>(
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`HTTP ${response.status}: ${response.statusText}`,
-			);
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 
 		const document = (await response.json()) as JsonDocument<
@@ -376,7 +370,9 @@ async function pushCollection<Schemas extends SchemasMap>(
 	collectionName: keyof Schemas,
 	baseUrl: string,
 	onRequest:
-		| (<T extends AnyObject>(context: RequestContext<T>) => RequestHookResult<T>)
+		| (<T extends AnyObject>(
+				context: RequestContext<T>,
+		  ) => RequestHookResult<T>)
 		| undefined,
 	onResponse:
 		| (<T extends AnyObject>(context: {
@@ -430,9 +426,7 @@ async function pushCollection<Schemas extends SchemasMap>(
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`HTTP ${response.status}: ${response.statusText}`,
-			);
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 
 		const responseDocument = (await response.json()) as JsonDocument<

@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
 import { createDatabase } from "../db";
-import { createTestDb, makeTask, taskSchema } from "../test-helpers";
+import { makeTask, taskSchema } from "../test-helpers";
 import { idbPlugin } from "./idb";
 
 describe("idbPlugin", () => {

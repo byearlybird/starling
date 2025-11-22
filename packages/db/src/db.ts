@@ -1,8 +1,8 @@
 import { createClock, type JsonDocument } from "@byearlybird/starling";
 import {
-        type Collection,
-        createCollection,
-        type MutationBatch,
+	type Collection,
+	createCollection,
+	type MutationBatch,
 } from "./collection";
 import type { CollectionHandle, CollectionHandles } from "./collection-handle";
 import { createEmitter } from "./emitter";
@@ -11,58 +11,59 @@ import { executeTransaction, type TransactionContext } from "./transaction";
 import type { AnyObjectSchema, SchemasMap } from "./types";
 
 export type CollectionConfigMap<Schemas extends SchemasMap> = {
-        [K in keyof Schemas]: CollectionConfig<Schemas[K]>;
+	[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 };
 
 type CollectionInstances<Schemas extends SchemasMap> = {
-        [K in keyof Schemas]: Collection<Schemas[K]>;
+	[K in keyof Schemas]: Collection<Schemas[K]>;
 };
 
 type MutationEnvelope<Schemas extends SchemasMap> = {
-        [K in keyof Schemas]: {
-                collection: K;
-        } & MutationBatch<StandardSchemaV1.InferOutput<Schemas[K]>>;
+	[K in keyof Schemas]: {
+		collection: K;
+	} & MutationBatch<StandardSchemaV1.InferOutput<Schemas[K]>>;
 }[keyof Schemas];
 
 export type DatabaseMutationEvent<Schemas extends SchemasMap> =
-        MutationEnvelope<Schemas>[];
+	MutationEnvelope<Schemas>[];
 
 export type DatabaseEvents<Schemas extends SchemasMap> = {
-        mutation: DatabaseMutationEvent<Schemas>;
+	mutation: DatabaseMutationEvent<Schemas>;
 };
 
 export type CollectionConfig<T extends AnyObjectSchema> = {
-        schema: T;
-        getId: (item: StandardSchemaV1.InferOutput<T>) => string;
+	schema: T;
+	getId: (item: StandardSchemaV1.InferOutput<T>) => string;
 };
 
 export type DatabasePlugin<Schemas extends SchemasMap> = {
-        handlers: {
-                init?: (db: Database<Schemas>) => Promise<unknown> | unknown;
-                dispose?: (db: Database<Schemas>) => Promise<unknown> | unknown;
-        };
+	handlers: {
+		init?: (db: Database<Schemas>) => Promise<unknown> | unknown;
+		dispose?: (db: Database<Schemas>) => Promise<unknown> | unknown;
+	};
 };
 
 export type DbConfig<Schemas extends SchemasMap> = {
-        schema: CollectionConfigMap<Schemas>;
+	schema: CollectionConfigMap<Schemas>;
 };
 
-export type Database<Schemas extends SchemasMap> = CollectionHandles<Schemas> & {
-        name: string;
-        begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
-        toDocuments(): {
-                [K in keyof Schemas]: JsonDocument<
-                        StandardSchemaV1.InferOutput<Schemas[K]>
-		>;
+export type Database<Schemas extends SchemasMap> =
+	CollectionHandles<Schemas> & {
+		name: string;
+		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
+		toDocuments(): {
+			[K in keyof Schemas]: JsonDocument<
+				StandardSchemaV1.InferOutput<Schemas[K]>
+			>;
+		};
+		on(
+			event: "mutation",
+			handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
+		): () => void;
+		use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
+		init(): Promise<Database<Schemas>>;
+		dispose(): Promise<void>;
 	};
-	on(
-		event: "mutation",
-		handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
-	): () => void;
-	use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
-	init(): Promise<Database<Schemas>>;
-	dispose(): Promise<void>;
-};
 
 /**
  * Create a typed database instance with collection access.
@@ -82,8 +83,8 @@ export type Database<Schemas extends SchemasMap> = CollectionHandles<Schemas> & 
  * ```
  */
 export function createDatabase<Schemas extends SchemasMap>(
-        name: string,
-        schema: CollectionConfigMap<Schemas>,
+	name: string,
+	schema: CollectionConfigMap<Schemas>,
 ): Database<Schemas> {
 	const clock = createClock();
 	const getEventstamp = () => clock.now();
@@ -122,12 +123,7 @@ export function createDatabase<Schemas extends SchemasMap>(
 		...handles,
 		name,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
-			return executeTransaction(
-				schema,
-				collections,
-				getEventstamp,
-				callback,
-			);
+			return executeTransaction(schema, collections, getEventstamp, callback);
 		},
 		toDocuments() {
 			const documents = {} as {
@@ -173,10 +169,10 @@ export function createDatabase<Schemas extends SchemasMap>(
 }
 
 function makeCollections<Schemas extends SchemasMap>(
-        configs: CollectionConfigMap<Schemas>,
-        getEventstamp: () => string,
+	configs: CollectionConfigMap<Schemas>,
+	getEventstamp: () => string,
 ): CollectionInstances<Schemas> {
-        const collections = {} as CollectionInstances<Schemas>;
+	const collections = {} as CollectionInstances<Schemas>;
 
 	for (const name of Object.keys(configs) as (keyof Schemas)[]) {
 		const config = configs[name];
@@ -192,9 +188,9 @@ function makeCollections<Schemas extends SchemasMap>(
 }
 
 function makeHandles<Schemas extends SchemasMap>(
-        collections: CollectionInstances<Schemas>,
+	collections: CollectionInstances<Schemas>,
 ): CollectionHandles<Schemas> {
-        const handles = {} as CollectionHandles<Schemas>;
+	const handles = {} as CollectionHandles<Schemas>;
 
 	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
 		// Create handles that dynamically look up collections
