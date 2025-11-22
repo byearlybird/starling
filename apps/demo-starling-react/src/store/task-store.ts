@@ -1,9 +1,7 @@
 import type { AnyObject, JsonDocument } from "@byearlybird/starling";
-import {
-	createDatabase,
-	httpPlugin,
-	idbPlugin,
-} from "@byearlybird/starling-db";
+import { createDatabase } from "@byearlybird/starling-db";
+import { httpPlugin } from "@byearlybird/starling-db/plugin-http";
+import { idbPlugin } from "@byearlybird/starling-db/plugin-idb";
 import { z } from "zod";
 
 export const statusSchema = z.enum(["todo", "doing", "done"]);

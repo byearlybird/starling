@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
-import { createDatabase } from "../db";
-import { makeTask, taskSchema } from "../test-helpers";
-import { idbPlugin } from "./idb";
+import { createDatabase } from "../../db";
+import { makeTask, taskSchema } from "../../test-helpers";
+import { idbPlugin } from "./index";
 
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
