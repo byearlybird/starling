@@ -2,12 +2,12 @@
 	"name": "@byearlybird/starling-db",
 	"version": "0.1.0",
 	"main": "./dist/index.js",
+	"dependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
 	"devDependencies": {
 		"happy-dom": "^20.0.10",
 		"zod": "^4.1.12"
-	},
-	"peerDependencies": {
-		"@byearlybird/starling": "workspace:*"
 	},
 	"exports": {
 		".": {
