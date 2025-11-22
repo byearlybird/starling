@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { db, type Status, type Task } from "./task-store";
 
 const sortByRecency = (a: Task, b: Task) =>
@@ -10,8 +10,8 @@ export const useTasks = (status: Status, searchQuery: string) => {
 		[searchQuery],
 	);
 
-	const selectTasks = () =>
-		db.tasks.find(
+	const selectTasks = useCallback(() => {
+		return db.tasks.find(
 			(task) =>
 				task.status === status &&
 				(!normalizedQuery ||
@@ -20,13 +20,12 @@ export const useTasks = (status: Status, searchQuery: string) => {
 				sort: sortByRecency,
 			},
 		);
+	}, [status, normalizedQuery]);
 
 	const [tasks, setTasks] = useState<Task[]>(selectTasks);
 
 	useEffect(() => {
-		const updateTasks = () => setTasks(selectTasks());
-
-		updateTasks();
+		setTasks(selectTasks());
 
 		const unsubscribe = db.on("mutation", (mutations) => {
 			const hasTaskChanges = mutations.some(
@@ -34,7 +33,7 @@ export const useTasks = (status: Status, searchQuery: string) => {
 			);
 
 			if (hasTaskChanges) {
-				updateTasks();
+				setTasks(selectTasks());
 			}
 		});
 
