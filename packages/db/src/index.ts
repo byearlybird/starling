@@ -3,6 +3,9 @@
  * Database utilities for Starling stores
  */
 
+// Re-export core types from starling
+export type { JsonDocument } from "@byearlybird/starling";
+
 // Collection utilities
 export {
 	type Collection,
