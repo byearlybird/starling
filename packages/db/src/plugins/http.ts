@@ -1,4 +1,4 @@
-import type { JsonDocument } from "@byearlybird/starling";
+import type { AnyObject, JsonDocument } from "@byearlybird/starling";
 import type { Database, DatabasePlugin } from "../db";
 import type { StandardSchemaV1 } from "../standard-schema";
 import type { SchemasMap } from "../types";
@@ -6,7 +6,7 @@ import type { SchemasMap } from "../types";
 /**
  * Context provided to the onRequest hook
  */
-export type RequestContext<T = unknown> = {
+export type RequestContext<T extends AnyObject = AnyObject> = {
 	collection: string;
 	operation: "GET" | "PATCH";
 	url: string;
@@ -16,7 +16,7 @@ export type RequestContext<T = unknown> = {
 /**
  * Result returned by the onRequest hook
  */
-export type RequestHookResult<T = unknown> =
+export type RequestHookResult<T extends AnyObject = AnyObject> =
 	| { skip: true }
 	| { headers?: Record<string, string>; document?: JsonDocument<T> }
 	| undefined;
@@ -24,7 +24,7 @@ export type RequestHookResult<T = unknown> =
 /**
  * Result returned by the onResponse hook
  */
-export type ResponseHookResult<T = unknown> =
+export type ResponseHookResult<T extends AnyObject = AnyObject> =
 	| { document: JsonDocument<T> }
 	| { skip: true }
 	| undefined; // Use original document
@@ -57,14 +57,16 @@ export type HttpPluginConfig<Schemas extends SchemasMap> =
 		 * Return { headers } to add custom headers
 		 * Return { document } to transform the document (PATCH only)
 		 */
-		onRequest?: <T>(context: RequestContext<T>) => RequestHookResult<T>;
+		onRequest?: <T extends AnyObject>(
+			context: RequestContext<T>,
+		) => RequestHookResult<T>;
 
 		/**
 		 * Hook called after each successful HTTP response
 		 * Return { skip: true } to skip merging the response
 		 * Return { document } to transform the document before merging
 		 */
-		onResponse?: <T>(context: {
+		onResponse?: <T extends AnyObject>(context: {
 			collection: string;
 			document: JsonDocument<T>;
 		}) => ResponseHookResult<T>;
@@ -285,10 +287,10 @@ async function fetchCollection<Schemas extends SchemasMap>(
 	collectionName: keyof Schemas,
 	baseUrl: string,
 	onRequest:
-		| (<T>(context: RequestContext<T>) => RequestHookResult<T>)
+		| (<T extends AnyObject>(context: RequestContext<T>) => RequestHookResult<T>)
 		| undefined,
 	onResponse:
-		| (<T>(context: {
+		| (<T extends AnyObject>(context: {
 				collection: string;
 				document: JsonDocument<T>;
 		  }) => ResponseHookResult<T>)
@@ -374,10 +376,10 @@ async function pushCollection<Schemas extends SchemasMap>(
 	collectionName: keyof Schemas,
 	baseUrl: string,
 	onRequest:
-		| (<T>(context: RequestContext<T>) => RequestHookResult<T>)
+		| (<T extends AnyObject>(context: RequestContext<T>) => RequestHookResult<T>)
 		| undefined,
 	onResponse:
-		| (<T>(context: {
+		| (<T extends AnyObject>(context: {
 				collection: string;
 				document: JsonDocument<T>;
 		  }) => ResponseHookResult<T>)
