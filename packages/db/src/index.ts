@@ -9,7 +9,7 @@ export {
 	DuplicateIdError,
 	IdNotFoundError,
 } from "./collection";
-export { CollectionHandle } from "./collection-handle";
+export type { CollectionHandle } from "./collection-handle";
 export type {
 	CollectionConfig,
 	Database,
