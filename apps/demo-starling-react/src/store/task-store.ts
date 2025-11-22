@@ -81,10 +81,13 @@ const decryptDocument = <T extends AnyObject>(
 	} as JsonDocument<T>;
 };
 
-const database = createDatabase("react-tasks", {
-	tasks: {
-		schema: taskSchema,
-		getId: (task) => task.id,
+const database = createDatabase({
+	name: "react-tasks",
+	schema: {
+		tasks: {
+			schema: taskSchema,
+			getId: (task) => task.id,
+		},
 	},
 }).use(idbPlugin());
 
