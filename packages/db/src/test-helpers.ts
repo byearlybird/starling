@@ -20,27 +20,23 @@ export type User = z.infer<typeof userSchema>;
 
 // Database factories
 export function createTestDb() {
-	return createDatabase({
-		schema: {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
-			},
+	return createDatabase("test-db", {
+		tasks: {
+			schema: taskSchema,
+			getId: (task) => task.id,
 		},
 	});
 }
 
 export function createMultiCollectionDb() {
-	return createDatabase({
-		schema: {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
-			},
-			users: {
-				schema: userSchema,
-				getId: (user) => user.id,
-			},
+	return createDatabase("multi-collection-db", {
+		tasks: {
+			schema: taskSchema,
+			getId: (task) => task.id,
+		},
+		users: {
+			schema: userSchema,
+			getId: (user) => user.id,
 		},
 	});
 }
