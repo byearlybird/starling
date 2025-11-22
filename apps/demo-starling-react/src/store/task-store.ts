@@ -1,9 +1,7 @@
 import type { AnyObject, JsonDocument } from "@byearlybird/starling";
-import {
-	createDatabase,
-	httpPlugin,
-	idbPlugin,
-} from "@byearlybird/starling-db";
+import { createDatabase } from "@byearlybird/starling-db";
+import { httpPlugin } from "@byearlybird/starling-db/plugin-http";
+import { idbPlugin } from "@byearlybird/starling-db/plugin-idb";
 import { z } from "zod";
 
 export const statusSchema = z.enum(["todo", "doing", "done"]);
@@ -83,10 +81,13 @@ const decryptDocument = <T extends AnyObject>(
 	} as JsonDocument<T>;
 };
 
-const database = createDatabase("react-tasks", {
-	tasks: {
-		schema: taskSchema,
-		getId: (task) => task.id,
+const database = createDatabase({
+	name: "react-tasks",
+	schema: {
+		tasks: {
+			schema: taskSchema,
+			getId: (task) => task.id,
+		},
 	},
 }).use(idbPlugin());
 

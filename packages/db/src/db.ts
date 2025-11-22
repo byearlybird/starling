@@ -44,12 +44,15 @@ export type DatabasePlugin<Schemas extends SchemasMap> = {
 };
 
 export type DbConfig<Schemas extends SchemasMap> = {
+	name: string;
 	schema: CollectionConfigMap<Schemas>;
+	version?: number;
 };
 
 export type Database<Schemas extends SchemasMap> =
 	CollectionHandles<Schemas> & {
 		name: string;
+		version: number;
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
 		toDocuments(): {
 			[K in keyof Schemas]: JsonDocument<
@@ -67,14 +70,19 @@ export type Database<Schemas extends SchemasMap> =
 
 /**
  * Create a typed database instance with collection access.
- * @param name - Database name used for persistence and routing
- * @param schema - Collection schema definitions
+ * @param config - Database configuration
+ * @param config.name - Database name used for persistence and routing
+ * @param config.schema - Collection schema definitions
+ * @param config.version - Optional database version, defaults to 1
  * @returns A database instance with typed collection properties
  *
  * @example
  * ```typescript
- * const db = await createDatabase("my-app", {
- *   tasks: { schema: taskSchema, getId: (task) => task.id },
+ * const db = await createDatabase({
+ *   name: "my-app",
+ *   schema: {
+ *     tasks: { schema: taskSchema, getId: (task) => task.id },
+ *   },
  * })
  *   .use(idbPlugin())
  *   .init();
@@ -83,9 +91,9 @@ export type Database<Schemas extends SchemasMap> =
  * ```
  */
 export function createDatabase<Schemas extends SchemasMap>(
-	name: string,
-	schema: CollectionConfigMap<Schemas>,
+	config: DbConfig<Schemas>,
 ): Database<Schemas> {
+	const { name, schema, version = 1 } = config;
 	const clock = createClock();
 	const getEventstamp = () => clock.now();
 	const collections = makeCollections(schema, getEventstamp);
@@ -122,6 +130,7 @@ export function createDatabase<Schemas extends SchemasMap>(
 	const db = {
 		...handles,
 		name,
+		version,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
 			return executeTransaction(schema, collections, getEventstamp, callback);
 		},

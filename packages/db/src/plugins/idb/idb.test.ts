@@ -1,16 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
-import { createDatabase } from "../db";
-import { makeTask, taskSchema } from "../test-helpers";
-import { idbPlugin } from "./idb";
+import { createDatabase } from "../../db";
+import { makeTask, taskSchema } from "../../test-helpers";
+import { idbPlugin } from "./index";
 
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
 		// Create database with plugin
-		const db1 = await createDatabase("test-db", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db1 = await createDatabase({
+			name: "test-db",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -27,10 +30,13 @@ describe("idbPlugin", () => {
 		await db1.dispose();
 
 		// Create a new database instance and load (same db name to load persisted data)
-		const db2 = await createDatabase("test-db", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db2 = await createDatabase({
+			name: "test-db",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -45,10 +51,13 @@ describe("idbPlugin", () => {
 	});
 
 	test("creates object stores on upgrade", async () => {
-		const db = await createDatabase("upgrade-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db = await createDatabase({
+			name: "upgrade-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -61,10 +70,13 @@ describe("idbPlugin", () => {
 	});
 
 	test("handles empty database gracefully", async () => {
-		const db = await createDatabase("empty-db", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db = await createDatabase({
+			name: "empty-db",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -77,10 +89,13 @@ describe("idbPlugin", () => {
 	});
 
 	test("uses custom version", async () => {
-		const db = await createDatabase("version-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db = await createDatabase({
+			name: "version-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin({ version: 5 }))
@@ -93,10 +108,13 @@ describe("idbPlugin", () => {
 	});
 
 	test("persists on mutations", async () => {
-		const db = await createDatabase("mutation-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db = await createDatabase({
+			name: "mutation-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -111,10 +129,13 @@ describe("idbPlugin", () => {
 		// Dispose and reload to verify persistence (same db name)
 		await db.dispose();
 
-		const db2 = await createDatabase("mutation-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db2 = await createDatabase({
+			name: "mutation-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -128,10 +149,13 @@ describe("idbPlugin", () => {
 	});
 
 	test("closes database on dispose", async () => {
-		const db = await createDatabase("dispose-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
+		const db = await createDatabase({
+			name: "dispose-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -148,14 +172,17 @@ describe("idbPlugin", () => {
 			email: taskSchema.shape.title,
 		});
 
-		const db = await createDatabase("multi-collection-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
-			},
-			users: {
-				schema: userSchema,
-				getId: (user) => user.id,
+		const db = await createDatabase({
+			name: "multi-collection-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+				users: {
+					schema: userSchema,
+					getId: (user) => user.id,
+				},
 			},
 		})
 			.use(idbPlugin())
@@ -176,14 +203,17 @@ describe("idbPlugin", () => {
 		await db.dispose();
 
 		// Reload and verify both collections persisted (same db name)
-		const db2 = await createDatabase("multi-collection-test", {
-			tasks: {
-				schema: taskSchema,
-				getId: (task) => task.id,
-			},
-			users: {
-				schema: userSchema,
-				getId: (user) => user.id,
+		const db2 = await createDatabase({
+			name: "multi-collection-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+				users: {
+					schema: userSchema,
+					getId: (user) => user.id,
+				},
 			},
 		})
 			.use(idbPlugin())
