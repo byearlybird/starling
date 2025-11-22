@@ -32,8 +32,11 @@ export type IdbPluginConfig = {
  *
  * @example
  * ```typescript
- * const db = await createDatabase("my-app", {
- *   tasks: { schema: taskSchema, getId: (task) => task.id },
+ * const db = await createDatabase({
+ *   name: "my-app",
+ *   schema: {
+ *     tasks: { schema: taskSchema, getId: (task) => task.id },
+ *   },
  * })
  *   .use(idbPlugin())
  *   .init();
@@ -41,8 +44,11 @@ export type IdbPluginConfig = {
  *
  * @example Disable BroadcastChannel
  * ```typescript
- * const db = await createDatabase("my-app", {
- *   tasks: { schema: taskSchema, getId: (task) => task.id },
+ * const db = await createDatabase({
+ *   name: "my-app",
+ *   schema: {
+ *     tasks: { schema: taskSchema, getId: (task) => task.id },
+ *   },
  * })
  *   .use(idbPlugin({ useBroadcastChannel: false }))
  *   .init();

@@ -25,13 +25,16 @@ describe("Database", () => {
 		});
 
 		test("supports custom getId functions", () => {
-			const db = createDatabase("kv-db", {
-				kv: {
-					schema: z.object({
-						key: z.string(),
-						value: z.string(),
-					}),
-					getId: (item) => item.key,
+			const db = createDatabase({
+				name: "kv-db",
+				schema: {
+					kv: {
+						schema: z.object({
+							key: z.string(),
+							value: z.string(),
+						}),
+						getId: (item) => item.key,
+					},
 				},
 			});
 
@@ -177,14 +180,17 @@ describe("Database", () => {
 		test("init handlers execute in registration order", async () => {
 			const calls: string[] = [];
 
-			const db = createDatabase("plugins-db", {
-				tasks: {
-					schema: z.object({
-						id: z.string(),
-						title: z.string(),
-						completed: z.boolean(),
-					}),
-					getId: (task) => task.id,
+			const db = createDatabase({
+				name: "plugins-db",
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
 				},
 			})
 				.use({ handlers: { init: () => calls.push("1") } })
@@ -198,14 +204,17 @@ describe("Database", () => {
 		test("dispose handlers execute in reverse order", async () => {
 			const calls: string[] = [];
 
-			const db = createDatabase("plugins-db", {
-				tasks: {
-					schema: z.object({
-						id: z.string(),
-						title: z.string(),
-						completed: z.boolean(),
-					}),
-					getId: (task) => task.id,
+			const db = createDatabase({
+				name: "plugins-db",
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
 				},
 			})
 				.use({ handlers: { dispose: () => calls.push("1") } })
@@ -217,14 +226,17 @@ describe("Database", () => {
 		});
 
 		test("plugins can perform database operations", async () => {
-			const db = createDatabase("plugins-db", {
-				tasks: {
-					schema: z.object({
-						id: z.string(),
-						title: z.string(),
-						completed: z.boolean(),
-					}),
-					getId: (task) => task.id,
+			const db = createDatabase({
+				name: "plugins-db",
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
 				},
 			}).use({
 				handlers: {
@@ -245,14 +257,17 @@ describe("Database", () => {
 		test("async handlers work correctly", async () => {
 			const calls: string[] = [];
 
-			const db = createDatabase("plugins-db", {
-				tasks: {
-					schema: z.object({
-						id: z.string(),
-						title: z.string(),
-						completed: z.boolean(),
-					}),
-					getId: (task) => task.id,
+			const db = createDatabase({
+				name: "plugins-db",
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
 				},
 			}).use({
 				handlers: {
@@ -275,14 +290,17 @@ describe("Database", () => {
 		test("plugins can subscribe to mutation events", async () => {
 			const pluginEvents: any[] = [];
 
-			const db = createDatabase("plugins-db", {
-				tasks: {
-					schema: z.object({
-						id: z.string(),
-						title: z.string(),
-						completed: z.boolean(),
-					}),
-					getId: (task) => task.id,
+			const db = createDatabase({
+				name: "plugins-db",
+				schema: {
+					tasks: {
+						schema: z.object({
+							id: z.string(),
+							title: z.string(),
+							completed: z.boolean(),
+						}),
+						getId: (task) => task.id,
+					},
 				},
 			}).use({
 				handlers: {

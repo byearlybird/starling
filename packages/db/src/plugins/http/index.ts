@@ -108,33 +108,40 @@ export type HttpPluginConfig<_Schemas extends SchemasMap> = {
  *
  * @example
  * ```typescript
- * const db = createDatabase({
+ * const db = await createDatabase({
+ *   name: "my-app",
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
  *   },
- *   plugins: [httpPlugin({
+ * })
+ *   .use(httpPlugin({
  *     baseUrl: "https://api.example.com",
  *     onRequest: () => ({
  *       headers: { Authorization: `Bearer ${token}` }
  *     })
- *   })],
- * });
- *
- * await db.init();
+ *   }))
+ *   .init();
  * ```
  *
  * @example With encryption
  * ```typescript
- * plugins: [httpPlugin({
- *   baseUrl: "https://api.example.com",
- *   onRequest: ({ document }) => ({
- *     headers: { Authorization: `Bearer ${token}` },
- *     document: document ? encrypt(document) : undefined
- *   }),
- *   onResponse: ({ document }) => ({
- *     document: decrypt(document)
- *   })
- * })]
+ * const db = await createDatabase({
+ *   name: "my-app",
+ *   schema: {
+ *     tasks: { schema: taskSchema, getId: (task) => task.id },
+ *   },
+ * })
+ *   .use(httpPlugin({
+ *     baseUrl: "https://api.example.com",
+ *     onRequest: ({ document }) => ({
+ *       headers: { Authorization: `Bearer ${token}` },
+ *       document: document ? encrypt(document) : undefined
+ *     }),
+ *     onResponse: ({ document }) => ({
+ *       document: decrypt(document)
+ *     })
+ *   }))
+ *   .init();
  * ```
  */
 export function httpPlugin<Schemas extends SchemasMap>(
