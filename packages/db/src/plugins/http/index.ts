@@ -166,7 +166,7 @@ export function httpPlugin<Schemas extends SchemasMap>(
 	return {
 		handlers: {
 			async init(db: Database<Schemas>) {
-				const collectionNames = Object.keys(db) as (keyof Schemas)[];
+				const collectionNames = db.collectionKeys();
 
 				// Initial fetch for all collections (single attempt, no retry)
 				for (const collectionName of collectionNames) {
