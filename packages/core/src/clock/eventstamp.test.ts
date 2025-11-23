@@ -181,3 +181,15 @@ test("maxEventstamp() handles nonces correctly as tie-breaker", () => {
 	];
 	expect(maxEventstamp(stamps)).toBe("2025-01-01T00:00:00.000Z|0001|ffff");
 });
+
+// ============================================================================
+// decodeEventstamp() error handling tests
+// ============================================================================
+
+test("decodeEventstamp() throws InvalidEventstampError for invalid input", () => {
+	expect(() => decodeEventstamp("invalid")).toThrow();
+});
+
+test("decodeEventstamp() throws for malformed eventstamp", () => {
+	expect(() => decodeEventstamp("2025-01-01|0001|a1b2")).toThrow();
+});
