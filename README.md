@@ -131,14 +131,15 @@ Its API centers on `createDatabase`, `CollectionHandle`, and `TransactionContext
 
 ## Demos
 
-This repo includes demo apps under `apps/` that show how Starling can be used in React, SolidJS, and with a simple Bun-based server.
+This repo includes demo apps under `apps/` that show how Starling can be used in React and with a simple Bun-based server:
 
-These demos currently target the earlier Store + plugin API (`createStore`, `queryPlugin`, `unstoragePlugin`) and will be updated to use `@byearlybird/starling-db`. Treat them as examples of overall architecture rather than the current recommended API surface.
+- `apps/demo-starling-react` – React app using `@byearlybird/starling-db` with IndexedDB and HTTP sync
+- `apps/demo-starling-server` – Bun server for syncing data across clients
 
 ## Project Status
 
 - The core CRDT API is small and intended to be stable, but may change in minor ways as more usage feedback comes in.
-- Higher-level store and query features are moving into separate packages (for example, `@byearlybird/starling-db`) and are under active development.
+- Higher-level database features live in `@byearlybird/starling-db` and are under active development.
 
 ## Development
 
