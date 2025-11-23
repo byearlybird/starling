@@ -1,11 +1,14 @@
 import type { Collection } from "./collection";
 import { createCollection } from "./collection";
-import type { CollectionHandle, CollectionHandles } from "./collection-handle";
+import type {
+	TransactionCollectionHandle,
+	TransactionCollectionHandles,
+} from "./collection-handle";
 import type { CollectionConfigMap } from "./db";
-import type { SchemasMap } from "./types";
+import type { AnyObjectSchema, SchemasMap } from "./types";
 
 export type TransactionContext<Schemas extends SchemasMap> =
-	CollectionHandles<Schemas> & {
+	TransactionCollectionHandles<Schemas> & {
 		rollback(): void;
 	};
 
@@ -34,7 +37,7 @@ export function executeTransaction<Schemas extends SchemasMap, R>(
 	const clonedCollections = new Map<keyof Schemas, Collection<any>>();
 
 	// Create lazy transaction handles
-	const txHandles = {} as CollectionHandles<Schemas>;
+	const txHandles = {} as TransactionCollectionHandles<Schemas>;
 
 	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
 		const originalCollection = collections[name];
@@ -109,16 +112,18 @@ export function executeTransaction<Schemas extends SchemasMap, R>(
  *
  * @param originalCollection - The base collection (not modified)
  * @param getClonedCollection - Lazy cloner (invoked on first access)
- * @returns A collection handle with snapshot isolation
+ * @returns A collection handle with snapshot isolation (excludes event subscription)
  *
  * @remarks
  * First read or write triggers cloning, providing snapshot isolation.
  * All subsequent operations use the cloned collection.
+ * Event subscription (on) is intentionally excluded since events are only
+ * emitted after the transaction commits.
  */
 function createLazyTransactionHandle<T extends AnyObjectSchema>(
 	_originalCollection: Collection<T>,
 	getClonedCollection: () => Collection<T>,
-): CollectionHandle<T> {
+): TransactionCollectionHandle<T> {
 	let cloned: Collection<T> | null = null;
 
 	const ensureCloned = () => {
@@ -159,10 +164,6 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 
 		toDocument() {
 			return ensureCloned().toDocument();
-		},
-
-		on(event, handler) {
-			return ensureCloned().on(event, handler);
 		},
 	};
 }

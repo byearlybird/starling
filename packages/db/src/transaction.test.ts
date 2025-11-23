@@ -153,27 +153,6 @@ describe("Transactions", () => {
 			});
 		});
 
-		test("supports event subscription within transaction", () => {
-			const db = createTestDb();
-			const events: any[] = [];
-
-			db.begin((tx) => {
-				// Subscribe to events on the cloned collection within transaction
-				const unsubscribe = tx.tasks.on("mutation", (e) => events.push(e));
-
-				tx.tasks.add({ id: "1", title: "Task 1", completed: false });
-
-				// Events are buffered during transaction, not emitted yet
-				expect(events).toHaveLength(0);
-
-				unsubscribe();
-			});
-
-			// After transaction commits, events are emitted on the original collection
-			// The subscription was on the cloned collection, so we won't see events here
-			expect(events).toHaveLength(0);
-		});
-
 		test("toDocument within transaction returns current state", () => {
 			const db = createTestDb();
 
