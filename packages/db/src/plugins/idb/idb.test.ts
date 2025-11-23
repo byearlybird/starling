@@ -1,8 +1,50 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import "fake-indexeddb/auto";
 import { createDatabase } from "../../db";
 import { makeTask, taskSchema } from "../../test-helpers";
 import { idbPlugin } from "./index";
+
+// Mock BroadcastChannel for testing cross-tab sync
+class MockBroadcastChannel {
+	static channels: Map<string, MockBroadcastChannel[]> = new Map();
+	name: string;
+	onmessage: ((event: { data: any }) => void) | null = null;
+
+	constructor(name: string) {
+		this.name = name;
+		const channels = MockBroadcastChannel.channels.get(name) || [];
+		channels.push(this);
+		MockBroadcastChannel.channels.set(name, channels);
+	}
+
+	postMessage(data: any) {
+		const channels = MockBroadcastChannel.channels.get(this.name) || [];
+		for (const channel of channels) {
+			if (channel !== this && channel.onmessage) {
+				channel.onmessage({ data });
+			}
+		}
+	}
+
+	close() {
+		const channels = MockBroadcastChannel.channels.get(this.name) || [];
+		const index = channels.indexOf(this);
+		if (index !== -1) {
+			channels.splice(index, 1);
+		}
+	}
+
+	static reset() {
+		MockBroadcastChannel.channels.clear();
+	}
+}
+
+// Set up global BroadcastChannel mock
+(globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+afterEach(() => {
+	MockBroadcastChannel.reset();
+});
 
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
@@ -223,5 +265,96 @@ describe("idbPlugin", () => {
 		expect(db2.users.getAll()).toHaveLength(1);
 
 		await db2.dispose();
+	});
+
+	test("syncs changes across tabs via BroadcastChannel", async () => {
+		// Create two database instances (simulating two tabs)
+		const db1 = await createDatabase({
+			name: "broadcast-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+			},
+		})
+			.use(idbPlugin())
+			.init();
+
+		const db2 = await createDatabase({
+			name: "broadcast-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+			},
+		})
+			.use(idbPlugin())
+			.init();
+
+		// Add task in db1
+		db1.tasks.add(makeTask({ id: "1", title: "Task from tab 1" }));
+
+		// Wait for broadcast and reload
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		// db2 should have received the update via broadcast
+		const task = db2.tasks.get("1");
+		expect(task).toBeDefined();
+		expect(task?.title).toBe("Task from tab 1");
+
+		await db1.dispose();
+		await db2.dispose();
+	});
+
+	test("ignores own broadcasts", async () => {
+		const db = await createDatabase({
+			name: "self-broadcast-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+			},
+		})
+			.use(idbPlugin())
+			.init();
+
+		// Add a task - this will broadcast, but the same instance should ignore it
+		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
+
+		// Wait for any potential broadcast handling
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		// Should still have exactly one task
+		expect(db.tasks.getAll()).toHaveLength(1);
+
+		await db.dispose();
+	});
+
+	test("can disable BroadcastChannel", async () => {
+		const db = await createDatabase({
+			name: "no-broadcast-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+			},
+		})
+			.use(idbPlugin({ useBroadcastChannel: false }))
+			.init();
+
+		// Add task
+		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
+
+		// Wait for mutation
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		// Should work without errors
+		expect(db.tasks.getAll()).toHaveLength(1);
+
+		await db.dispose();
 	});
 });

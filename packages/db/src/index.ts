@@ -16,7 +16,10 @@ export {
 	DuplicateIdError,
 	IdNotFoundError,
 } from "./collection";
-export type { CollectionHandle } from "./collection-handle";
+export type {
+	CollectionHandle,
+	TransactionCollectionHandle,
+} from "./collection-handle";
 export type {
 	CollectionConfig,
 	Database,

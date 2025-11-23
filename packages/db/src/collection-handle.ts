@@ -18,6 +18,20 @@ export type CollectionHandles<Schemas extends SchemasMap> = {
 	[K in keyof Schemas]: CollectionHandle<Schemas[K]>;
 };
 
+/**
+ * Transaction-safe collection handle that excludes event subscription and serialization.
+ * - Event subscriptions don't make sense since events are only emitted after commit
+ * - toDocument is excluded as serialization should happen outside transactions
+ */
+export type TransactionCollectionHandle<Schema extends AnyObjectSchema> = Omit<
+	CollectionHandle<Schema>,
+	"on" | "toDocument"
+>;
+
+export type TransactionCollectionHandles<Schemas extends SchemasMap> = {
+	[K in keyof Schemas]: TransactionCollectionHandle<Schemas[K]>;
+};
+
 export function createCollectionHandle<Schema extends AnyObjectSchema>(
 	collection: Collection<Schema>,
 ): CollectionHandle<Schema> {

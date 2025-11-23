@@ -57,15 +57,6 @@ export function makeTask(overrides: Partial<Task> = {}): Task & { id: string } {
 	};
 }
 
-export function makeUser(overrides: Partial<User> = {}): User {
-	return {
-		id: crypto.randomUUID(),
-		name: "Test User",
-		email: "test@example.com",
-		...overrides,
-	};
-}
-
 // Document helpers for merge tests
 export function makeTaskDocument(
 	tasks: Array<{ id: string; title: string; completed: boolean }>,
