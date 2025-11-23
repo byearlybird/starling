@@ -31,8 +31,8 @@ bun test --watch
 bun test packages/core/src/store/store.test.ts
 ```
 
-- The `core` suite exercises every CRDT primitive; run it whenever you touch merge logic, transaction behavior, or store hooks.
-- When changing / creating plugins, add scenario-specific tests (e.g., using Bun's `test()` runner) in the same directory as the plugin.
+- The `core` suite exercises every CRDT primitive; run it whenever you touch merge logic, transaction behavior, or event system.
+- Add tests alongside the implementation in the same directory.
 
 ## Linting and Formatting
 
@@ -50,7 +50,7 @@ bun biome lint .
 ## Builds
 
 ```bash
-# Build core package (includes plugin entrypoints)
+# Build core package
 bun run build:core
 ```
 
@@ -72,7 +72,7 @@ Publishing to npm is restricted to project maintainers.
 ## Documentation
 
 - Keep README sections focused on user-facing workflows. Implementation details, changelogs, and contributor tips belong here or in package-specific docs.
-- Update the plugin docs in `docs/plugins/*` when you add new options or operational details so consumers can discover them without diving into code.
+- Update architecture docs when changing core behavior so consumers understand the design.
 
 ### JSDoc Guidelines
 

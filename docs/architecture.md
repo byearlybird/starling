@@ -2,25 +2,22 @@
 
 Status: Draft
 
-This document covers the design and internals of Starling, including the state-based Last-Write-Wins merge strategy, eventstamps, the plugin system, and module organization.
+This document covers the design and internals of Starling, including the state-based Last-Write-Wins merge strategy, eventstamps, the event system, and module organization.
 
 ## Repository Layout
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core store implementation (`Store`, `JsonDocument`, `Eventstamp`, `Record`, `Value`, `Clock`) with built-in reactive queries, plus unit tests |
-| `packages/core/src/plugins/unstorage` | Persistence plugin that hydrates on boot and debounces writes |
-| `packages/react` | React hooks for Starling stores (`createStoreHooks`) |
-| `packages/solid` | SolidJS hooks for Starling stores (`createStoreHooks`) |
+| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
+| `packages/db` | Database utilities with typed collections, transactions, and mutation events built on the core primitives |
 
 **Key points:**
 
-- Follows a Functional Core, Imperative Shell design—core packages stay pure/predictable while adapters handle IO, frameworks, and persistence
-- Core logic lives under `packages/core`; reactive queries are built into the `Store` class
-- Official plugins are co-located in `packages/core/src/plugins/*`
-- Framework integrations live in separate packages (`packages/react`, `packages/solid`)
-- All packages are TypeScript modules bundled via `tsdown`
-- Tests live alongside implementation: `packages/core/src/**/*.test.ts`
+- Follows a Functional Core, Imperative Shell design—core packages stay predictable while adapters handle IO, frameworks, and persistence.
+- Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management.
+- Higher-level database features (collections, transactions, mutation events) live in `packages/db`.
+- All packages are TypeScript modules bundled via `tsdown`.
+- Tests live alongside implementation: `packages/core/src/**/*.test.ts`.
 
 ## Eventstamps
 
@@ -58,7 +55,7 @@ For apps where devices sync regularly (personal tools, small teams), wall-clock-
 
 - **No explicit causality**: Starling tracks time-based ordering but doesn't capture "happened-before" relationships. Concurrent edits rely on timestamp comparison rather than causal dependencies.
 
-- **Requires eventstamp persistence**: Devices must save the highest eventstamp they've seen to prevent clock regression after restarts. The `unstorage` plugin handles this automatically.
+- **Requires eventstamp persistence**: Devices must save the highest eventstamp they've seen to prevent clock regression after restarts. External persistence solutions should handle this automatically.
 
 ## State-Based Merging
 
@@ -92,7 +89,7 @@ State-based replication keeps the implementation focused and efficient:
 - **Merge idempotency**: Applying the same state multiple times produces the same result—natural retry safety
 - **Works everywhere**: Any transport that can move JSON works—HTTP, WebSocket, filesystem, USB stick
 
-**Current implementation**: Starling ships entire snapshots over the wire. Near-term work focuses on delta compression to send only changed fields while maintaining the state-based model.
+**Current implementation**: Starling ships entire snapshots over the wire. Delta-style helpers could be added later, but the merge model stays state-based.
 
 ### Merge Behavior
 
@@ -202,74 +199,20 @@ The `mergeDocuments(into, from)` function handles document-level merging with au
 
 1. **Field-level LWW**: Each resource pair merges using `mergeResources`, preserving the newest eventstamp for each field
 2. **Clock forwarding**: The resulting document's latest value is the maximum of both input eventstamps
-3. **Change tracking**: Returns categorized changes (added, updated, deleted) for plugin hook notifications
+3. **Change tracking**: Returns categorized changes (added, updated, deleted) for event notifications
 
-This design separates merge logic from store orchestration, enabling independent testing and reuse of document operations.
+This design separates merge logic from higher-level store implementations, enabling independent testing and reuse of document operations.
 
 ## Design Scope
 
 Starling focuses on the 80/20 of sync for personal and small-team apps:
 
-**What Starling provides:**
+- Automatic convergence via field-level LWW so all replicas eventually agree.
+- Simple mental model: “newest write wins” at each field.
+- Small, embeddable core with no runtime dependencies.
+- Works with any framework that can run JavaScript.
 
-- **Automatic convergence**: Field-level Last-Write-Wins ensures all replicas eventually agree
-- **Simple mental model**: "Newest write wins" is easy to explain and reason about
-- **Embeddable**: Tiny footprint (~4KB core) with zero required dependencies
-- **Framework-agnostic**: Works with React, SolidJS, Vue, Svelte, or vanilla JavaScript
-
-**Specialized use cases:**
-
-For real-time collaboration, strict causal ordering, or complex operational transforms, consider specialized libraries:
-
-- **Collaborative text editing**: [Yjs](https://docs.yjs.dev/) or [Diamond Types](https://github.com/josephg/diamond-types) provide mergeable text CRDTs
-- **Rich document collaboration**: [Automerge](https://automerge.org/) offers a full CRDT suite with causal consistency
-- **Distributed systems with high clock skew**: Vector clock-based systems like [Riak](https://riak.com/) handle multi-datacenter scenarios
-
-Starling can complement these tools—use it for application state while delegating collaborative data structures to specialized CRDTs.
-
-## Plugin System
-
-Stores are extensible via plugins that provide lifecycle and mutation hooks:
-
-```typescript
-type Plugin<T> = {
-  onInit: (store: Store<T>) => Promise<void> | void;
-  onDispose: () => Promise<void> | void;
-  onAdd?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  onUpdate?: (entries: ReadonlyArray<readonly [string, T]>) => void;
-  onDelete?: (keys: ReadonlyArray<string>) => void;
-};
-```
-
-### Hook Execution
-
-Plugins tap into the store lifecycle at specific points:
-
-- **`onInit`**: Setup phase during `store.init()` (hydrate snapshots, start pollers, establish connections)
-- **`onDispose`**: Cleanup phase during `store.dispose()` (flush pending work, close connections)
-- **Mutation hooks** (`onAdd`, `onUpdate`, `onDelete`): React to changes after transactions commit, receiving batched entries by mutation type
-
-Mutation hooks are **optional**—implement only what your plugin needs. For example, a read-only analytics plugin might only use `onInit` and `onAdd`.
-
-### Plugin Surface
-
-Plugins interact with the store exclusively through lifecycle and mutation hooks. The core API already exposes querying and every mutation primitive, so plugins focus on persistence, analytics, or side effects without mutating the store prototype.
-
-### Plugin Composition
-
-Plugins stack cleanly—each operates independently:
-
-```typescript
-const store = await new Store<Todo>()
-  .use(unstoragePlugin("todos", localStorageBackend))
-  .use(unstoragePlugin("todos", httpBackend, { pollIntervalMs: 5000 }))
-  .init();
-```
-
-**Execution order:**
-1. `onInit` hooks run sequentially (first registered, first executed)
-2. Mutation hooks run sequentially after each transaction commits
-3. `onDispose` hooks run sequentially during teardown
+For real-time collaborative editing, strict causal ordering, or complex operational transforms, specialized CRDT libraries (for example, Automerge or Yjs) are usually a better fit. Starling can manage application state alongside those tools.
 
 ## Module Overview
 
@@ -280,54 +223,60 @@ Each module handles a distinct responsibility in the state-based replication mod
 | [`clock/clock.ts`](../packages/core/src/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
 | [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
 | [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
-| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources for plugin hooks, and keeps document metadata (latest eventstamp) synchronized |
-| [`store/store.ts`](../packages/core/src/store/store.ts) | Public `Store` API with reactive queries, transactions, plugin orchestration, and document sync helpers such as `merge()` and `collection()` |
+| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources, and keeps document metadata (latest eventstamp) synchronized |
+| [`resource-map/resource-map.ts`](../packages/core/src/resource-map/resource-map.ts) | CRDT data structure providing a map-like interface for managing resources with field-level LWW semantics, document export/import, and soft deletion |
 
 ### Data Flow
 
-**Local mutations:**
+**ResourceMap mutations:**
 ```
-User mutation → Store → Transaction staging → Commit → Plugin hooks
-                                    ↓
-                            Eventstamp application
-                                    ↓
-                            Resource merge
+map.set(id, value) → Generate eventstamp → Merge with existing resource
+                            ↓
+                    Update internal state
 ```
 
-**Document sync:**
+**Document merging:**
 ```
-store.merge(snapshot) → mergeDocuments(into, from) → Resource merge (mergeResources)
-                              ↓                              ↓
-                      Clock forwarding                 Field-level LWW
-                              ↓                              ↓
-                       Update readMap              Track changes (add/update/delete)
-                              ↓
-                        Plugin hooks (with tracked changes)
+mergeDocuments(into, from) → Resource merge (mergeResources)
+              ↓                              ↓
+      Clock forwarding                 Field-level LWW
+              ↓                              ↓
+    Update meta.latest              Track changes (add/update/delete)
+              ↓
+    Return merged document + changes
 ```
 
 ## Package Exports
 
-Starling ships as a monorepo with subpath exports:
+Starling ships as a monorepo with minimal exports.
 
-### `@byearlybird/starling` (Core)
+### `@byearlybird/starling` (core)
 
-**Exports**: `Store`, `StoreConfig`, `StoreSetTransaction`, `Plugin`, `Query`, `QueryConfig`, `ResourceObject`, `processResource`  
-**Dependencies**: Zero runtime dependencies
+**Exports (simplified):**
 
-Provides the core store implementation, built-in queries, and plugin hooks.
+- Clocks: `createClock`, `createClockFromEventstamp`, `MIN_EVENTSTAMP`, `isValidEventstamp`
+- Documents: `makeDocument`, `mergeDocuments`, types `JsonDocument`, `AnyObject`, `DocumentChanges`, `MergeDocumentsResult`
+- Resources: `makeResource`, `mergeResources`, `deleteResource`, type `ResourceObject`
+- Resource maps: `createMap`, `createMapFromDocument`
 
-### `@byearlybird/starling/plugin-unstorage`
+These primitives implement state-based replication, document merging, resource management, and hybrid logical clocks.
 
-**Exports**: `unstoragePlugin`  
-**Peer dependency**: `unstorage@^1.17.1`
+### `@byearlybird/starling-db`
 
-Persistence layer supporting any `unstorage` backend (localStorage, HTTP, filesystem, etc.). Automatically persists the latest eventstamp to prevent clock regression.
+**Exports (current):**
+
+- Database: `createDatabase`, types `Database`, `DbConfig`
+- Collections: `Collection`, `CollectionHandle`, `CollectionConfig`
+- Transactions and events: `TransactionContext`, `DatabaseMutationEvent`
+- Schema utilities: `StandardSchemaV1`
+
+This package wires core primitives into typed collections with CRUD operations, transactions, and mutation events. Query helpers and persistence adapters are planned but not implemented here yet.
 
 ## Testing Strategy
 
-- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `value`, `record`, `document`, `collection`, `store`)
-- **Integration tests**: Verify plugin hooks fire correctly and multi-plugin composition works
-- **Query tests**: Verify reactive query behavior, hydration, and change tracking
+- **Unit tests**: Cover core modules (`clock`, `eventstamp`, `document`, `resource`, `resource-map`)
+- **Merge tests**: Verify field-level LWW behavior and document merging
+- **Sync tests**: Verify merge behavior and state replication
 - **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
 
 Tests live alongside implementation: `packages/core/src/**/*.test.ts`

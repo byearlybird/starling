@@ -1,29 +1,44 @@
 {
 	"name": "@byearlybird/starling-db",
 	"version": "0.1.0",
-	"type": "module",
-	"license": "MIT",
-	"description": "Database utilities for Starling stores",
 	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"dependencies": {
+		"@byearlybird/starling": "workspace:*"
+	},
+	"devDependencies": {
+		"fake-indexeddb": "^6.0.0",
+		"happy-dom": "^20.0.10",
+		"zod": "^4.1.12"
+	},
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
+		},
+		"./plugin-idb": {
+			"types": "./dist/plugin-idb.d.ts",
+			"import": "./dist/plugin-idb.js",
+			"default": "./dist/plugin-idb.js"
+		},
+		"./plugin-http": {
+			"types": "./dist/plugin-http.d.ts",
+			"import": "./dist/plugin-http.js",
+			"default": "./dist/plugin-http.js"
 		}
 	},
+	"description": "Database utilities for Starling stores",
 	"files": [
 		"dist"
 	],
+	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"build": "bun run build.ts",
 		"prepublishOnly": "bun run build.ts"
 	},
-	"peerDependencies": {
-		"@byearlybird/starling": "workspace:*"
-	},
-	"publishConfig": {
-		"access": "public"
-	}
+	"type": "module",
+	"types": "./dist/index.d.ts"
 }

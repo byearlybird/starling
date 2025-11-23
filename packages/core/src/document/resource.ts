@@ -1,32 +1,48 @@
 import { MIN_EVENTSTAMP } from "../clock/eventstamp";
 import type { AnyObject } from "./document";
-import { isObject } from "./utils";
 
-function collectGreatestEventstamp(
-	tree: Record<string, unknown>,
-	fallback: string = MIN_EVENTSTAMP,
-): string {
-	let max = fallback;
+function isObject(value: unknown): boolean {
+	return (
+		value != null &&
+		typeof value === "object" &&
+		!Array.isArray(value) &&
+		Object.getPrototypeOf(value) === Object.prototype
+	);
+}
 
-	const visit = (node: unknown): void => {
-		if (typeof node === "string") {
-			if (node > max) {
-				max = node;
-			}
-			return;
+/**
+ * Get a value from a nested object using a dot-separated path.
+ * @internal
+ */
+function getValueAtPath(obj: any, path: string): unknown {
+	const parts = path.split(".");
+	let current = obj;
+
+	for (const part of parts) {
+		if (current == null) return undefined;
+		current = current[part];
+	}
+
+	return current;
+}
+
+/**
+ * Set a value in a nested object using a dot-separated path.
+ * Creates intermediate objects as needed.
+ * @internal
+ */
+function setValueAtPath(obj: any, path: string, value: unknown): void {
+	const parts = path.split(".");
+	let current = obj;
+
+	for (let i = 0; i < parts.length - 1; i++) {
+		if (!current[parts[i]] || typeof current[parts[i]] !== "object") {
+			current[parts[i]] = {};
 		}
+		current = current[parts[i]];
+	}
 
-		if (isObject(node)) {
-			const obj = node as Record<string, unknown>;
-			for (const key in obj) {
-				if (!Object.hasOwn(obj, key)) continue;
-				visit(obj[key]);
-			}
-		}
-	};
-
-	visit(tree);
-	return max;
+	current[parts[parts.length - 1]] = value;
 }
 
 /**
@@ -35,18 +51,23 @@ function collectGreatestEventstamp(
  * @internal
  */
 export function computeResourceLatest(
-	eventstamps: Record<string, unknown>,
+	eventstamps: Record<string, string>,
 	deletedAt: string | null,
 	fallback?: string,
 ): string {
-	const dataLatest = collectGreatestEventstamp(
-		eventstamps,
-		fallback ?? MIN_EVENTSTAMP,
-	);
-	if (deletedAt && deletedAt > dataLatest) {
+	let max = fallback ?? MIN_EVENTSTAMP;
+
+	// With flat eventstamps, just iterate over all values
+	for (const stamp of Object.values(eventstamps)) {
+		if (stamp > max) {
+			max = stamp;
+		}
+	}
+
+	if (deletedAt && deletedAt > max) {
 		return deletedAt;
 	}
-	return dataLatest;
+	return max;
 }
 
 /**
@@ -65,8 +86,8 @@ export type ResourceObject<T extends AnyObject> = {
 	attributes: T;
 	/** Metadata for tracking deletion and eventstamps */
 	meta: {
-		/** Mirrored structure containing eventstamps for each attribute field */
-		eventstamps: Record<string, unknown>;
+		/** Flat map of dot-separated paths to eventstamps (e.g., "user.address.street": "2025-11-18...") */
+		eventstamps: Record<string, string>;
 		/** The greatest eventstamp in this resource (including deletedAt if applicable) */
 		latest: string;
 		/** Eventstamp when this resource was soft-deleted, or null if not deleted */
@@ -81,44 +102,34 @@ export function makeResource<T extends AnyObject>(
 	eventstamp: string,
 	deletedAt: string | null = null,
 ): ResourceObject<T> {
-	const attributes: Record<string, unknown> = {};
-	const eventstamps: Record<string, unknown> = {};
+	const eventstamps: Record<string, string> = {};
 
-	const step = (
-		input: Record<string, unknown>,
-		dataOutput: Record<string, unknown>,
-		eventstampOutput: Record<string, unknown>,
-	) => {
+	// Traverse the object and build flat paths
+	const traverse = (input: Record<string, unknown>, path: string = "") => {
 		for (const key in input) {
 			if (!Object.hasOwn(input, key)) continue;
 
 			const value = input[key];
+			const fieldPath = path ? `${path}.${key}` : key;
 
 			if (isObject(value)) {
-				// Nested object - recurse and create mirrored structure
-				dataOutput[key] = {};
-				eventstampOutput[key] = {};
-				step(
-					value as Record<string, unknown>,
-					dataOutput[key] as Record<string, unknown>,
-					eventstampOutput[key] as Record<string, unknown>,
-				);
+				// Nested object - recurse to build deeper paths
+				traverse(value as Record<string, unknown>, fieldPath);
 			} else {
-				// Leaf value - store data and eventstamp separately
-				dataOutput[key] = value;
-				eventstampOutput[key] = eventstamp;
+				// Leaf value - store path -> eventstamp
+				eventstamps[fieldPath] = eventstamp;
 			}
 		}
 	};
 
-	step(obj, attributes, eventstamps);
+	traverse(obj);
 
 	const latest = computeResourceLatest(eventstamps, deletedAt, eventstamp);
 
 	return {
 		type,
 		id,
-		attributes: attributes as T,
+		attributes: obj,
 		meta: {
 			eventstamps,
 			latest,
@@ -127,88 +138,59 @@ export function makeResource<T extends AnyObject>(
 	};
 }
 
-// TODO: consider if meta.eventstamps should be flat, with path : eventstamp
 export function mergeResources<T extends AnyObject>(
 	into: ResourceObject<T>,
 	from: ResourceObject<T>,
 ): ResourceObject<T> {
-	const resultData: Record<string, unknown> = {};
-	const resultEventstamps: Record<string, unknown> = {};
+	const resultAttributes: Record<string, unknown> = {};
+	const resultEventstamps: Record<string, string> = {};
 
-	const step = (
-		d1: Record<string, unknown>,
-		e1: Record<string, unknown>,
-		d2: Record<string, unknown>,
-		e2: Record<string, unknown>,
-		dataOutput: Record<string, unknown>,
-		eventstampOutput: Record<string, unknown>,
-		path: string = "",
-	) => {
-		// Collect all keys from both objects
-		const allKeys = new Set([...Object.keys(d1), ...Object.keys(d2)]);
+	// Collect all paths from both eventstamp maps
+	const allPaths = new Set([
+		...Object.keys(into.meta.eventstamps),
+		...Object.keys(from.meta.eventstamps),
+	]);
 
-		for (const key of allKeys) {
-			const value1 = d1[key];
-			const value2 = d2[key];
-			const stamp1 = e1[key];
-			const stamp2 = e2[key];
-			const fieldPath = path ? `${path}.${key}` : key;
+	// Simple iteration: for each path, pick the winner based on eventstamp
+	for (const path of allPaths) {
+		const stamp1 = into.meta.eventstamps[path];
+		const stamp2 = from.meta.eventstamps[path];
 
-			// Both have this key
-			if (value1 !== undefined && value2 !== undefined) {
-				// Both are objects - need to recurse
-				if (
-					isObject(value1) &&
-					isObject(value2) &&
-					isObject(stamp1) &&
-					isObject(stamp2)
-				) {
-					dataOutput[key] = {};
-					eventstampOutput[key] = {};
-					step(
-						value1 as Record<string, unknown>,
-						stamp1 as Record<string, unknown>,
-						value2 as Record<string, unknown>,
-						stamp2 as Record<string, unknown>,
-						dataOutput[key] as Record<string, unknown>,
-						eventstampOutput[key] as Record<string, unknown>,
-						fieldPath,
-					);
-				} else if (typeof stamp1 === "string" && typeof stamp2 === "string") {
-					// Both are leaf values - compare eventstamps
-					if (stamp1 > stamp2) {
-						dataOutput[key] = value1;
-						eventstampOutput[key] = stamp1;
-					} else {
-						dataOutput[key] = value2;
-						eventstampOutput[key] = stamp2;
-					}
-				} else {
-					// Schema mismatch: one is object, other is primitive
-					throw new Error(
-						`Schema mismatch at field '${fieldPath}': cannot merge object with primitive`,
-					);
-				}
-			} else if (value1 !== undefined) {
-				// Only in first record
-				dataOutput[key] = value1;
-				eventstampOutput[key] = stamp1;
-			} else if (value2 !== undefined) {
-				// Only in second record
-				dataOutput[key] = value2;
-				eventstampOutput[key] = stamp2;
+		if (stamp1 && stamp2) {
+			// Both have this path - compare eventstamps
+			if (stamp1 > stamp2) {
+				setValueAtPath(
+					resultAttributes,
+					path,
+					getValueAtPath(into.attributes, path),
+				);
+				resultEventstamps[path] = stamp1;
+			} else {
+				setValueAtPath(
+					resultAttributes,
+					path,
+					getValueAtPath(from.attributes, path),
+				);
+				resultEventstamps[path] = stamp2;
 			}
+		} else if (stamp1) {
+			// Only in first record
+			setValueAtPath(
+				resultAttributes,
+				path,
+				getValueAtPath(into.attributes, path),
+			);
+			resultEventstamps[path] = stamp1;
+		} else {
+			// Only in second record
+			setValueAtPath(
+				resultAttributes,
+				path,
+				getValueAtPath(from.attributes, path),
+			);
+			resultEventstamps[path] = stamp2;
 		}
-	};
-
-	step(
-		into.attributes,
-		into.meta.eventstamps,
-		from.attributes,
-		from.meta.eventstamps,
-		resultData,
-		resultEventstamps,
-	);
+	}
 
 	// Use the cached latest values from both records
 	const baseLatest =
@@ -231,7 +213,7 @@ export function mergeResources<T extends AnyObject>(
 	return {
 		type: into.type,
 		id: into.id,
-		attributes: resultData as T,
+		attributes: resultAttributes as T,
 		meta: {
 			eventstamps: resultEventstamps,
 			latest: finalLatest,

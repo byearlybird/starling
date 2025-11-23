@@ -640,3 +640,74 @@ test("mergeDocuments: document meta.latest with multiple resources at different 
 		"2025-01-01T00:07:00.000Z|0002|g7h8",
 	);
 });
+
+test("mergeDocuments: updates newestEventstamp from new resource with later timestamp than document meta", () => {
+	// Edge case: document meta.latest is older than a resource's meta.latest
+	// This can happen with inconsistent document construction
+	const into: Document<AnyObject> = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [],
+	};
+
+	// Resource has a later timestamp than the document's meta.latest
+	const from: Document<AnyObject> = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:01:00.000Z|0000|b2c3" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:05:00.000Z|0001|e5f6", // Later than from.meta.latest
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Document's meta.latest should be updated to the resource's timestamp
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:05:00.000Z|0001|e5f6",
+	);
+	expect(result.changes.added.size).toBe(1);
+	expect(result.changes.added.has("doc-1")).toBe(true);
+});
+
+test("mergeDocuments: updates newestEventstamp from merged resource with later timestamp than document meta", () => {
+	// Edge case: merged resource's meta.latest exceeds both documents' meta.latest
+	const into: Document<AnyObject> = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:00:00.000Z|0000|a1b2" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ name: "Alice" },
+				"2025-01-01T00:00:00.000Z|0000|a1b2",
+			),
+		],
+	};
+
+	// from document has resource with later timestamp but document meta is older
+	const from: Document<AnyObject> = {
+		jsonapi: { version: "1.1" },
+		meta: { latest: "2025-01-01T00:01:00.000Z|0000|b2c3" },
+		data: [
+			makeResource(
+				"items",
+				"doc-1",
+				{ age: 31 },
+				"2025-01-01T00:10:00.000Z|0001|j9k0", // Much later than document meta
+			),
+		],
+	};
+
+	const result = mergeDocuments(into, from);
+
+	// Document's meta.latest should be updated to merged resource's timestamp
+	expect(result.document.meta.latest).toBe(
+		"2025-01-01T00:10:00.000Z|0001|j9k0",
+	);
+	expect(result.changes.updated.size).toBe(1);
+});

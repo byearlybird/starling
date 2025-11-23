@@ -41,6 +41,8 @@ Internal metadata fields (IDs, timestamps, deletion markers) need to be:
 
 Prefix all system-reserved keys with a tilde (`~`): `~id`, `~deletedAt`, `~createdAt`.
 
+This decision applies to higher-level store schemas that expose raw documents to users. The core CRDT types in `packages/core` use JSON:API-style `type`, `id`, `attributes`, and `meta` fields instead.
+
 **Rationale**
 
 The tilde prefix provides visual and functional separation:

@@ -2,15 +2,13 @@
 @CONTRIBUTING.md
 @docs/architecture.md
 @docs/decision-log.md
-@docs/queries.md
-@docs/plugins/unstorage.md
 
-## Container Initialization (Claude Code Web)
+## Container Initialization
 
-When running in Claude Code on the web, if `bun` commands fail (e.g., `bun test`, `bun install`, `bun run`), first run the container initialization script and then retry:
+When running this repo in a fresh container, Bun may not be installed yet. If `bun` commands fail (`bun test`, `bun install`, `bun run`), run:
 
 ```bash
 npm run init:container
 ```
 
-This installs bun globally in the container environment. After running this once, bun commands should work normally.
+This installs Bun globally in the container. After running this once, Bun-based scripts in this repository should work normally.
