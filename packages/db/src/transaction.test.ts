@@ -152,18 +152,5 @@ describe("Transactions", () => {
 				expect(all).toHaveLength(3);
 			});
 		});
-
-		test("toDocument within transaction returns current state", () => {
-			const db = createTestDb();
-
-			db.begin((tx) => {
-				tx.tasks.add({ id: "1", title: "Task 1", completed: false });
-
-				const doc = tx.tasks.toDocument();
-
-				expect(doc.data).toHaveLength(1);
-				expect(doc.data[0]?.id).toBe("1");
-			});
-		});
 	});
 });

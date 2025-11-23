@@ -112,13 +112,14 @@ export function executeTransaction<Schemas extends SchemasMap, R>(
  *
  * @param originalCollection - The base collection (not modified)
  * @param getClonedCollection - Lazy cloner (invoked on first access)
- * @returns A collection handle with snapshot isolation (excludes event subscription)
+ * @returns A collection handle with snapshot isolation
  *
  * @remarks
  * First read or write triggers cloning, providing snapshot isolation.
  * All subsequent operations use the cloned collection.
- * Event subscription (on) is intentionally excluded since events are only
- * emitted after the transaction commits.
+ * Excluded methods:
+ * - on(): events are only emitted after the transaction commits
+ * - toDocument(): serialization should happen outside transactions
  */
 function createLazyTransactionHandle<T extends AnyObjectSchema>(
 	_originalCollection: Collection<T>,
@@ -160,10 +161,6 @@ function createLazyTransactionHandle<T extends AnyObjectSchema>(
 
 		merge(document) {
 			ensureCloned().merge(document);
-		},
-
-		toDocument() {
-			return ensureCloned().toDocument();
 		},
 	};
 }
