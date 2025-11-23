@@ -57,6 +57,7 @@
         "@byearlybird/starling": "workspace:*",
       },
       "devDependencies": {
+        "fake-indexeddb": "^6.0.0",
         "happy-dom": "^20.0.10",
         "zod": "^4.1.12",
       },

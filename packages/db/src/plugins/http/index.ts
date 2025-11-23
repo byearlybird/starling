@@ -166,7 +166,7 @@ export function httpPlugin<Schemas extends SchemasMap>(
 	return {
 		handlers: {
 			async init(db: Database<Schemas>) {
-				const collectionNames = Object.keys(db) as (keyof Schemas)[];
+				const collectionNames = db.collectionKeys();
 
 				// Initial fetch for all collections (single attempt, no retry)
 				for (const collectionName of collectionNames) {
@@ -214,46 +214,39 @@ export function httpPlugin<Schemas extends SchemasMap>(
 				}, pollingInterval);
 
 				// Subscribe to mutations for debounced push
-				unsubscribe = db.on("mutation", (events) => {
-					// Group mutations by collection
-					const affectedCollections = new Set<keyof Schemas>();
-					for (const event of events) {
-						affectedCollections.add(event.collection);
+				unsubscribe = db.on("mutation", (event) => {
+					const collectionName = event.collection;
+					const key = String(collectionName);
+
+					// Clear existing timer if any
+					const existingTimer = debounceTimers.get(key);
+					if (existingTimer) {
+						clearTimeout(existingTimer);
 					}
 
-					// Schedule debounced push for each affected collection
-					for (const collectionName of affectedCollections) {
-						// Clear existing timer if any
-						const existingTimer = debounceTimers.get(String(collectionName));
-						if (existingTimer) {
-							clearTimeout(existingTimer);
+					// Schedule new push
+					const timer = setTimeout(async () => {
+						debounceTimers.delete(key);
+						try {
+							await pushCollection(
+								db,
+								collectionName,
+								baseUrl,
+								onRequest,
+								onResponse,
+								maxAttempts,
+								initialDelay,
+								maxDelay,
+							);
+						} catch (error) {
+							console.error(
+								`Failed to push collection "${String(collectionName)}":`,
+								error,
+							);
 						}
+					}, debounceDelay);
 
-						// Schedule new push
-						const timer = setTimeout(async () => {
-							debounceTimers.delete(String(collectionName));
-							try {
-								await pushCollection(
-									db,
-									collectionName,
-									baseUrl,
-									onRequest,
-									onResponse,
-									true, // Enable retry for push
-									maxAttempts,
-									initialDelay,
-									maxDelay,
-								);
-							} catch (error) {
-								console.error(
-									`Failed to push collection "${String(collectionName)}":`,
-									error,
-								);
-							}
-						}, debounceDelay);
-
-						debounceTimers.set(String(collectionName), timer);
-					}
+					debounceTimers.set(key, timer);
 				});
 			},
 
@@ -387,7 +380,6 @@ async function pushCollection<Schemas extends SchemasMap>(
 				document: JsonDocument<T>;
 		  }) => ResponseHookResult<T>)
 		| undefined,
-	enableRetry: boolean,
 	maxAttempts = 3,
 	initialDelay = 1000,
 	maxDelay = 30000,
@@ -461,11 +453,7 @@ async function pushCollection<Schemas extends SchemasMap>(
 		db[collectionName].merge(finalDocument);
 	};
 
-	if (enableRetry) {
-		await withRetry(executeRequest, maxAttempts, initialDelay, maxDelay);
-	} else {
-		await executeRequest();
-	}
+	await withRetry(executeRequest, maxAttempts, initialDelay, maxDelay);
 }
 
 /**

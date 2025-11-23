@@ -69,6 +69,43 @@ describe("ResourceMap", () => {
 		});
 	});
 
+	describe("entries", () => {
+		test("iterates over all resources as [id, resource] tuples", () => {
+			const doc1 = makeResource(
+				"items",
+				"id1",
+				{ name: "Alice" },
+				MIN_EVENTSTAMP,
+			);
+			const doc2 = makeResource(
+				"items",
+				"id2",
+				{ name: "Bob" },
+				MIN_EVENTSTAMP,
+			);
+			const crdt = createMap<{ name: string }>(
+				"items",
+				new Map([
+					[doc1.id, doc1],
+					[doc2.id, doc2],
+				]),
+			);
+
+			const entries = Array.from(crdt.entries());
+
+			expect(entries.length).toBe(2);
+			const ids = entries.map(([id]) => id);
+			expect(ids).toContain("id1");
+			expect(ids).toContain("id2");
+		});
+
+		test("returns empty iterator for empty map", () => {
+			const crdt = createMap("default");
+			const entries = Array.from(crdt.entries());
+			expect(entries.length).toBe(0);
+		});
+	});
+
 	describe("get", () => {
 		test("returns document for existing id", () => {
 			const doc = makeResource(
