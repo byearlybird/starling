@@ -9,7 +9,7 @@ Starling keeps replicas in sync using field-level Last-Write-Wins powered by hyb
 | Package | Description |
 | --- | --- |
 | `@byearlybird/starling-db` | Database with typed collections, schemas, and transactions |
-| `@byearlybird/starling` | Low-level CRDT primitives for custom sync implementations |
+| `@byearlybird/starling` | Low-level CRDT-like primitives for custom sync implementations |
 
 ## Highlights
 
@@ -65,17 +65,17 @@ See `packages/db/README.md` for the full API including queries, mutation events,
 
 ## How Sync Works
 
-Starling’s merge model is designed for the common case: multiple clients editing the same data without custom conflict-resolution logic.
+Starling's merge model is designed for the common case: multiple clients editing the same data without custom conflict-resolution logic.
 
 ### Field-Level Last-Write-Wins
 
-Conflict resolution recursively merges each field of a plain JavaScript object, applying Last-Write-Wins at the field level—newer eventstamps win. If Client A updates `user.name` and Client B updates `user.email`, both changes are preserved.
+When two devices edit the same record, Starling compares each field individually—the most recent write wins. If Client A updates `user.name` and Client B updates `user.email`, both changes are preserved. Only conflicting fields (same field, different values) use the timestamp to pick a winner.
 
 ### Eventstamps
 
-Eventstamps capture a single operation using a hybrid logical clock. They combine an ISO8601 timestamp with a hex counter and random nonce (`YYYY-MM-DDTHH:mm:ss.SSSZ|counter|nonce`). This ensures that even if two clients have identical system clocks—or one clock drifts backward—each write gets a unique, comparable timestamp.
+Every write is tagged with an "eventstamp"—a timestamp that's guaranteed to be unique and always increasing, even if two devices write at the exact same moment. The format is `YYYY-MM-DDTHH:mm:ss.SSSZ|counter|nonce` (for example, `2025-01-15T10:30:00.000Z|0001|a7f2`).
 
-The latest eventstamp is persisted and shared with each data store so clocks can be safely forwarded when merging remote data.
+When devices sync, they share their latest eventstamp so clocks stay roughly aligned across your app.
 
 ### Data Shape
 
@@ -89,7 +89,7 @@ Starling works with **plain objects**:
 { count: 42, active: true, tags: ["work", "urgent"] }
 ```
 
-Arrays are treated atomically. If two clients modify the same array field, LWW applies to the entire array—no element-level merging. For lists that need concurrent edits (for example, todo items), prefer keyed records:
+Arrays are treated as a single value—if two clients modify the same array, the most recent version wins entirely (no element-by-element merging). For lists that need concurrent edits (for example, todo items), use objects with IDs as keys instead:
 
 ```ts
 // Avoid: array of embedded items
@@ -101,7 +101,7 @@ Arrays are treated atomically. If two clients modify the same array field, LWW a
 
 ### When to Use Something Else
 
-If you need mergeable array operations, semantic operations, or sophisticated string merging, consider CRDT libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/). Starling is intentionally small and focuses on object-shaped application state.
+If you need collaborative text editing, mergeable arrays, or more sophisticated conflict handling, consider libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/). Starling is intentionally small and focuses on object-shaped application state.
 
 ## Core Primitives (`@byearlybird/starling`)
 
@@ -114,7 +114,7 @@ bun add @byearlybird/starling
 ```ts
 import { createMap } from "@byearlybird/starling";
 
-// CRDT map with field-level LWW
+// Mergeable map with field-level Last-Write-Wins
 const todos = createMap<{ text: string; completed: boolean }>("todos");
 
 todos.set("todo-1", { text: "Learn Starling", completed: false });
@@ -128,14 +128,14 @@ const result = todos.merge(remoteDoc);
 ```
 
 The core API includes:
-- `createMap` / `createMapFromDocument` – CRDT map with field-level LWW
-- `createClock` / `createClockFromEventstamp` – hybrid logical clocks
+- `createMap` / `createMapFromDocument` – mergeable map with automatic conflict resolution
+- `createClock` / `createClockFromEventstamp` – clock utilities for eventstamps
 - `makeDocument` / `mergeDocuments` – document creation and merging
 
 ## Project Status
 
-- `@byearlybird/starling` (core) is stable but may have minor API changes as usage feedback comes in.
-- `@byearlybird/starling-db` is under active development.
+- `@byearlybird/starling` (core) is in **beta**—the API is mostly stable but may have minor changes based on feedback.
+- `@byearlybird/starling-db` is in **alpha**—expect breaking changes as the API evolves.
 
 ## Development
 
@@ -149,6 +149,6 @@ MIT (see `LICENSE`)
 
 💖 Made [@byearlybird](https://github.com/byearlybird)
 
-Very much inspired by [Tinybase](https://tinybase.org/) and so many other excellent libraries in the local-first community, Starling aims to implement a simple sync solution for personal apps, inspired by the method described in [James Long's CRDTs for Mortals talk](https://www.youtube.com/watch?v=DEcwa68f-jY).
+Inspired by [Tinybase](https://tinybase.org/) and many other excellent libraries in the local-first community, Starling implements a simple sync solution for personal apps based on the approach described in [James Long's "CRDTs for Mortals" talk](https://www.youtube.com/watch?v=DEcwa68f-jY)—a great intro if you're new to local-first development.
 
 Thanks for checking out Starling!
