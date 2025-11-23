@@ -252,3 +252,22 @@ test("fromEventstamp() allows clock to continue from decoded state", () => {
 	const decoded = decodeEventstamp(newStamp);
 	expect(decoded.counter).toBeGreaterThan(10);
 });
+
+test("now() resets counter when wall clock advances past lastMs", () => {
+	// Initialize clock with a timestamp in the past
+	const pastTimestamp = Date.now() - 1000;
+	const clock = createClock({
+		counter: 100,
+		lastMs: pastTimestamp,
+		lastNonce: "0000",
+	});
+
+	// Get a new eventstamp - wall clock should have advanced
+	const stamp = clock.now();
+	const decoded = decodeEventstamp(stamp);
+
+	// Counter should be reset to 0 because wallMs > lastMs
+	expect(decoded.counter).toBe(0);
+	// Timestamp should be current, not the old one
+	expect(decoded.timestampMs).toBeGreaterThan(pastTimestamp);
+});
