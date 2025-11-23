@@ -154,6 +154,19 @@ describe("Collection", () => {
 			expect(incomplete[1]?.id).toBe("3");
 		});
 
+		test("excludes soft-deleted items", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "1", title: "Task 1", completed: false });
+			db.tasks.add({ id: "2", title: "Task 2", completed: false });
+			db.tasks.add({ id: "3", title: "Task 3", completed: false });
+			db.tasks.remove("2");
+
+			const all = db.tasks.find(() => true);
+
+			expect(all).toHaveLength(2);
+			expect(all.map((t) => t.id)).toEqual(["1", "3"]);
+		});
+
 		test("supports map and sort options", () => {
 			const db = createTestDb();
 			db.tasks.add({ id: "1", title: "C Task", completed: false });
@@ -367,6 +380,32 @@ describe("Collection", () => {
 			expect(events[0].updated).toHaveLength(1);
 			expect(events[0].updated[0].before.completed).toBe(false);
 			expect(events[0].updated[0].after.completed).toBe(true);
+		});
+
+		test("emits merge remove events", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+
+			const events: any[] = [];
+			db.tasks.on("mutation", (e) => events.push(e));
+
+			const doc = makeTaskDocument([], "2099-01-01T00:05:00.000Z|0001|c3d4");
+			const resource = makeResource(
+				"tasks",
+				"task-1",
+				{ id: "task-1", title: "Buy milk", completed: false },
+				"2099-01-01T00:00:00.000Z|0001|a1b2",
+			);
+			resource.meta.deletedAt = "2099-01-01T00:05:00.000Z|0001|c3d4";
+			resource.meta.latest = "2099-01-01T00:05:00.000Z|0001|c3d4";
+			doc.data.push(resource);
+
+			db.tasks.merge(doc);
+
+			expect(events).toHaveLength(1);
+			expect(events[0].removed).toHaveLength(1);
+			expect(events[0].removed[0].id).toBe("task-1");
+			expect(events[0].removed[0].item.title).toBe("Buy milk");
 		});
 
 		test("supports unsubscribe", () => {
