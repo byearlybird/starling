@@ -280,6 +280,57 @@ describe("httpPlugin", () => {
 			expect(mockFetch.mock.calls.length).toBe(callsAfterDispose);
 		});
 
+		test("logs error when polling fails after all retries", async () => {
+			let initDone = false;
+			mockFetch.mockImplementation(() => {
+				if (!initDone) {
+					initDone = true;
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve(makeEmptyDocument()),
+					});
+				}
+				// All subsequent calls (polling) fail
+				return Promise.reject(new Error("Network error"));
+			});
+
+			const db = await createDatabase({
+				name: "test-app",
+				schema: {
+					tasks: {
+						schema: taskSchema,
+						getId: (task) => task.id,
+					},
+				},
+			})
+				.use(
+					httpPlugin({
+						baseUrl: "https://api.example.com",
+						pollingInterval: 30, // Short interval
+						retry: {
+							maxAttempts: 2,
+							initialDelay: 5,
+							maxDelay: 10,
+						},
+					}),
+				)
+				.init();
+
+			consoleErrorSpy.mockClear();
+
+			// Wait for polling to fail after retries
+			await new Promise((resolve) => setTimeout(resolve, 150));
+
+			// Should have logged polling error
+			expect(consoleErrorSpy).toHaveBeenCalled();
+			const errorCall = consoleErrorSpy.mock.calls.find((call) =>
+				String(call[0]).includes("Failed to poll collection"),
+			);
+			expect(errorCall).toBeDefined();
+
+			await db.dispose();
+		});
+
 		test("retries polling on failure", async () => {
 			let callCount = 0;
 			mockFetch.mockImplementation(() => {
@@ -1030,6 +1081,153 @@ describe("httpPlugin", () => {
 
 			// Should have empty store
 			expect(db.tasks.getAll()).toEqual([]);
+
+			await db.dispose();
+		});
+	});
+
+	describe("push request hooks", () => {
+		test("skips PATCH when onRequest returns skip: true for PATCH", async () => {
+			const db = await createDatabase({
+				name: "test-app",
+				schema: {
+					tasks: {
+						schema: taskSchema,
+						getId: (task) => task.id,
+					},
+				},
+			})
+				.use(
+					httpPlugin({
+						baseUrl: "https://api.example.com",
+						pollingInterval: 60000,
+						debounceDelay: 10,
+						onRequest: ({ operation }) => {
+							if (operation === "PATCH") {
+								return { skip: true };
+							}
+							return undefined;
+						},
+					}),
+				)
+				.init();
+
+			mockFetch.mockClear();
+
+			// Add a task - this should trigger a PATCH that gets skipped
+			db.tasks.add(makeTask({ id: "1", title: "Test" }));
+
+			// Wait for debounce
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			// No PATCH should have been made (skipped by onRequest)
+			expect(mockFetch).toHaveBeenCalledTimes(0);
+
+			await db.dispose();
+		});
+
+		test("handles non-ok HTTP response on PATCH", async () => {
+			mockFetch.mockImplementation((url, options) => {
+				if (options?.method === "GET") {
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve(makeEmptyDocument()),
+					});
+				}
+				// Return non-ok for PATCH
+				return Promise.resolve({
+					ok: false,
+					status: 500,
+					statusText: "Internal Server Error",
+				});
+			});
+
+			const db = await createDatabase({
+				name: "test-app",
+				schema: {
+					tasks: {
+						schema: taskSchema,
+						getId: (task) => task.id,
+					},
+				},
+			})
+				.use(
+					httpPlugin({
+						baseUrl: "https://api.example.com",
+						pollingInterval: 60000,
+						debounceDelay: 10,
+						retry: { maxAttempts: 1 }, // Single attempt for faster test
+					}),
+				)
+				.init();
+
+			mockFetch.mockClear();
+			consoleErrorSpy.mockClear();
+
+			// Add a task - this triggers PATCH which will fail
+			db.tasks.add(makeTask({ id: "1", title: "Test" }));
+
+			// Wait for debounce and request
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			// Should have logged error
+			expect(consoleErrorSpy).toHaveBeenCalled();
+
+			await db.dispose();
+		});
+
+		test("skips merge on PATCH response when onResponse returns skip: true", async () => {
+			const serverResponseDoc = makeTaskDocument([
+				{ id: "1", title: "Server Modified", completed: true },
+				{ id: "server-new", title: "Server New Task", completed: false },
+			]);
+
+			mockFetch.mockImplementation((url, options) => {
+				if (options?.method === "GET") {
+					return Promise.resolve({
+						ok: true,
+						json: () => Promise.resolve(makeEmptyDocument()),
+					});
+				}
+				// PATCH returns server document
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve(serverResponseDoc),
+				});
+			});
+
+			const db = await createDatabase({
+				name: "test-app",
+				schema: {
+					tasks: {
+						schema: taskSchema,
+						getId: (task) => task.id,
+					},
+				},
+			})
+				.use(
+					httpPlugin({
+						baseUrl: "https://api.example.com",
+						pollingInterval: 60000,
+						debounceDelay: 10,
+						onResponse: () => ({ skip: true }), // Skip all response merges
+					}),
+				)
+				.init();
+
+			// Add a task
+			db.tasks.add(makeTask({ id: "1", title: "Local Task" }));
+
+			// Wait for PATCH
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			// Server response should NOT have been merged (skipped)
+			const serverTask = db.tasks.get("server-new");
+			expect(serverTask).toBeFalsy();
+
+			// Our local task should still have original title
+			const localTask = db.tasks.get("1");
+			expect(localTask?.title).toBe("Local Task");
 
 			await db.dispose();
 		});

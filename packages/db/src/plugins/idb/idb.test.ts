@@ -46,6 +46,17 @@ afterEach(() => {
 	MockBroadcastChannel.reset();
 });
 
+// Helper to trigger IDB errors
+function makeFailingIDBRequest(errorMessage: string): IDBRequest {
+	const request = {
+		result: null,
+		error: new DOMException(errorMessage),
+		onerror: null as ((this: IDBRequest, ev: Event) => any) | null,
+		onsuccess: null as ((this: IDBRequest, ev: Event) => any) | null,
+	} as unknown as IDBRequest;
+	return request;
+}
+
 describe("idbPlugin", () => {
 	test("loads and persists documents", async () => {
 		// Create database with plugin
@@ -331,6 +342,282 @@ describe("idbPlugin", () => {
 		expect(db.tasks.getAll()).toHaveLength(1);
 
 		await db.dispose();
+	});
+
+	test("ignores broadcasts with matching instanceId", async () => {
+		const db = await createDatabase({
+			name: "instance-id-test",
+			schema: {
+				tasks: {
+					schema: taskSchema,
+					getId: (task) => task.id,
+				},
+			},
+		})
+			.use(idbPlugin())
+			.init();
+
+		// Get the broadcast channel for this db
+		const channels = MockBroadcastChannel.channels.get("starling:instance-id-test") || [];
+		expect(channels.length).toBeGreaterThan(0);
+
+		const channel = channels[0]!;
+
+		// Manually trigger onmessage with the same instanceId that was used
+		// We need to extract instanceId from a real broadcast first
+		let capturedInstanceId: string | null = null;
+		const originalPostMessage = channel.postMessage.bind(channel);
+		channel.postMessage = (data: any) => {
+			capturedInstanceId = data.instanceId;
+			originalPostMessage(data);
+		};
+
+		// Add a task to trigger a broadcast
+		db.tasks.add(makeTask({ id: "1", title: "Task 1" }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		// Now manually call onmessage with the same instanceId
+		if (channel.onmessage && capturedInstanceId) {
+			channel.onmessage({ data: { type: "mutation", instanceId: capturedInstanceId, timestamp: Date.now() } });
+		}
+
+		// Wait for any potential handling
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		// Should still have exactly one task (the broadcast was ignored)
+		expect(db.tasks.getAll()).toHaveLength(1);
+
+		await db.dispose();
+	});
+
+	test("handles IndexedDB open error", async () => {
+		// Save original indexedDB
+		const originalIndexedDB = globalThis.indexedDB;
+
+		// Mock indexedDB.open to fail
+		const mockIndexedDB = {
+			open: (name: string, version?: number) => {
+				const request = {
+					result: null,
+					error: new DOMException("Database open failed"),
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+				};
+				// Trigger error asynchronously
+				setTimeout(() => {
+					if (request.onerror) {
+						request.onerror(new Event("error"));
+					}
+				}, 0);
+				return request as unknown as IDBOpenDBRequest;
+			},
+		};
+		(globalThis as any).indexedDB = mockIndexedDB;
+
+		try {
+			await expect(
+				createDatabase({
+					name: "error-test",
+					schema: {
+						tasks: {
+							schema: taskSchema,
+							getId: (task) => task.id,
+						},
+					},
+				})
+					.use(idbPlugin())
+					.init(),
+			).rejects.toThrow("Failed to open IndexedDB");
+		} finally {
+			// Restore original indexedDB
+			(globalThis as any).indexedDB = originalIndexedDB;
+		}
+	});
+
+	test("handles transaction read error", async () => {
+		// This test verifies error handling when reading from IndexedDB fails
+		// We'll use a database that succeeds to open but fails on get operations
+		const originalIndexedDB = globalThis.indexedDB;
+
+		let dbOpened = false;
+		const mockObjectStore = {
+			get: (key: string) => {
+				const request = {
+					result: null,
+					error: new DOMException("Read operation failed"),
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+				};
+				setTimeout(() => {
+					if (request.onerror) {
+						request.onerror(new Event("error"));
+					}
+				}, 0);
+				return request as unknown as IDBRequest;
+			},
+			put: (value: any, key: string) => {
+				const request = {
+					result: key,
+					error: null,
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+				};
+				setTimeout(() => {
+					if (request.onsuccess) {
+						request.onsuccess(new Event("success"));
+					}
+				}, 0);
+				return request as unknown as IDBRequest;
+			},
+		};
+
+		const mockTransaction = {
+			objectStore: (name: string) => mockObjectStore,
+		};
+
+		const mockDB = {
+			objectStoreNames: { contains: (name: string) => true },
+			transaction: (storeName: string, mode: string) => mockTransaction,
+			close: () => {},
+			createObjectStore: (name: string) => mockObjectStore,
+		};
+
+		const mockIndexedDB = {
+			open: (name: string, version?: number) => {
+				const request = {
+					result: mockDB,
+					error: null,
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+				};
+				setTimeout(() => {
+					if (!dbOpened && request.onupgradeneeded) {
+						request.onupgradeneeded({ target: { result: mockDB } } as unknown as IDBVersionChangeEvent);
+						dbOpened = true;
+					}
+					if (request.onsuccess) {
+						request.onsuccess(new Event("success"));
+					}
+				}, 0);
+				return request as unknown as IDBOpenDBRequest;
+			},
+		};
+		(globalThis as any).indexedDB = mockIndexedDB;
+
+		try {
+			await expect(
+				createDatabase({
+					name: "read-error-test",
+					schema: {
+						tasks: {
+							schema: taskSchema,
+							getId: (task) => task.id,
+						},
+					},
+				})
+					.use(idbPlugin())
+					.init(),
+			).rejects.toThrow("Failed to get from store");
+		} finally {
+			(globalThis as any).indexedDB = originalIndexedDB;
+		}
+	});
+
+	test("handles transaction write error", async () => {
+		// This test verifies error handling when writing to IndexedDB fails
+		const originalIndexedDB = globalThis.indexedDB;
+
+		let dbOpened = false;
+		let isDisposeCall = false;
+
+		const mockObjectStore = {
+			get: (key: string) => {
+				const request = {
+					result: null, // No existing data
+					error: null,
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+				};
+				setTimeout(() => {
+					if (request.onsuccess) {
+						request.onsuccess(new Event("success"));
+					}
+				}, 0);
+				return request as unknown as IDBRequest;
+			},
+			put: (value: any, key: string) => {
+				const request = {
+					result: null,
+					error: new DOMException("Write operation failed"),
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+				};
+				setTimeout(() => {
+					if (isDisposeCall && request.onerror) {
+						request.onerror(new Event("error"));
+					} else if (request.onsuccess) {
+						request.onsuccess(new Event("success"));
+					}
+				}, 0);
+				return request as unknown as IDBRequest;
+			},
+		};
+
+		const mockTransaction = {
+			objectStore: (name: string) => mockObjectStore,
+		};
+
+		const mockDB = {
+			objectStoreNames: { contains: (name: string) => true },
+			transaction: (storeName: string, mode: string) => mockTransaction,
+			close: () => {},
+			createObjectStore: (name: string) => mockObjectStore,
+		};
+
+		const mockIndexedDB = {
+			open: (name: string, version?: number) => {
+				const request = {
+					result: mockDB,
+					error: null,
+					onerror: null as ((event: Event) => void) | null,
+					onsuccess: null as ((event: Event) => void) | null,
+					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+				};
+				setTimeout(() => {
+					if (!dbOpened && request.onupgradeneeded) {
+						request.onupgradeneeded({ target: { result: mockDB } } as unknown as IDBVersionChangeEvent);
+						dbOpened = true;
+					}
+					if (request.onsuccess) {
+						request.onsuccess(new Event("success"));
+					}
+				}, 0);
+				return request as unknown as IDBOpenDBRequest;
+			},
+		};
+		(globalThis as any).indexedDB = mockIndexedDB;
+
+		try {
+			const db = await createDatabase({
+				name: "write-error-test",
+				schema: {
+					tasks: {
+						schema: taskSchema,
+						getId: (task) => task.id,
+					},
+				},
+			})
+				.use(idbPlugin({ useBroadcastChannel: false }))
+				.init();
+
+			// Now trigger error on dispose
+			isDisposeCall = true;
+			await expect(db.dispose()).rejects.toThrow("Failed to put to store");
+		} finally {
+			(globalThis as any).indexedDB = originalIndexedDB;
+		}
 	});
 
 	test("can disable BroadcastChannel", async () => {
