@@ -64,18 +64,13 @@ export function idbPlugin(config: IdbPluginConfig = {}): DatabasePlugin<any> {
 	return {
 		handlers: {
 			async init(db: Database<any>) {
+				const collectionNames = db.collectionKeys() as string[];
+
 				// Open IndexedDB connection
-				dbInstance = await openDatabase(
-					db.name,
-					version,
-					Object.keys(db) as string[],
-				);
+				dbInstance = await openDatabase(db.name, version, collectionNames);
 
 				// Load existing documents from IndexedDB
-				const savedDocs = await loadDocuments(
-					dbInstance,
-					Object.keys(db) as string[],
-				);
+				const savedDocs = await loadDocuments(dbInstance, collectionNames);
 
 				// Merge loaded documents into each collection
 				for (const collectionName of Object.keys(savedDocs)) {
@@ -118,7 +113,7 @@ export function idbPlugin(config: IdbPluginConfig = {}): DatabasePlugin<any> {
 							// Another tab made changes - reload and merge
 							const savedDocs = await loadDocuments(
 								dbInstance,
-								Object.keys(db) as string[],
+								collectionNames,
 							);
 
 							for (const collectionName of Object.keys(savedDocs)) {

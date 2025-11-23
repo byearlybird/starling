@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { makeResource } from "@byearlybird/starling";
-import { DuplicateIdError, IdNotFoundError } from "./collection";
-import { createTestDb, makeTask, makeTaskDocument } from "./test-helpers";
+import {
+	CollectionInternals,
+	createCollection,
+	DuplicateIdError,
+	IdNotFoundError,
+} from "./collection";
+import {
+	createTestDb,
+	makeTask,
+	makeTaskDocument,
+	taskSchema,
+} from "./test-helpers";
 
 describe("Collection", () => {
 	describe("add", () => {
@@ -17,6 +27,19 @@ describe("Collection", () => {
 			expect(task.id).toBe("1");
 			expect(task.title).toBe("Learn Starling");
 			expect(task.completed).toBe(false);
+		});
+
+		test("generates default id when not provided", () => {
+			const db = createTestDb();
+
+			const task = db.tasks.add({
+				title: "Auto ID Task",
+				completed: false,
+			});
+
+			expect(task.id).toBeDefined();
+			expect(typeof task.id).toBe("string");
+			expect(task.id.length).toBeGreaterThan(0);
 		});
 
 		test("throws on duplicate id", () => {
@@ -126,6 +149,18 @@ describe("Collection", () => {
 			expect(allTasks).toHaveLength(1);
 			expect(allTasks[0]?.id).toBe("1");
 		});
+
+		test("includes soft-deleted items with includeDeleted flag", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "1", title: "Task 1", completed: false });
+			db.tasks.add({ id: "2", title: "Task 2", completed: true });
+			db.tasks.remove("2");
+
+			const allTasks = db.tasks.getAll({ includeDeleted: true });
+
+			expect(allTasks).toHaveLength(2);
+			expect(allTasks.map((t) => t.id).sort()).toEqual(["1", "2"]);
+		});
 	});
 
 	describe("find", () => {
@@ -140,6 +175,19 @@ describe("Collection", () => {
 			expect(incomplete).toHaveLength(2);
 			expect(incomplete[0]?.id).toBe("1");
 			expect(incomplete[1]?.id).toBe("3");
+		});
+
+		test("excludes soft-deleted items", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "1", title: "Task 1", completed: false });
+			db.tasks.add({ id: "2", title: "Task 2", completed: false });
+			db.tasks.add({ id: "3", title: "Task 3", completed: false });
+			db.tasks.remove("2");
+
+			const all = db.tasks.find(() => true);
+
+			expect(all).toHaveLength(2);
+			expect(all.map((t) => t.id)).toEqual(["1", "3"]);
 		});
 
 		test("supports map and sort options", () => {
@@ -357,6 +405,32 @@ describe("Collection", () => {
 			expect(events[0].updated[0].after.completed).toBe(true);
 		});
 
+		test("emits merge remove events", () => {
+			const db = createTestDb();
+			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+
+			const events: any[] = [];
+			db.tasks.on("mutation", (e) => events.push(e));
+
+			const doc = makeTaskDocument([], "2099-01-01T00:05:00.000Z|0001|c3d4");
+			const resource = makeResource(
+				"tasks",
+				"task-1",
+				{ id: "task-1", title: "Buy milk", completed: false },
+				"2099-01-01T00:00:00.000Z|0001|a1b2",
+			);
+			resource.meta.deletedAt = "2099-01-01T00:05:00.000Z|0001|c3d4";
+			resource.meta.latest = "2099-01-01T00:05:00.000Z|0001|c3d4";
+			doc.data.push(resource);
+
+			db.tasks.merge(doc);
+
+			expect(events).toHaveLength(1);
+			expect(events[0].removed).toHaveLength(1);
+			expect(events[0].removed[0].id).toBe("task-1");
+			expect(events[0].removed[0].item.title).toBe("Buy milk");
+		});
+
 		test("supports unsubscribe", () => {
 			const db = createTestDb();
 			const events: any[] = [];
@@ -467,6 +541,87 @@ describe("Collection", () => {
 
 			expect(db.tasks.get("task-1")).toBeNull();
 			expect(events).toHaveLength(0);
+		});
+	});
+
+	describe("CollectionInternals.emitMutations", () => {
+		test("emits mutation event when mutations are non-empty", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			const events: any[] = [];
+			collection.on("mutation", (e) => events.push(e));
+
+			collection[CollectionInternals.emitMutations]({
+				added: [
+					{ id: "1", item: { id: "1", title: "Test", completed: false } },
+				],
+				updated: [],
+				removed: [],
+			});
+
+			expect(events).toHaveLength(1);
+			expect(events[0].added).toHaveLength(1);
+		});
+
+		test("does not emit when all mutation arrays are empty", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			const events: any[] = [];
+			collection.on("mutation", (e) => events.push(e));
+
+			collection[CollectionInternals.emitMutations]({
+				added: [],
+				updated: [],
+				removed: [],
+			});
+
+			expect(events).toHaveLength(0);
+		});
+	});
+
+	describe("CollectionInternals.replaceData", () => {
+		test("replaces the internal data map", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			collection.add({ id: "1", title: "Keep?", completed: false });
+
+			const newData = new Map();
+			newData.set(
+				"2",
+				makeResource(
+					"tasks",
+					"2",
+					{ id: "2", title: "Replacement", completed: true },
+					"2025-01-01T00:00:00.000Z|0005|0000",
+				),
+			);
+
+			collection[CollectionInternals.replaceData](newData);
+
+			expect(collection.get("1")).toBeNull();
+			expect(collection.get("2")?.title).toBe("Replacement");
+			expect(collection.getAll()).toHaveLength(1);
 		});
 	});
 

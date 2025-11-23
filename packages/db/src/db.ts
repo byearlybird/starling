@@ -1,31 +1,35 @@
 import { createClock, type JsonDocument } from "@byearlybird/starling";
 import {
 	type Collection,
+	type CollectionWithInternals,
 	createCollection,
 	type MutationBatch,
 } from "./collection";
-import type { CollectionHandle, CollectionHandles } from "./collection-handle";
 import { createEmitter } from "./emitter";
 import type { StandardSchemaV1 } from "./standard-schema";
 import { executeTransaction, type TransactionContext } from "./transaction";
 import type { AnyObjectSchema, SchemasMap } from "./types";
+
+export type Collections<Schemas extends SchemasMap> = {
+	[K in keyof Schemas]: Collection<Schemas[K]>;
+};
 
 export type CollectionConfigMap<Schemas extends SchemasMap> = {
 	[K in keyof Schemas]: CollectionConfig<Schemas[K]>;
 };
 
 type CollectionInstances<Schemas extends SchemasMap> = {
-	[K in keyof Schemas]: Collection<Schemas[K]>;
+	[K in keyof Schemas]: CollectionWithInternals<Schemas[K]>;
 };
 
-type MutationEnvelope<Schemas extends SchemasMap> = {
+export type MutationEnvelope<Schemas extends SchemasMap> = {
 	[K in keyof Schemas]: {
 		collection: K;
 	} & MutationBatch<StandardSchemaV1.InferOutput<Schemas[K]>>;
 }[keyof Schemas];
 
 export type DatabaseMutationEvent<Schemas extends SchemasMap> =
-	MutationEnvelope<Schemas>[];
+	MutationEnvelope<Schemas>;
 
 export type DatabaseEvents<Schemas extends SchemasMap> = {
 	mutation: DatabaseMutationEvent<Schemas>;
@@ -49,24 +53,24 @@ export type DbConfig<Schemas extends SchemasMap> = {
 	version?: number;
 };
 
-export type Database<Schemas extends SchemasMap> =
-	CollectionHandles<Schemas> & {
-		name: string;
-		version: number;
-		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
-		toDocuments(): {
-			[K in keyof Schemas]: JsonDocument<
-				StandardSchemaV1.InferOutput<Schemas[K]>
-			>;
-		};
-		on(
-			event: "mutation",
-			handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
-		): () => void;
-		use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
-		init(): Promise<Database<Schemas>>;
-		dispose(): Promise<void>;
+export type Database<Schemas extends SchemasMap> = Collections<Schemas> & {
+	name: string;
+	version: number;
+	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
+	toDocuments(): {
+		[K in keyof Schemas]: JsonDocument<
+			StandardSchemaV1.InferOutput<Schemas[K]>
+		>;
 	};
+	on(
+		event: "mutation",
+		handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
+	): () => void;
+	use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
+	init(): Promise<Database<Schemas>>;
+	dispose(): Promise<void>;
+	collectionKeys(): (keyof Schemas)[];
+};
 
 /**
  * Create a typed database instance with collection access.
@@ -97,7 +101,9 @@ export function createDatabase<Schemas extends SchemasMap>(
 	const clock = createClock();
 	const getEventstamp = () => clock.now();
 	const collections = makeCollections(schema, getEventstamp);
-	const handles = makeHandles(collections);
+
+	// Cast to public Collection type (hides Symbol-keyed internals)
+	const publicCollections = collections as unknown as Collections<Schemas>;
 
 	// Database-level emitter
 	const dbEmitter = createEmitter<DatabaseEvents<Schemas>>();
@@ -113,14 +119,12 @@ export function createDatabase<Schemas extends SchemasMap>(
 				mutations.updated.length > 0 ||
 				mutations.removed.length > 0
 			) {
-				dbEmitter.emit("mutation", [
-					{
-						collection: collectionName,
-						added: mutations.added,
-						updated: mutations.updated,
-						removed: mutations.removed,
-					},
-				] as DatabaseMutationEvent<Schemas>);
+				dbEmitter.emit("mutation", {
+					collection: collectionName,
+					added: mutations.added,
+					updated: mutations.updated,
+					removed: mutations.removed,
+				} as DatabaseMutationEvent<Schemas>);
 			}
 		});
 	}
@@ -128,7 +132,7 @@ export function createDatabase<Schemas extends SchemasMap>(
 	const plugins: DatabasePlugin<Schemas>[] = [];
 
 	const db = {
-		...handles,
+		...publicCollections,
 		name,
 		version,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
@@ -172,6 +176,9 @@ export function createDatabase<Schemas extends SchemasMap>(
 				}
 			}
 		},
+		collectionKeys() {
+			return Object.keys(collections) as (keyof Schemas)[];
+		},
 	} as Database<Schemas>;
 
 	return db;
@@ -194,46 +201,4 @@ function makeCollections<Schemas extends SchemasMap>(
 	}
 
 	return collections;
-}
-
-function makeHandles<Schemas extends SchemasMap>(
-	collections: CollectionInstances<Schemas>,
-): CollectionHandles<Schemas> {
-	const handles = {} as CollectionHandles<Schemas>;
-
-	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
-		// Create handles that dynamically look up collections
-		// This ensures handles see updated collections after transactions
-		handles[name] = {
-			add(item) {
-				return collections[name].add(item);
-			},
-			update(id, updates) {
-				collections[name].update(id, updates);
-			},
-			remove(id) {
-				collections[name].remove(id);
-			},
-			merge(document) {
-				collections[name].merge(document);
-			},
-			get(id, opts) {
-				return collections[name].get(id, opts);
-			},
-			getAll(opts) {
-				return collections[name].getAll(opts);
-			},
-			find(filter, opts) {
-				return collections[name].find(filter, opts);
-			},
-			toDocument() {
-				return collections[name].toDocument();
-			},
-			on(event, handler) {
-				return collections[name].on(event, handler);
-			},
-		} as CollectionHandle<Schemas[typeof name]>;
-	}
-
-	return handles;
 }
