@@ -261,21 +261,21 @@ export function createCollection<T extends AnyObjectSchema>(
 
 			for (const [id, resource] of result.changes.updated) {
 				standardValidate(schema, resource.attributes);
-				const before = beforeState.get(id);
-				if (before) {
-					pendingMutations.updated.push({
-						id,
-						before,
-						after: resource.attributes,
-					});
-				}
+				// beforeState is built from data.entries(), and changes.updated only contains
+				// resources that existed in data, so before is guaranteed to exist
+				const before = beforeState.get(id)!;
+				pendingMutations.updated.push({
+					id,
+					before,
+					after: resource.attributes,
+				});
 			}
 
 			for (const id of result.changes.deleted) {
-				const before = beforeState.get(id);
-				if (before) {
-					pendingMutations.removed.push({ id, item: before });
-				}
+				// beforeState is built from data.entries(), and changes.deleted only contains
+				// resources that existed in data, so before is guaranteed to exist
+				const before = beforeState.get(id)!;
+				pendingMutations.removed.push({ id, item: before });
 			}
 
 			// Flush immediately for non-transaction operations
