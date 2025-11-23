@@ -66,6 +66,7 @@ export type Database<Schemas extends SchemasMap> =
 		use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
 		init(): Promise<Database<Schemas>>;
 		dispose(): Promise<void>;
+		collectionKeys(): (keyof Schemas)[];
 	};
 
 /**
@@ -171,6 +172,9 @@ export function createDatabase<Schemas extends SchemasMap>(
 					await plugin.handlers.dispose(db);
 				}
 			}
+		},
+		collectionKeys() {
+			return Object.keys(collections) as (keyof Schemas)[];
 		},
 	} as Database<Schemas>;
 
