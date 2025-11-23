@@ -1,83 +1,67 @@
-# @byearlybird/starling
+# Starling
 
-Lightweight CRDT primitives for local-first sync in JavaScript apps.
+Local-first data sync for JavaScript apps.
 
-Starling provides the core building blocks for state-based replication with field-level Last-Write-Wins (LWW) conflict resolution, powered by hybrid logical clocks. Use it directly to build custom sync flows, or pair it with higher-level packages for database-style APIs.
+Starling keeps replicas in sync using field-level Last-Write-Wins powered by hybrid logical clocks. Documents converge automatically—no manual merge logic required.
+
+## Packages
+
+| Package | Description |
+| --- | --- |
+| `@byearlybird/starling-db` | Database with typed collections, schemas, and transactions |
+| `@byearlybird/starling` | Low-level CRDT primitives for custom sync implementations |
 
 ## Highlights
 
+- Typed collections with schema validation
+- Transactions with snapshot isolation
 - Field-level Last-Write-Wins conflict resolution
-- Hybrid logical clock with eventstamps
 - State-based document merging (no operation logs)
 - Framework-agnostic – works anywhere JavaScript runs
-- Zero runtime dependencies
 
 ## Installation
 
 ```bash
-bun add @byearlybird/starling
+bun add @byearlybird/starling-db zod
 ```
-
-## Core Concepts
-
-The `@byearlybird/starling` package exposes a small set of primitives:
-
-- `createClock` / `createClockFromEventstamp` – hybrid logical clocks for generating monotonic eventstamps
-- `makeDocument` / `mergeDocuments` – JSON:API-style documents and merge logic
-- `createMap` / `createMapFromDocument` – a CRDT map for resources with field-level LWW
-- Types: `JsonDocument`, `ResourceObject`, `AnyObject`
-
-If you need a higher-level database abstraction with collections, schema validation, and transactions, see:
-
-- `@byearlybird/starling-db` – database utilities built on top of these primitives
 
 ## Quick Start
 
-Work with a single collection of resources using `createMap`:
-
 ```ts
-import { createMap } from "@byearlybird/starling";
+import { z } from "zod";
+import { createDatabase } from "@byearlybird/starling-db";
 
-type Todo = { text: string; completed: boolean };
+// Define your schema
+const taskSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1),
+  completed: z.boolean().default(false),
+});
 
-// Create a resource map for managing todos
-const todos = createMap<Todo>("todos");
+// Create a database with typed collections
+const db = createDatabase({
+  name: "my-app",
+  schema: {
+    tasks: { schema: taskSchema, getId: (task) => task.id },
+  },
+});
 
-// Add resources
-todos.set("todo-1", { text: "Learn Starling", completed: false });
-todos.set("todo-2", { text: "Build an app", completed: false });
+// CRUD operations
+db.tasks.add({ id: "1", title: "Learn Starling", completed: false });
+db.tasks.update("1", { completed: true });
+const task = db.tasks.get("1");
 
-// Update with partial data (field-level merge)
-todos.set("todo-1", { completed: true });
+// Transactions with snapshot isolation
+db.begin((tx) => {
+  tx.tasks.add({ id: "2", title: "Build an app", completed: false });
+  tx.tasks.update("1", { completed: false });
+});
 
-// Soft delete (marks the resource as deleted)
-todos.delete("todo-2");
-
-// Export to a JsonDocument for persistence or sync
-const localDoc = todos.toDocument();
+// Merge remote data (conflict resolution is automatic)
+db.tasks.merge(remoteDocument);
 ```
 
-Merge a remote snapshot into your local map:
-
-```ts
-import type { JsonDocument } from "@byearlybird/starling";
-
-// Load from storage or receive from the network
-declare const remoteDoc: JsonDocument<Todo>;
-
-const result = todos.merge(remoteDoc);
-
-// Inspect what changed
-for (const [id, resource] of result.changes.added) {
-  console.log("Added:", id, resource.attributes);
-}
-for (const [id, resource] of result.changes.updated) {
-  console.log("Updated:", id, resource.attributes);
-}
-for (const id of result.changes.deleted) {
-  console.log("Deleted:", id);
-}
-```
+See `packages/db/README.md` for the full API including queries, mutation events, and plugins.
 
 ## How Sync Works
 
@@ -119,26 +103,39 @@ Arrays are treated atomically. If two clients modify the same array field, LWW a
 
 If you need mergeable array operations, semantic operations, or sophisticated string merging, consider CRDT libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/). Starling is intentionally small and focuses on object-shaped application state.
 
-## Database Utilities (`@byearlybird/starling-db`)
+## Core Primitives (`@byearlybird/starling`)
 
-The companion package `@byearlybird/starling-db` builds on the core primitives to provide:
+For custom sync implementations, the core package exposes low-level primitives:
 
-- Typed collections based on schemas
-- CRUD operations and transactions
-- Batched mutation events at collection and database level
+```bash
+bun add @byearlybird/starling
+```
 
-Its API centers on `createDatabase`, `CollectionHandle`, and `TransactionContext`. See `packages/db/README.md` for details. Query helpers and persistence adapters are planned but not yet implemented in this repository.
+```ts
+import { createMap } from "@byearlybird/starling";
 
-## Demos
+// CRDT map with field-level LWW
+const todos = createMap<{ text: string; completed: boolean }>("todos");
 
-This repo includes demo apps under `apps/` that show how Starling can be used in React, SolidJS, and with a simple Bun-based server.
+todos.set("todo-1", { text: "Learn Starling", completed: false });
+todos.set("todo-1", { completed: true }); // Partial update
 
-These demos currently target the earlier Store + plugin API (`createStore`, `queryPlugin`, `unstoragePlugin`) and will be updated to use `@byearlybird/starling-db`. Treat them as examples of overall architecture rather than the current recommended API surface.
+// Export for persistence or sync
+const doc = todos.toDocument();
+
+// Merge remote state
+const result = todos.merge(remoteDoc);
+```
+
+The core API includes:
+- `createMap` / `createMapFromDocument` – CRDT map with field-level LWW
+- `createClock` / `createClockFromEventstamp` – hybrid logical clocks
+- `makeDocument` / `mergeDocuments` – document creation and merging
 
 ## Project Status
 
-- The core CRDT API is small and intended to be stable, but may change in minor ways as more usage feedback comes in.
-- Higher-level store and query features are moving into separate packages (for example, `@byearlybird/starling-db`) and are under active development.
+- `@byearlybird/starling` (core) is stable but may have minor API changes as usage feedback comes in.
+- `@byearlybird/starling-db` is under active development.
 
 ## Development
 
