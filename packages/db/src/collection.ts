@@ -50,7 +50,6 @@ export type Collection<T extends AnyObjectSchema> = {
 			payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
 		) => void,
 	): () => void;
-	_flushMutations(): void;
 	_getPendingMutations(): CollectionMutationEvent<
 		StandardSchemaV1.InferOutput<T>
 	>;
@@ -294,10 +293,6 @@ export function createCollection<T extends AnyObjectSchema>(
 
 		on(event, handler) {
 			return emitter.on(event, handler);
-		},
-
-		_flushMutations() {
-			flushMutations();
 		},
 
 		_getPendingMutations() {

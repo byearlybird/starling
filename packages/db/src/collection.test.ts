@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { makeResource } from "@byearlybird/starling";
-import { DuplicateIdError, IdNotFoundError } from "./collection";
-import { createTestDb, makeTask, makeTaskDocument } from "./test-helpers";
+import { createCollection, DuplicateIdError, IdNotFoundError } from "./collection";
+import { createTestDb, makeTask, makeTaskDocument, taskSchema } from "./test-helpers";
 
 describe("Collection", () => {
 	describe("add", () => {
@@ -17,6 +17,19 @@ describe("Collection", () => {
 			expect(task.id).toBe("1");
 			expect(task.title).toBe("Learn Starling");
 			expect(task.completed).toBe(false);
+		});
+
+		test("generates default id when not provided", () => {
+			const db = createTestDb();
+
+			const task = db.tasks.add({
+				title: "Auto ID Task",
+				completed: false,
+			});
+
+			expect(task.id).toBeDefined();
+			expect(typeof task.id).toBe("string");
+			expect(task.id.length).toBeGreaterThan(0);
 		});
 
 		test("throws on duplicate id", () => {
@@ -517,6 +530,53 @@ describe("Collection", () => {
 			});
 
 			expect(db.tasks.get("task-1")).toBeNull();
+			expect(events).toHaveLength(0);
+		});
+	});
+
+	describe("_emitMutations", () => {
+		test("emits mutation event when mutations are non-empty", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() => `2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			const events: any[] = [];
+			collection.on("mutation", (e) => events.push(e));
+
+			collection._emitMutations({
+				added: [
+					{ id: "1", item: { id: "1", title: "Test", completed: false } },
+				],
+				updated: [],
+				removed: [],
+			});
+
+			expect(events).toHaveLength(1);
+			expect(events[0].added).toHaveLength(1);
+		});
+
+		test("does not emit when all mutation arrays are empty", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() => `2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			const events: any[] = [];
+			collection.on("mutation", (e) => events.push(e));
+
+			collection._emitMutations({
+				added: [],
+				updated: [],
+				removed: [],
+			});
+
 			expect(events).toHaveLength(0);
 		});
 	});

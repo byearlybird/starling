@@ -239,7 +239,6 @@ export function httpPlugin<Schemas extends SchemasMap>(
 									baseUrl,
 									onRequest,
 									onResponse,
-									true, // Enable retry for push
 									maxAttempts,
 									initialDelay,
 									maxDelay,
@@ -387,7 +386,6 @@ async function pushCollection<Schemas extends SchemasMap>(
 				document: JsonDocument<T>;
 		  }) => ResponseHookResult<T>)
 		| undefined,
-	enableRetry: boolean,
 	maxAttempts = 3,
 	initialDelay = 1000,
 	maxDelay = 30000,
@@ -461,11 +459,7 @@ async function pushCollection<Schemas extends SchemasMap>(
 		db[collectionName].merge(finalDocument);
 	};
 
-	if (enableRetry) {
-		await withRetry(executeRequest, maxAttempts, initialDelay, maxDelay);
-	} else {
-		await executeRequest();
-	}
+	await withRetry(executeRequest, maxAttempts, initialDelay, maxDelay);
 }
 
 /**
