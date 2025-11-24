@@ -6,6 +6,7 @@ import {
 	type MutationBatch,
 } from "./collection";
 import { createEmitter } from "./emitter";
+import { executeQuery, type QueryContext, type QueryHandle } from "./query";
 import type { StandardSchemaV1 } from "./standard-schema";
 import { executeTransaction, type TransactionContext } from "./transaction";
 import type { AnyObjectSchema, SchemasMap } from "./types";
@@ -57,6 +58,7 @@ export type Database<Schemas extends SchemasMap> = Collections<Schemas> & {
 	name: string;
 	version: number;
 	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
+	query<R>(callback: (ctx: QueryContext<Schemas>) => R): QueryHandle<R>;
 	toDocuments(): {
 		[K in keyof Schemas]: JsonDocument<
 			StandardSchemaV1.InferOutput<Schemas[K]>
@@ -131,12 +133,15 @@ export function createDatabase<Schemas extends SchemasMap>(
 
 	const plugins: DatabasePlugin<Schemas>[] = [];
 
-	const db = {
+	const db: Database<Schemas> = {
 		...publicCollections,
 		name,
 		version,
 		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
 			return executeTransaction(schema, collections, getEventstamp, callback);
+		},
+		query<R>(callback: (ctx: QueryContext<Schemas>) => R): QueryHandle<R> {
+			return executeQuery(db, callback);
 		},
 		toDocuments() {
 			const documents = {} as {
@@ -179,7 +184,7 @@ export function createDatabase<Schemas extends SchemasMap>(
 		collectionKeys() {
 			return Object.keys(collections) as (keyof Schemas)[];
 		},
-	} as Database<Schemas>;
+	};
 
 	return db;
 }

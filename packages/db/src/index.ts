@@ -25,6 +25,12 @@ export type {
 } from "./db";
 // Core Database API
 export { createDatabase } from "./db";
+// Query utilities
+export type {
+	QueryCollectionHandle,
+	QueryContext,
+	QueryHandle,
+} from "./query";
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
