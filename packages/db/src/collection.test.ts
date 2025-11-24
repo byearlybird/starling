@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { makeResource } from "@byearlybird/starling";
-import { createCollection, DuplicateIdError, IdNotFoundError } from "./collection";
+import {
+	CollectionInternals,
+	createCollection,
+	DuplicateIdError,
+	IdNotFoundError,
+} from "./collection";
 import { createTestDb, makeTask, makeTaskDocument, taskSchema } from "./test-helpers";
 
 describe("Collection", () => {
@@ -534,7 +539,7 @@ describe("Collection", () => {
 		});
 	});
 
-	describe("_emitMutations", () => {
+	describe("CollectionInternals.emitMutations", () => {
 		test("emits mutation event when mutations are non-empty", () => {
 			let eventstampCounter = 0;
 			const collection = createCollection(
@@ -547,7 +552,7 @@ describe("Collection", () => {
 			const events: any[] = [];
 			collection.on("mutation", (e) => events.push(e));
 
-			collection._emitMutations({
+			collection[CollectionInternals.emitMutations]({
 				added: [
 					{ id: "1", item: { id: "1", title: "Test", completed: false } },
 				],
@@ -571,7 +576,7 @@ describe("Collection", () => {
 			const events: any[] = [];
 			collection.on("mutation", (e) => events.push(e));
 
-			collection._emitMutations({
+			collection[CollectionInternals.emitMutations]({
 				added: [],
 				updated: [],
 				removed: [],
@@ -581,7 +586,7 @@ describe("Collection", () => {
 		});
 	});
 
-	describe("_replaceData", () => {
+	describe("CollectionInternals.replaceData", () => {
 		test("replaces the internal data map", () => {
 			let eventstampCounter = 0;
 			const collection = createCollection(
@@ -605,7 +610,7 @@ describe("Collection", () => {
 				),
 			);
 
-			collection._replaceData(newData);
+			collection[CollectionInternals.replaceData](newData);
 
 			expect(collection.get("1")).toBeNull();
 			expect(collection.get("2")?.title).toBe("Replacement");

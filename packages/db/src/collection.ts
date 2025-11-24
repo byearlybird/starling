@@ -11,6 +11,20 @@ import { createEmitter } from "./emitter";
 import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";
 
+/**
+ * Symbols for internal collection methods used by transactions.
+ * These are not part of the public Collection type.
+ */
+export const CollectionInternals = {
+	getPendingMutations: Symbol("getPendingMutations"),
+	emitMutations: Symbol("emitMutations"),
+	replaceData: Symbol("replaceData"),
+	data: Symbol("data"),
+} as const;
+
+/** Shorthand for extracting the data type from a schema */
+type InferData<T extends AnyObjectSchema> = StandardSchemaV1.InferOutput<T>;
+
 export type MutationBatch<T> = {
 	added: Array<{ id: string; item: T }>;
 	updated: Array<{ id: string; before: T; after: T }>;
@@ -24,63 +38,49 @@ export type CollectionEvents<T> = {
 };
 
 export type Collection<T extends AnyObjectSchema> = {
-	get(
-		id: string,
-		opts?: { includeDeleted?: boolean },
-	): StandardSchemaV1.InferOutput<T> | null;
-	getAll(opts?: {
-		includeDeleted?: boolean;
-	}): StandardSchemaV1.InferOutput<T>[];
-	find<U = StandardSchemaV1.InferOutput<T>>(
-		filter: (item: StandardSchemaV1.InferOutput<T>) => boolean,
+	get(id: string, opts?: { includeDeleted?: boolean }): InferData<T> | null;
+	getAll(opts?: { includeDeleted?: boolean }): InferData<T>[];
+	find<U = InferData<T>>(
+		filter: (item: InferData<T>) => boolean,
 		opts?: {
-			map?: (item: StandardSchemaV1.InferOutput<T>) => U;
+			map?: (item: InferData<T>) => U;
 			sort?: (a: U, b: U) => number;
 		},
 	): U[];
-	add(item: StandardSchemaV1.InferInput<T>): StandardSchemaV1.InferOutput<T>;
+	add(item: StandardSchemaV1.InferInput<T>): InferData<T>;
 	update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>): void;
 	remove(id: string): void;
-	merge(document: JsonDocument<StandardSchemaV1.InferOutput<T>>): void;
-	data(): Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>;
-	toDocument(): JsonDocument<StandardSchemaV1.InferOutput<T>>;
+	merge(document: JsonDocument<InferData<T>>): void;
+	toDocument(): JsonDocument<InferData<T>>;
 	on(
 		event: "mutation",
-		handler: (
-			payload: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
-		) => void,
+		handler: (payload: CollectionMutationEvent<InferData<T>>) => void,
 	): () => void;
-	_getPendingMutations(): CollectionMutationEvent<
-		StandardSchemaV1.InferOutput<T>
-	>;
-	_emitMutations(
-		mutations: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
-	): void;
-	_replaceData(
-		data: Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>,
-	): void;
+};
+
+/** Internal type that includes Symbol-keyed methods for transaction support */
+export type CollectionWithInternals<T extends AnyObjectSchema> = Collection<T> & {
+	[CollectionInternals.data]: () => Map<string, ResourceObject<InferData<T>>>;
+	[CollectionInternals.getPendingMutations]: () => CollectionMutationEvent<InferData<T>>;
+	[CollectionInternals.emitMutations]: (mutations: CollectionMutationEvent<InferData<T>>) => void;
+	[CollectionInternals.replaceData]: (data: Map<string, ResourceObject<InferData<T>>>) => void;
 };
 
 export function createCollection<T extends AnyObjectSchema>(
 	name: string,
 	schema: T,
-	getId: (item: StandardSchemaV1.InferOutput<T>) => string,
+	getId: (item: InferData<T>) => string,
 	getEventstamp: () => string,
-	initialData?: Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>,
+	initialData?: Map<string, ResourceObject<InferData<T>>>,
 	options?: { autoFlush?: boolean },
-): Collection<T> {
+): CollectionWithInternals<T> {
 	const autoFlush = options?.autoFlush ?? true;
-	const data =
-		initialData ??
-		new Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>();
+	const data = initialData ?? new Map<string, ResourceObject<InferData<T>>>();
 
-	const emitter =
-		createEmitter<CollectionEvents<StandardSchemaV1.InferOutput<T>>>();
+	const emitter = createEmitter<CollectionEvents<InferData<T>>>();
 
 	// Pending mutations buffer
-	const pendingMutations: CollectionMutationEvent<
-		StandardSchemaV1.InferOutput<T>
-	> = {
+	const pendingMutations: CollectionMutationEvent<InferData<T>> = {
 		added: [],
 		updated: [],
 		removed: [],
@@ -130,10 +130,10 @@ export function createCollection<T extends AnyObjectSchema>(
 			}
 		},
 
-		find<U = StandardSchemaV1.InferOutput<T>>(
-			filter: (item: StandardSchemaV1.InferOutput<T>) => boolean,
+		find<U = InferData<T>>(
+			filter: (item: InferData<T>) => boolean,
 			opts?: {
-				map?: (item: StandardSchemaV1.InferOutput<T>) => U;
+				map?: (item: InferData<T>) => U;
 				sort?: (a: U, b: U) => number;
 			},
 		): U[] {
@@ -160,7 +160,7 @@ export function createCollection<T extends AnyObjectSchema>(
 			return results;
 		},
 
-		add(item: StandardSchemaV1.InferInput<T>) {
+		add(item: StandardSchemaV1.InferInput<T>): InferData<T> {
 			const validated = standardValidate(schema, item);
 			const id = getId(validated);
 
@@ -182,7 +182,7 @@ export function createCollection<T extends AnyObjectSchema>(
 			return validated;
 		},
 
-		update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>) {
+		update(id: string, updates: Partial<StandardSchemaV1.InferInput<T>>): void {
 			const existing = data.get(id);
 
 			if (!existing) {
@@ -236,9 +236,9 @@ export function createCollection<T extends AnyObjectSchema>(
 			}
 		},
 
-		merge(document: JsonDocument<StandardSchemaV1.InferOutput<T>>) {
+		merge(document: JsonDocument<InferData<T>>): void {
 			// Capture before state for update/delete event tracking
-			const beforeState = new Map<string, StandardSchemaV1.InferOutput<T>>();
+			const beforeState = new Map<string, InferData<T>>();
 			for (const [id, resource] of data.entries()) {
 				beforeState.set(id, resource.attributes);
 			}
@@ -286,10 +286,6 @@ export function createCollection<T extends AnyObjectSchema>(
 			}
 		},
 
-		data() {
-			return new Map(data);
-		},
-
 		toDocument() {
 			return mapToDocument(data, getEventstamp());
 		},
@@ -298,7 +294,12 @@ export function createCollection<T extends AnyObjectSchema>(
 			return emitter.on(event, handler);
 		},
 
-		_getPendingMutations() {
+		// Symbol-keyed internal methods for transaction support
+		[CollectionInternals.data]() {
+			return new Map(data);
+		},
+
+		[CollectionInternals.getPendingMutations]() {
 			return {
 				added: [...pendingMutations.added],
 				updated: [...pendingMutations.updated],
@@ -306,7 +307,9 @@ export function createCollection<T extends AnyObjectSchema>(
 			};
 		},
 
-		_emitMutations(mutations) {
+		[CollectionInternals.emitMutations](
+			mutations: CollectionMutationEvent<InferData<T>>,
+		) {
 			if (
 				mutations.added.length > 0 ||
 				mutations.updated.length > 0 ||
@@ -316,7 +319,9 @@ export function createCollection<T extends AnyObjectSchema>(
 			}
 		},
 
-		_replaceData(newData) {
+		[CollectionInternals.replaceData](
+			newData: Map<string, ResourceObject<InferData<T>>>,
+		) {
 			data.clear();
 			for (const [id, resource] of newData.entries()) {
 				data.set(id, resource);

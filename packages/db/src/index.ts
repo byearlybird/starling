@@ -13,13 +13,10 @@ export type { JsonDocument } from "@byearlybird/starling";
 // Collection utilities
 export {
 	type Collection,
+	CollectionInternals,
 	DuplicateIdError,
 	IdNotFoundError,
 } from "./collection";
-export type {
-	CollectionHandle,
-	TransactionCollectionHandle,
-} from "./collection-handle";
 export type {
 	CollectionConfig,
 	Database,
@@ -31,4 +28,7 @@ export { createDatabase } from "./db";
 // Type utilities
 export type { StandardSchemaV1 } from "./standard-schema";
 // Transaction utilities
-export type { TransactionContext } from "./transaction";
+export type {
+	TransactionCollectionHandle,
+	TransactionContext,
+} from "./transaction";
