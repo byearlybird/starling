@@ -581,6 +581,38 @@ describe("Collection", () => {
 		});
 	});
 
+	describe("_replaceData", () => {
+		test("replaces the internal data map", () => {
+			let eventstampCounter = 0;
+			const collection = createCollection(
+				"tasks",
+				taskSchema,
+				(task) => task.id,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+			);
+
+			collection.add({ id: "1", title: "Keep?", completed: false });
+
+			const newData = new Map();
+			newData.set(
+				"2",
+				makeResource(
+					"tasks",
+					"2",
+					{ id: "2", title: "Replacement", completed: true },
+					"2025-01-01T00:00:00.000Z|0005|0000",
+				),
+			);
+
+			collection._replaceData(newData);
+
+			expect(collection.get("1")).toBeNull();
+			expect(collection.get("2")?.title).toBe("Replacement");
+			expect(collection.getAll()).toHaveLength(1);
+		});
+	});
+
 	describe("toDocument", () => {
 		test("returns JsonDocument representation of current state", () => {
 			const db = createTestDb();

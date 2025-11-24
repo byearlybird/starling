@@ -126,10 +126,8 @@ const unsubscribeTasks = db.tasks.on("mutation", (mutation) => {
 });
 
 // Database-level events
-const unsubscribeDb = db.on("mutation", (events) => {
-  for (const { collection, added, updated, removed } of events) {
-    console.log(`[${String(collection)}] added=${added.length} updated=${updated.length} removed=${removed.length}`);
-  }
+const unsubscribeDb = db.on("mutation", ({ collection, added, updated, removed }) => {
+  console.log(`[${String(collection)}] added=${added.length} updated=${updated.length} removed=${removed.length}`);
 });
 ```
 

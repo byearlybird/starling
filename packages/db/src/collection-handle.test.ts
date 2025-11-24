@@ -17,7 +17,7 @@ describe("createCollectionHandle", () => {
 	describe("add", () => {
 		test("delegates to collection.add", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			const result = handle.add({ id: "1", title: "Test", completed: false });
 
@@ -30,7 +30,7 @@ describe("createCollectionHandle", () => {
 	describe("update", () => {
 		test("delegates to collection.update", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Original", completed: false });
 			handle.update("1", { title: "Updated" });
@@ -42,7 +42,7 @@ describe("createCollectionHandle", () => {
 	describe("remove", () => {
 		test("delegates to collection.remove", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Test", completed: false });
 			handle.remove("1");
@@ -55,7 +55,7 @@ describe("createCollectionHandle", () => {
 	describe("merge", () => {
 		test("delegates to collection.merge", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			const doc = {
 				jsonapi: { version: "1.1" as const },
@@ -87,7 +87,7 @@ describe("createCollectionHandle", () => {
 	describe("get", () => {
 		test("delegates to collection.get", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Test", completed: false });
 
@@ -97,7 +97,7 @@ describe("createCollectionHandle", () => {
 
 		test("passes options to collection.get", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Test", completed: false });
 			collection.remove("1");
@@ -110,7 +110,7 @@ describe("createCollectionHandle", () => {
 	describe("getAll", () => {
 		test("delegates to collection.getAll", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Task 1", completed: false });
 			collection.add({ id: "2", title: "Task 2", completed: true });
@@ -122,7 +122,7 @@ describe("createCollectionHandle", () => {
 
 		test("passes options to collection.getAll", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Task 1", completed: false });
 			collection.add({ id: "2", title: "Task 2", completed: true });
@@ -136,7 +136,7 @@ describe("createCollectionHandle", () => {
 	describe("find", () => {
 		test("delegates to collection.find", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Task 1", completed: false });
 			collection.add({ id: "2", title: "Task 2", completed: true });
@@ -149,7 +149,7 @@ describe("createCollectionHandle", () => {
 
 		test("passes options to collection.find", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "C Task", completed: false });
 			collection.add({ id: "2", title: "A Task", completed: false });
@@ -167,7 +167,7 @@ describe("createCollectionHandle", () => {
 	describe("toDocument", () => {
 		test("delegates to collection.toDocument", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			collection.add({ id: "1", title: "Test", completed: false });
 
@@ -182,7 +182,7 @@ describe("createCollectionHandle", () => {
 	describe("on", () => {
 		test("delegates to collection.on and returns unsubscribe", () => {
 			const collection = createTestCollection();
-			const handle = createCollectionHandle(collection);
+			const handle = createCollectionHandle(() => collection);
 
 			const events: any[] = [];
 			const unsubscribe = handle.on("mutation", (e) => events.push(e));
@@ -198,5 +198,21 @@ describe("createCollectionHandle", () => {
 
 			expect(events).toHaveLength(1);
 		});
+	});
+
+	test("always references the latest collection instance", () => {
+		const collectionA = createTestCollection();
+		const collectionB = createTestCollection();
+		let current = collectionA;
+
+		const handle = createCollectionHandle(() => current);
+
+		handle.add({ id: "1", title: "from A", completed: false });
+		current = collectionB;
+		handle.add({ id: "2", title: "from B", completed: false });
+
+		expect(collectionA.get("1")).not.toBeNull();
+		expect(collectionB.get("2")).not.toBeNull();
+		expect(collectionA.get("2")).toBeNull();
 	});
 });

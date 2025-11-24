@@ -1,5 +1,4 @@
-import type { Collection } from "./collection";
-import { createCollection } from "./collection";
+import { createCollection, type Collection } from "./collection";
 import type {
 	TransactionCollectionHandle,
 	TransactionCollectionHandles,
@@ -80,29 +79,20 @@ export function executeTransaction<Schemas extends SchemasMap, R>(
 	result = callback(tx);
 
 	// Commit only the collections that were actually modified
-	if (!shouldRollback) {
-		for (const [name, clonedCollection] of clonedCollections.entries()) {
-			const config = configs[name];
-			const originalCollection = collections[name];
+		if (!shouldRollback) {
+			for (const [name, clonedCollection] of clonedCollections.entries()) {
+				const originalCollection = collections[name];
 
-			// Get pending mutations from the cloned collection
-			const pendingMutations = clonedCollection._getPendingMutations();
+				// Get pending mutations from the cloned collection
+				const pendingMutations = clonedCollection._getPendingMutations();
 
-			// Replace the collection with the committed version FIRST
-			// This ensures the new data is in place when events are emitted
-			collections[name] = createCollection(
-				name as string,
-				config.schema,
-				config.getId,
-				getEventstamp,
-				clonedCollection.data(),
-			);
+				// Replace the data inside the original collection so handles keep working
+				originalCollection._replaceData(clonedCollection.data());
 
-			// Emit the batched mutation event on the original collection
-			// (which still has the event subscriptions)
-			originalCollection._emitMutations(pendingMutations);
+				// Emit the batched mutation event on the original collection
+				originalCollection._emitMutations(pendingMutations);
+			}
 		}
-	}
 
 	return result;
 }

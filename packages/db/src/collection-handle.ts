@@ -33,43 +33,43 @@ export type TransactionCollectionHandles<Schemas extends SchemasMap> = {
 };
 
 export function createCollectionHandle<Schema extends AnyObjectSchema>(
-	collection: Collection<Schema>,
+	getCollection: () => Collection<Schema>,
 ): CollectionHandle<Schema> {
 	return {
 		add(item) {
-			return collection.add(item);
+			return getCollection().add(item);
 		},
 
 		update(id, updates) {
-			collection.update(id, updates);
+			getCollection().update(id, updates);
 		},
 
 		remove(id) {
-			collection.remove(id);
+			getCollection().remove(id);
 		},
 
 		merge(document) {
-			collection.merge(document);
+			getCollection().merge(document);
 		},
 
 		toDocument() {
-			return collection.toDocument();
+			return getCollection().toDocument();
 		},
 
 		get(id, opts) {
-			return collection.get(id, opts);
+			return getCollection().get(id, opts);
 		},
 
 		getAll(opts) {
-			return collection.getAll(opts);
+			return getCollection().getAll(opts);
 		},
 
 		find(filter, opts) {
-			return collection.find(filter, opts);
+			return getCollection().find(filter, opts);
 		},
 
 		on(event, handler) {
-			return collection.on(event, handler);
+			return getCollection().on(event, handler);
 		},
 	};
 }

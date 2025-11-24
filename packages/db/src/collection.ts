@@ -56,6 +56,9 @@ export type Collection<T extends AnyObjectSchema> = {
 	_emitMutations(
 		mutations: CollectionMutationEvent<StandardSchemaV1.InferOutput<T>>,
 	): void;
+	_replaceData(
+		data: Map<string, ResourceObject<StandardSchemaV1.InferOutput<T>>>,
+	): void;
 };
 
 export function createCollection<T extends AnyObjectSchema>(
@@ -310,6 +313,13 @@ export function createCollection<T extends AnyObjectSchema>(
 				mutations.removed.length > 0
 			) {
 				emitter.emit("mutation", mutations);
+			}
+		},
+
+		_replaceData(newData) {
+			data.clear();
+			for (const [id, resource] of newData.entries()) {
+				data.set(id, resource);
 			}
 		},
 	};

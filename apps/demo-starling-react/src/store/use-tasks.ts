@@ -27,12 +27,8 @@ export const useTasks = (status: Status, searchQuery: string) => {
 	useEffect(() => {
 		setTasks(selectTasks());
 
-		const unsubscribe = db.on("mutation", (mutations) => {
-			const hasTaskChanges = mutations.some(
-				(mutation) => mutation.collection === "tasks",
-			);
-
-			if (hasTaskChanges) {
+		const unsubscribe = db.on("mutation", (mutation) => {
+			if (mutation.collection === "tasks") {
 				setTasks(selectTasks());
 			}
 		});

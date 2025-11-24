@@ -4,7 +4,11 @@ import {
 	createCollection,
 	type MutationBatch,
 } from "./collection";
-import type { CollectionHandle, CollectionHandles } from "./collection-handle";
+import {
+	type CollectionHandle,
+	type CollectionHandles,
+	createCollectionHandle,
+} from "./collection-handle";
 import { createEmitter } from "./emitter";
 import type { StandardSchemaV1 } from "./standard-schema";
 import { executeTransaction, type TransactionContext } from "./transaction";
@@ -18,14 +22,14 @@ type CollectionInstances<Schemas extends SchemasMap> = {
 	[K in keyof Schemas]: Collection<Schemas[K]>;
 };
 
-type MutationEnvelope<Schemas extends SchemasMap> = {
+export type MutationEnvelope<Schemas extends SchemasMap> = {
 	[K in keyof Schemas]: {
 		collection: K;
 	} & MutationBatch<StandardSchemaV1.InferOutput<Schemas[K]>>;
 }[keyof Schemas];
 
 export type DatabaseMutationEvent<Schemas extends SchemasMap> =
-	MutationEnvelope<Schemas>[];
+	MutationEnvelope<Schemas>;
 
 export type DatabaseEvents<Schemas extends SchemasMap> = {
 	mutation: DatabaseMutationEvent<Schemas>;
@@ -107,24 +111,22 @@ export function createDatabase<Schemas extends SchemasMap>(
 	for (const collectionName of Object.keys(collections) as (keyof Schemas)[]) {
 		const collection = collections[collectionName];
 
-		collection.on("mutation", (mutations) => {
-			// Only emit if there were actual changes
-			if (
-				mutations.added.length > 0 ||
-				mutations.updated.length > 0 ||
-				mutations.removed.length > 0
-			) {
-				dbEmitter.emit("mutation", [
-					{
+			collection.on("mutation", (mutations) => {
+				// Only emit if there were actual changes
+				if (
+					mutations.added.length > 0 ||
+					mutations.updated.length > 0 ||
+					mutations.removed.length > 0
+				) {
+					dbEmitter.emit("mutation", {
 						collection: collectionName,
 						added: mutations.added,
 						updated: mutations.updated,
 						removed: mutations.removed,
-					},
-				] as DatabaseMutationEvent<Schemas>);
-			}
-		});
-	}
+					} as DatabaseMutationEvent<Schemas>);
+				}
+			});
+		}
 
 	const plugins: DatabasePlugin<Schemas>[] = [];
 
@@ -206,37 +208,9 @@ function makeHandles<Schemas extends SchemasMap>(
 	const handles = {} as CollectionHandles<Schemas>;
 
 	for (const name of Object.keys(collections) as (keyof Schemas)[]) {
-		// Create handles that dynamically look up collections
-		// This ensures handles see updated collections after transactions
-		handles[name] = {
-			add(item) {
-				return collections[name].add(item);
-			},
-			update(id, updates) {
-				collections[name].update(id, updates);
-			},
-			remove(id) {
-				collections[name].remove(id);
-			},
-			merge(document) {
-				collections[name].merge(document);
-			},
-			get(id, opts) {
-				return collections[name].get(id, opts);
-			},
-			getAll(opts) {
-				return collections[name].getAll(opts);
-			},
-			find(filter, opts) {
-				return collections[name].find(filter, opts);
-			},
-			toDocument() {
-				return collections[name].toDocument();
-			},
-			on(event, handler) {
-				return collections[name].on(event, handler);
-			},
-		} as CollectionHandle<Schemas[typeof name]>;
+		handles[name] = createCollectionHandle(
+			() => collections[name],
+		) as CollectionHandle<Schemas[typeof name]>;
 	}
 
 	return handles;

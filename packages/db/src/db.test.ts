@@ -89,9 +89,8 @@ describe("Database", () => {
 			db.tasks.add({ id: "1", title: "Task 1", completed: false });
 
 			expect(dbEvents).toHaveLength(1);
-			expect(dbEvents[0]).toHaveLength(1);
-			expect(dbEvents[0][0].collection).toBe("tasks");
-			expect(dbEvents[0][0].added).toHaveLength(1);
+			expect(dbEvents[0].collection).toBe("tasks");
+			expect(dbEvents[0].added).toHaveLength(1);
 		});
 
 		test("emits events from multiple collections", () => {
@@ -106,11 +105,43 @@ describe("Database", () => {
 
 			expect(dbEvents).toHaveLength(2);
 
-			const tasksEvent = dbEvents.find((e) => e[0].collection === "tasks");
-			expect(tasksEvent[0].added).toHaveLength(1);
+			const tasksEvent = dbEvents.find((e) => e.collection === "tasks");
+			expect(tasksEvent.added).toHaveLength(1);
 
-			const usersEvent = dbEvents.find((e) => e[0].collection === "users");
-			expect(usersEvent[0].added).toHaveLength(1);
+			const usersEvent = dbEvents.find((e) => e.collection === "users");
+			expect(usersEvent.added).toHaveLength(1);
+		});
+
+		test("keeps database subscriptions active after transactions", () => {
+			const db = createTestDb();
+			const events: any[] = [];
+			db.on("mutation", (e) => events.push(e));
+
+			db.begin((tx) => {
+				tx.tasks.add({ id: "1", title: "Tx Task", completed: false });
+			});
+
+			db.tasks.add({ id: "2", title: "Outside Task", completed: false });
+
+			expect(events).toHaveLength(2);
+			expect(events[0].collection).toBe("tasks");
+			expect(events[1].collection).toBe("tasks");
+		});
+
+		test("keeps collection subscriptions active after transactions", () => {
+			const db = createTestDb();
+			const events: any[] = [];
+			db.tasks.on("mutation", (e) => events.push(e));
+
+			db.begin((tx) => {
+				tx.tasks.add({ id: "1", title: "Tx Task", completed: false });
+			});
+
+			db.tasks.add({ id: "2", title: "Outside Task", completed: false });
+
+			expect(events).toHaveLength(2);
+			expect(events[0].added).toHaveLength(1);
+			expect(events[1].added).toHaveLength(1);
 		});
 	});
 
@@ -305,7 +336,7 @@ describe("Database", () => {
 			}).use({
 				handlers: {
 					init: (db) => {
-						db.on("mutation", (events) => pluginEvents.push(events));
+						db.on("mutation", (event) => pluginEvents.push(event));
 					},
 				},
 			});
@@ -314,7 +345,7 @@ describe("Database", () => {
 			db.tasks.add({ id: "1", title: "Test", completed: false });
 
 			expect(pluginEvents).toHaveLength(1);
-			expect(pluginEvents[0][0].collection).toBe("tasks");
+			expect(pluginEvents[0].collection).toBe("tasks");
 		});
 
 		test("works without plugins", async () => {
