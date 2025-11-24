@@ -112,22 +112,22 @@ export function createDatabase<Schemas extends SchemasMap>(
 	for (const collectionName of Object.keys(collections) as (keyof Schemas)[]) {
 		const collection = collections[collectionName];
 
-			collection.on("mutation", (mutations) => {
-				// Only emit if there were actual changes
-				if (
-					mutations.added.length > 0 ||
-					mutations.updated.length > 0 ||
-					mutations.removed.length > 0
-				) {
-					dbEmitter.emit("mutation", {
-						collection: collectionName,
-						added: mutations.added,
-						updated: mutations.updated,
-						removed: mutations.removed,
-					} as DatabaseMutationEvent<Schemas>);
-				}
-			});
-		}
+		collection.on("mutation", (mutations) => {
+			// Only emit if there were actual changes
+			if (
+				mutations.added.length > 0 ||
+				mutations.updated.length > 0 ||
+				mutations.removed.length > 0
+			) {
+				dbEmitter.emit("mutation", {
+					collection: collectionName,
+					added: mutations.added,
+					updated: mutations.updated,
+					removed: mutations.removed,
+				} as DatabaseMutationEvent<Schemas>);
+			}
+		});
+	}
 
 	const plugins: DatabasePlugin<Schemas>[] = [];
 
@@ -202,4 +202,3 @@ function makeCollections<Schemas extends SchemasMap>(
 
 	return collections;
 }
-

@@ -537,7 +537,7 @@ describe("httpPlugin", () => {
 				{ id: "server-1", title: "Server Added Task", completed: true },
 			]);
 
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "PATCH") {
 					return Promise.resolve({
 						ok: true,
@@ -638,7 +638,7 @@ describe("httpPlugin", () => {
 
 		test("receives correct context in onRequest hook", async () => {
 			const onRequestMock = mock(
-				(context: RequestContext) => undefined as undefined,
+				(_context: RequestContext) => undefined as undefined,
 			);
 
 			const db = await createDatabase({
@@ -687,7 +687,7 @@ describe("httpPlugin", () => {
 
 		test("transforms document in onRequest for PATCH", async () => {
 			let capturedBody: string | undefined;
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "PATCH") {
 					capturedBody = options.body as string;
 				}
@@ -864,7 +864,7 @@ describe("httpPlugin", () => {
 			let callCount = 0;
 			const callTimestamps: number[] = [];
 
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				callTimestamps.push(Date.now());
 				callCount++;
 
@@ -924,7 +924,7 @@ describe("httpPlugin", () => {
 		test("stops retrying after max attempts", async () => {
 			let patchCallCount = 0;
 
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "GET") {
 					return Promise.resolve({
 						ok: true,
@@ -973,7 +973,7 @@ describe("httpPlugin", () => {
 		test("respects maxDelay cap", async () => {
 			const callTimestamps: number[] = [];
 
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "GET") {
 					return Promise.resolve({
 						ok: true,
@@ -1127,7 +1127,7 @@ describe("httpPlugin", () => {
 		});
 
 		test("handles non-ok HTTP response on PATCH", async () => {
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "GET") {
 					return Promise.resolve({
 						ok: true,
@@ -1182,7 +1182,7 @@ describe("httpPlugin", () => {
 				{ id: "server-new", title: "Server New Task", completed: false },
 			]);
 
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "GET") {
 					return Promise.resolve({
 						ok: true,
@@ -1348,7 +1348,7 @@ describe("httpPlugin", () => {
 
 		test("uses default retry configuration", async () => {
 			let callCount = 0;
-			mockFetch.mockImplementation((url, options) => {
+			mockFetch.mockImplementation((_url, options) => {
 				if (options?.method === "GET") {
 					return Promise.resolve({
 						ok: true,

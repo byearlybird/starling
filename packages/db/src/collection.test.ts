@@ -6,7 +6,12 @@ import {
 	DuplicateIdError,
 	IdNotFoundError,
 } from "./collection";
-import { createTestDb, makeTask, makeTaskDocument, taskSchema } from "./test-helpers";
+import {
+	createTestDb,
+	makeTask,
+	makeTaskDocument,
+	taskSchema,
+} from "./test-helpers";
 
 describe("Collection", () => {
 	describe("add", () => {
@@ -546,7 +551,8 @@ describe("Collection", () => {
 				"tasks",
 				taskSchema,
 				(task) => task.id,
-				() => `2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
 			);
 
 			const events: any[] = [];
@@ -570,7 +576,8 @@ describe("Collection", () => {
 				"tasks",
 				taskSchema,
 				(task) => task.id,
-				() => `2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
+				() =>
+					`2025-01-01T00:00:00.000Z|${String(eventstampCounter++).padStart(4, "0")}|0000`,
 			);
 
 			const events: any[] = [];

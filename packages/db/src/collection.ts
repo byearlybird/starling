@@ -59,12 +59,19 @@ export type Collection<T extends AnyObjectSchema> = {
 };
 
 /** Internal type that includes Symbol-keyed methods for transaction support */
-export type CollectionWithInternals<T extends AnyObjectSchema> = Collection<T> & {
-	[CollectionInternals.data]: () => Map<string, ResourceObject<InferData<T>>>;
-	[CollectionInternals.getPendingMutations]: () => CollectionMutationEvent<InferData<T>>;
-	[CollectionInternals.emitMutations]: (mutations: CollectionMutationEvent<InferData<T>>) => void;
-	[CollectionInternals.replaceData]: (data: Map<string, ResourceObject<InferData<T>>>) => void;
-};
+export type CollectionWithInternals<T extends AnyObjectSchema> =
+	Collection<T> & {
+		[CollectionInternals.data]: () => Map<string, ResourceObject<InferData<T>>>;
+		[CollectionInternals.getPendingMutations]: () => CollectionMutationEvent<
+			InferData<T>
+		>;
+		[CollectionInternals.emitMutations]: (
+			mutations: CollectionMutationEvent<InferData<T>>,
+		) => void;
+		[CollectionInternals.replaceData]: (
+			data: Map<string, ResourceObject<InferData<T>>>,
+		) => void;
+	};
 
 export function createCollection<T extends AnyObjectSchema>(
 	name: string,

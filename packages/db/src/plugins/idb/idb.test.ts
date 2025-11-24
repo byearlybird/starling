@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
 import { createDatabase } from "../../db";
 import { makeTask, taskSchema } from "../../test-helpers";
@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 // Helper to trigger IDB errors
-function makeFailingIDBRequest(errorMessage: string): IDBRequest {
+function _makeFailingIDBRequest(errorMessage: string): IDBRequest {
 	const request = {
 		result: null,
 		error: new DOMException(errorMessage),
@@ -358,7 +358,8 @@ describe("idbPlugin", () => {
 			.init();
 
 		// Get the broadcast channel for this db
-		const channels = MockBroadcastChannel.channels.get("starling:instance-id-test") || [];
+		const channels =
+			MockBroadcastChannel.channels.get("starling:instance-id-test") || [];
 		expect(channels.length).toBeGreaterThan(0);
 
 		const channel = channels[0]!;
@@ -378,7 +379,13 @@ describe("idbPlugin", () => {
 
 		// Now manually call onmessage with the same instanceId
 		if (channel.onmessage && capturedInstanceId) {
-			channel.onmessage({ data: { type: "mutation", instanceId: capturedInstanceId, timestamp: Date.now() } });
+			channel.onmessage({
+				data: {
+					type: "mutation",
+					instanceId: capturedInstanceId,
+					timestamp: Date.now(),
+				},
+			});
 		}
 
 		// Wait for any potential handling
@@ -396,13 +403,15 @@ describe("idbPlugin", () => {
 
 		// Mock indexedDB.open to fail
 		const mockIndexedDB = {
-			open: (name: string, version?: number) => {
+			open: (_name: string, _version?: number) => {
 				const request = {
 					result: null,
 					error: new DOMException("Database open failed"),
 					onerror: null as ((event: Event) => void) | null,
 					onsuccess: null as ((event: Event) => void) | null,
-					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+					onupgradeneeded: null as
+						| ((event: IDBVersionChangeEvent) => void)
+						| null,
 				};
 				// Trigger error asynchronously
 				setTimeout(() => {
@@ -442,7 +451,7 @@ describe("idbPlugin", () => {
 
 		let dbOpened = false;
 		const mockObjectStore = {
-			get: (key: string) => {
+			get: (_key: string) => {
 				const request = {
 					result: null,
 					error: new DOMException("Read operation failed"),
@@ -456,7 +465,7 @@ describe("idbPlugin", () => {
 				}, 0);
 				return request as unknown as IDBRequest;
 			},
-			put: (value: any, key: string) => {
+			put: (_value: any, key: string) => {
 				const request = {
 					result: key,
 					error: null,
@@ -473,28 +482,32 @@ describe("idbPlugin", () => {
 		};
 
 		const mockTransaction = {
-			objectStore: (name: string) => mockObjectStore,
+			objectStore: (_name: string) => mockObjectStore,
 		};
 
 		const mockDB = {
-			objectStoreNames: { contains: (name: string) => true },
-			transaction: (storeName: string, mode: string) => mockTransaction,
+			objectStoreNames: { contains: (_name: string) => true },
+			transaction: (_storeName: string, _mode: string) => mockTransaction,
 			close: () => {},
-			createObjectStore: (name: string) => mockObjectStore,
+			createObjectStore: (_name: string) => mockObjectStore,
 		};
 
 		const mockIndexedDB = {
-			open: (name: string, version?: number) => {
+			open: (_name: string, _version?: number) => {
 				const request = {
 					result: mockDB,
 					error: null,
 					onerror: null as ((event: Event) => void) | null,
 					onsuccess: null as ((event: Event) => void) | null,
-					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+					onupgradeneeded: null as
+						| ((event: IDBVersionChangeEvent) => void)
+						| null,
 				};
 				setTimeout(() => {
 					if (!dbOpened && request.onupgradeneeded) {
-						request.onupgradeneeded({ target: { result: mockDB } } as unknown as IDBVersionChangeEvent);
+						request.onupgradeneeded({
+							target: { result: mockDB },
+						} as unknown as IDBVersionChangeEvent);
 						dbOpened = true;
 					}
 					if (request.onsuccess) {
@@ -533,7 +546,7 @@ describe("idbPlugin", () => {
 		let isDisposeCall = false;
 
 		const mockObjectStore = {
-			get: (key: string) => {
+			get: (_key: string) => {
 				const request = {
 					result: null, // No existing data
 					error: null,
@@ -547,7 +560,7 @@ describe("idbPlugin", () => {
 				}, 0);
 				return request as unknown as IDBRequest;
 			},
-			put: (value: any, key: string) => {
+			put: (_value: any, _key: string) => {
 				const request = {
 					result: null,
 					error: new DOMException("Write operation failed"),
@@ -566,28 +579,32 @@ describe("idbPlugin", () => {
 		};
 
 		const mockTransaction = {
-			objectStore: (name: string) => mockObjectStore,
+			objectStore: (_name: string) => mockObjectStore,
 		};
 
 		const mockDB = {
-			objectStoreNames: { contains: (name: string) => true },
-			transaction: (storeName: string, mode: string) => mockTransaction,
+			objectStoreNames: { contains: (_name: string) => true },
+			transaction: (_storeName: string, _mode: string) => mockTransaction,
 			close: () => {},
-			createObjectStore: (name: string) => mockObjectStore,
+			createObjectStore: (_name: string) => mockObjectStore,
 		};
 
 		const mockIndexedDB = {
-			open: (name: string, version?: number) => {
+			open: (_name: string, _version?: number) => {
 				const request = {
 					result: mockDB,
 					error: null,
 					onerror: null as ((event: Event) => void) | null,
 					onsuccess: null as ((event: Event) => void) | null,
-					onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null,
+					onupgradeneeded: null as
+						| ((event: IDBVersionChangeEvent) => void)
+						| null,
 				};
 				setTimeout(() => {
 					if (!dbOpened && request.onupgradeneeded) {
-						request.onupgradeneeded({ target: { result: mockDB } } as unknown as IDBVersionChangeEvent);
+						request.onupgradeneeded({
+							target: { result: mockDB },
+						} as unknown as IDBVersionChangeEvent);
 						dbOpened = true;
 					}
 					if (request.onsuccess) {
