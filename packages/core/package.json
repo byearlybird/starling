@@ -1,6 +1,6 @@
 {
 	"name": "@byearlybird/starling",
-	"version": "0.9.3",
+	"version": "0.10.0",
 	"description": "Lightweight local-first data store with automatic cross-device sync. Plain JavaScript queries, framework-agnostic, zero dependencies. Offline-first apps without the complexity, in just 4KB.",
 	"type": "module",
 	"license": "MIT",
