@@ -8,16 +8,19 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
-| `packages/db` | Database utilities with typed collections, transactions, and mutation events built on the core primitives |
+| `packages/starling` | Consolidated package containing core primitives, database layer, and plugins |
+| `packages/starling/src/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
+| `packages/starling/src/database` | Database utilities with typed collections, transactions, and mutation events |
+| `packages/starling/src/plugins` | Plugin implementations (IDB, HTTP) for persistence and sync |
 
 **Key points:**
 
-- Follows a Functional Core, Imperative Shell design—core packages stay predictable while adapters handle IO, frameworks, and persistence.
-- Core logic lives under `packages/core` and provides minimal CRDT primitives for document merging and resource management.
-- Higher-level database features (collections, transactions, mutation events) live in `packages/db`.
-- All packages are TypeScript modules bundled via `tsdown`.
-- Tests live alongside implementation: `packages/core/src/**/*.test.ts`.
+- Follows a Functional Core, Imperative Shell design—core primitives stay predictable while adapters handle IO, frameworks, and persistence.
+- Core logic lives under `src/core/` and provides minimal CRDT primitives for document merging and resource management.
+- Higher-level database features (collections, transactions, mutation events) live in `src/database/`.
+- Plugins for persistence and sync live in `src/plugins/`.
+- The package is bundled as a TypeScript module via `tsdown` with four entry points (main, core, plugin-idb, plugin-http).
+- Tests live alongside implementation: `packages/starling/src/**/*.test.ts`.
 
 ## Eventstamps
 
@@ -220,11 +223,11 @@ Each module handles a distinct responsibility in the state-based replication mod
 
 | Module | Responsibility |
 | --- | --- |
-| [`clock/clock.ts`](../packages/core/src/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
-| [`clock/eventstamp.ts`](../packages/core/src/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
-| [`document/resource.ts`](../packages/core/src/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
-| [`document/document.ts`](../packages/core/src/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources, and keeps document metadata (latest eventstamp) synchronized |
-| [`resource-map/resource-map.ts`](../packages/core/src/resource-map/resource-map.ts) | CRDT data structure providing a map-like interface for managing resources with field-level LWW semantics, document export/import, and soft deletion |
+| [`clock/clock.ts`](../packages/starling/src/core/clock/clock.ts) | Monotonic logical clock that increments a hex counter when the OS clock stalls, forwards itself when observing newer remote stamps, and exposes the shared clock used across resources and documents |
+| [`clock/eventstamp.ts`](../packages/starling/src/core/clock/eventstamp.ts) | Encoder/decoder for sortable `YYYY-MM-DDTHH:mm:ss.SSSZ\|counter\|nonce` strings, comparison helpers, and utilities used by resources to apply Last-Write-Wins semantics |
+| [`document/resource.ts`](../packages/starling/src/core/document/resource.ts) | Defines resource objects (`type`, `id`, `attributes`, `meta`), handles soft deletion, and merges field-level values with eventstamp comparisons |
+| [`document/document.ts`](../packages/starling/src/core/document/document.ts) | Coordinates `JsonDocument` creation and `mergeDocuments`, tracks added/updated/deleted resources, and keeps document metadata (latest eventstamp) synchronized |
+| [`resource-map/resource-map.ts`](../packages/starling/src/core/resource-map/resource-map.ts) | CRDT data structure providing a map-like interface for managing resources with field-level LWW semantics, document export/import, and soft deletion |
 
 ### Data Flow
 
@@ -248,11 +251,23 @@ mergeDocuments(into, from) → Resource merge (mergeResources)
 
 ## Package Exports
 
-Starling ships as a monorepo with minimal exports.
+Starling ships as a single consolidated package with subpath exports.
 
-### `@byearlybird/starling` (core)
+### `@byearlybird/starling` (main export)
 
-**Exports (simplified):**
+**Database layer exports:**
+
+- Database: `createDatabase`, types `Database`, `DbConfig`
+- Collections: `Collection`, `CollectionHandle`, `CollectionConfig`
+- Transactions and events: `TransactionContext`, `DatabaseMutationEvent`
+- Schema utilities: `StandardSchemaV1`
+- Re-exported core types: `JsonDocument`, `AnyObject`
+
+The main export provides typed collections with CRUD operations, transactions, and mutation events built on top of core primitives.
+
+### `@byearlybird/starling/core` (core primitives)
+
+**Core CRDT primitives exports:**
 
 - Clocks: `createClock`, `createClockFromEventstamp`, `MIN_EVENTSTAMP`, `isValidEventstamp`
 - Documents: `makeDocument`, `mergeDocuments`, types `JsonDocument`, `AnyObject`, `DocumentChanges`, `MergeDocumentsResult`
@@ -261,16 +276,13 @@ Starling ships as a monorepo with minimal exports.
 
 These primitives implement state-based replication, document merging, resource management, and hybrid logical clocks.
 
-### `@byearlybird/starling-db`
+### `@byearlybird/starling/plugin-idb` (IndexedDB plugin)
 
-**Exports (current):**
+Provides `idbPlugin()` for IndexedDB persistence with cross-tab sync via BroadcastChannel API.
 
-- Database: `createDatabase`, types `Database`, `DbConfig`
-- Collections: `Collection`, `CollectionHandle`, `CollectionConfig`
-- Transactions and events: `TransactionContext`, `DatabaseMutationEvent`
-- Schema utilities: `StandardSchemaV1`
+### `@byearlybird/starling/plugin-http` (HTTP plugin)
 
-This package wires core primitives into typed collections with CRUD operations, transactions, and mutation events. Query helpers and persistence adapters are planned but not implemented here yet.
+Provides `httpPlugin()` for HTTP-based sync with polling, debouncing, and retry logic.
 
 ## Testing Strategy
 
@@ -279,4 +291,4 @@ This package wires core primitives into typed collections with CRUD operations, 
 - **Sync tests**: Verify merge behavior and state replication
 - **Property-based tests**: Validate eventstamp monotonicity and merge commutativity
 
-Tests live alongside implementation: `packages/core/src/**/*.test.ts`
+Tests live alongside implementation: `packages/starling/src/**/*.test.ts`

@@ -4,12 +4,14 @@ Local-first data sync for JavaScript apps.
 
 Starling keeps replicas in sync using field-level Last-Write-Wins powered by hybrid logical clocks. Documents converge automatically—no manual merge logic required.
 
-## Packages
+## Package Structure
 
-| Package | Description |
-| --- | --- |
-| `@byearlybird/starling-db` | Database with typed collections, schemas, and transactions |
-| `@byearlybird/starling` | Low-level CRDT-like primitives for custom sync implementations |
+Starling is distributed as a single package with subpath exports:
+
+- `@byearlybird/starling` — Database with typed collections, transactions, and plugins (main export)
+- `@byearlybird/starling/core` — Low-level CRDT primitives for custom sync implementations
+- `@byearlybird/starling/plugin-idb` — IndexedDB persistence plugin
+- `@byearlybird/starling/plugin-http` — HTTP sync plugin
 
 ## Highlights
 
@@ -22,14 +24,14 @@ Starling keeps replicas in sync using field-level Last-Write-Wins powered by hyb
 ## Installation
 
 ```bash
-bun add @byearlybird/starling-db zod
+bun add @byearlybird/starling zod
 ```
 
 ## Quick Start
 
 ```ts
 import { z } from "zod";
-import { createDatabase } from "@byearlybird/starling-db";
+import { createDatabase } from "@byearlybird/starling";
 
 // Define your schema
 const taskSchema = z.object({
@@ -61,7 +63,7 @@ db.begin((tx) => {
 db.tasks.merge(remoteDocument);
 ```
 
-See `packages/db/README.md` for the full API including queries, mutation events, and plugins.
+The database API includes queries, mutation events, and plugins. See the TypeScript types for full documentation.
 
 ## How Sync Works
 
@@ -103,16 +105,12 @@ Arrays are treated as a single value—if two clients modify the same array, the
 
 If you need collaborative text editing, mergeable arrays, or more sophisticated conflict handling, consider libraries like [Automerge](https://automerge.org/) or [Yjs](https://docs.yjs.dev/). Starling is intentionally small and focuses on object-shaped application state.
 
-## Core Primitives (`@byearlybird/starling`)
+## Core Primitives (`@byearlybird/starling/core`)
 
-For custom sync implementations, the core package exposes low-level primitives:
-
-```bash
-bun add @byearlybird/starling
-```
+For custom sync implementations, you can import low-level primitives from the `/core` subpath:
 
 ```ts
-import { createMap } from "@byearlybird/starling";
+import { createMap } from "@byearlybird/starling/core";
 
 // Mergeable map with field-level Last-Write-Wins
 const todos = createMap<{ text: string; completed: boolean }>("todos");
@@ -134,8 +132,7 @@ The core API includes:
 
 ## Project Status
 
-- `@byearlybird/starling` (core) is in **beta**—the API is mostly stable but may have minor changes based on feedback.
-- `@byearlybird/starling-db` is in **alpha**—expect breaking changes as the API evolves.
+Starling is in **beta**—the API is mostly stable but may have minor changes based on feedback. The core primitives (`/core`) are well-tested, while the database layer and plugins continue to evolve.
 
 ## Development
 

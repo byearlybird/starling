@@ -1,4 +1,4 @@
-import { createClock, type JsonDocument } from "@byearlybird/starling";
+import { createClock, type JsonDocument } from "../core";
 import {
 	type Collection,
 	type CollectionWithInternals,
