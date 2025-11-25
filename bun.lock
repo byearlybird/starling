@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@byearlybird/starling-repo",
@@ -43,18 +42,6 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-      },
-    },
-    "packages/db": {
-      "name": "@byearlybird/starling-db",
-      "version": "0.3.0",
-      "dependencies": {
-        "@byearlybird/starling": "workspace:*",
-      },
-      "devDependencies": {
-        "fake-indexeddb": "^6.0.0",
-        "happy-dom": "^20.0.10",
-        "zod": "^4.1.12",
       },
     },
     "packages/starling": {
@@ -125,8 +112,6 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.2.5", "", { "os": "win32", "cpu": "x64" }, "sha512-F/jhuXCssPFAuciMhHKk00xnCAxJRS/pUzVfXYmOMUp//XW7mO6QeCjsjvnm8L4AO/dG2VOB0O+fJPiJ2uXtIw=="],
 
     "@byearlybird/starling": ["@byearlybird/starling@workspace:packages/starling"],
-
-    "@byearlybird/starling-db": ["@byearlybird/starling-db@workspace:packages/db"],
 
     "@emnapi/core": ["@emnapi/core@1.6.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg=="],
 
