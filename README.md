@@ -63,7 +63,32 @@ db.begin((tx) => {
 db.tasks.merge(remoteDocument);
 ```
 
-The database API includes queries, mutation events, and plugins. See the TypeScript types for full documentation.
+### Additional Features
+
+**Queries** - Read-only snapshots with filtering and mapping:
+```ts
+const completedTasks = db.query((q) =>
+  q.tasks.find((task) => task.completed)
+);
+```
+
+**Mutation Events** - React to data changes:
+```ts
+db.on("mutation", (event) => {
+  console.log(`${event.collection}: ${event.added.length} added, ${event.updated.length} updated`);
+});
+```
+
+**Plugins** - Extend with persistence and sync:
+```ts
+import { idbPlugin } from "@byearlybird/starling/plugin-idb";
+import { httpPlugin } from "@byearlybird/starling/plugin-http";
+
+const db = await createDatabase({ name: "my-app", schema })
+  .use(idbPlugin())
+  .use(httpPlugin({ baseUrl: "https://api.example.com" }))
+  .init();
+```
 
 ## How Sync Works
 
