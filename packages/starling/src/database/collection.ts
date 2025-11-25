@@ -6,7 +6,7 @@ import {
 	mergeDocuments,
 	mergeResources,
 	type ResourceObject,
-} from "@byearlybird/starling";
+} from "../core";
 import { createEmitter } from "./emitter";
 import { type StandardSchemaV1, standardValidate } from "./standard-schema";
 import type { AnyObjectSchema } from "./types";

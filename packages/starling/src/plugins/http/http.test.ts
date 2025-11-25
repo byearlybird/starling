@@ -7,9 +7,9 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import { makeDocument, makeResource } from "@byearlybird/starling";
-import { createDatabase } from "../../db";
-import { makeTask, taskSchema, userSchema } from "../../test-helpers";
+import { makeDocument, makeResource } from "../../core";
+import { createDatabase } from "../../database/db";
+import { makeTask, taskSchema, userSchema } from "../../database/test-helpers";
 import { httpPlugin, type RequestContext } from "./index";
 
 // Mock fetch

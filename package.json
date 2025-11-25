@@ -10,17 +10,12 @@
 	],
 	"scripts": {
 		"init:container": "npm install -g bun",
-		"build:all": "bun run build:core && bun run build:db",
-		"build:core": "cd packages/core && bun run build.ts",
-		"build:db": "cd packages/db && bun run build.ts",
-		"bench": "cd packages/core && bun run bench.ts",
+		"build": "cd packages/starling && bun run build",
 		"demo:react": "bun scripts/demo-react.ts",
-		"version:core:patch": "cd packages/core && bun pm version patch",
-		"version:core:minor": "cd packages/core && bun pm version minor",
-		"version:db:patch": "cd packages/db && bun pm version patch",
-		"version:db:minor": "cd packages/db && bun pm version minor",
-		"publish:core": "cd packages/core && bun publish --access public",
-		"publish:db": "cd packages/db && bun publish --access public"
+		"version:patch": "cd packages/starling && bun pm version patch",
+		"version:minor": "cd packages/starling && bun pm version minor",
+		"version:major": "cd packages/starling && bun pm version major",
+		"publish": "cd packages/starling && bun publish --access public"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.5",

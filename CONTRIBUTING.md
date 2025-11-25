@@ -50,18 +50,21 @@ bun biome lint .
 ## Builds
 
 ```bash
-# Build core package
-bun run build:core
+# Build the starling package (from workspace root)
+bun run build
+
+# Or from package directory
+cd packages/starling && bun run build
 ```
 
-Use `bun run build:all` at the workspace root to build every package in sequence.
+The build generates four entry points: main database export, core primitives, and two plugins (IDB and HTTP).
 
 ## Version Bumps
 
-To prepare a package for release, bump its version from inside the package directory:
+To prepare the package for release, bump its version from the package directory:
 
 ```bash
-cd packages/core
+cd packages/starling
 bun pm version patch    # Bump patch version
 bun pm version minor    # Bump minor version
 bun pm version major    # Bump major version

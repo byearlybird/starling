@@ -1,7 +1,7 @@
-import type { AnyObject, JsonDocument } from "@byearlybird/starling";
-import type { Database, DatabasePlugin } from "../../db";
-import type { StandardSchemaV1 } from "../../standard-schema";
-import type { SchemasMap } from "../../types";
+import type { AnyObject, JsonDocument } from "../../core";
+import type { Database, DatabasePlugin } from "../../database/db";
+import type { StandardSchemaV1 } from "../../database/standard-schema";
+import type { SchemasMap } from "../../database/types";
 
 /**
  * Context provided to the onRequest hook

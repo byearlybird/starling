@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
-import { createDatabase } from "../../db";
-import { makeTask, taskSchema } from "../../test-helpers";
+import { createDatabase } from "../../database/db";
+import { makeTask, taskSchema } from "../../database/test-helpers";
 import { idbPlugin } from "./index";
 
 // Mock BroadcastChannel for testing cross-tab sync

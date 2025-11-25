@@ -1,4 +1,4 @@
-import { makeDocument, makeResource } from "@byearlybird/starling";
+import { makeDocument, makeResource } from "../core";
 import { z } from "zod";
 import { createDatabase } from "./db";
 
