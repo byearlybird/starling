@@ -57,6 +57,7 @@ export const MIN_EVENTSTAMP = encodeEventstamp(0, 0, "0000");
  * @param eventstamps - Array of eventstamp strings
  * @returns The maximum eventstamp
  */
+// TODO: mach to MIN_EVENTSTAMP
 export function maxEventstamp(eventstamps: string[]): string {
 	if (eventstamps.length === 0) {
 		return MIN_EVENTSTAMP;
