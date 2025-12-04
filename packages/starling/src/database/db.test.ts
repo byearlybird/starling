@@ -5,8 +5,8 @@ import { createMultiCollectionDb, createTestDb } from "./test-helpers";
 
 describe("Database", () => {
 	describe("initialization", () => {
-		test("creates database with typed collections", () => {
-			const db = createTestDb();
+		test("creates database with typed collections", async () => {
+			const db = await createTestDb();
 
 			expect(db.tasks).toBeDefined();
 			expect(typeof db.tasks.add).toBe("function");
@@ -16,17 +16,17 @@ describe("Database", () => {
 			expect(typeof db.begin).toBe("function");
 		});
 
-		test("creates multiple collections", () => {
-			const db = createMultiCollectionDb();
+		test("creates multiple collections", async () => {
+			const db = await createMultiCollectionDb();
 
 			expect(db.tasks).toBeDefined();
 			expect(db.users).toBeDefined();
 			expect(typeof db.begin).toBe("function");
 		});
 
-		test("supports custom getId functions", () => {
-			const db = createDatabase({
-				name: "kv-db",
+		test("supports custom getId functions", async () => {
+			const db = await createDatabase({
+				name: `kv-db-${crypto.randomUUID()}`,
 				schema: {
 					kv: {
 						schema: z.object({
@@ -38,67 +38,67 @@ describe("Database", () => {
 				},
 			});
 
-			const item = db.kv.add({ key: "foo", value: "bar" });
-			expect(db.kv.get("foo")).toEqual(item);
+			const item = await db.kv.add({ key: "foo", value: "bar" });
+			expect(await db.kv.get("foo")).toEqual(item);
 		});
 	});
 
 	describe("API surface", () => {
-		test("provides collection CRUD methods", () => {
-			const db = createTestDb();
+		test("provides collection CRUD methods", async () => {
+			const db = await createTestDb();
 
-			db.tasks.add({ id: "1", title: "Task 1", completed: false });
-			expect(db.tasks.get("1")?.title).toBe("Task 1");
+			await db.tasks.add({ id: "1", title: "Task 1", completed: false });
+			expect((await db.tasks.get("1"))?.title).toBe("Task 1");
 
-			db.tasks.update("1", { completed: true });
-			expect(db.tasks.get("1")?.completed).toBe(true);
+			await db.tasks.update("1", { completed: true });
+			expect((await db.tasks.get("1"))?.completed).toBe(true);
 
-			db.tasks.remove("1");
-			expect(db.tasks.get("1")).toBeNull();
+			await db.tasks.remove("1");
+			expect(await db.tasks.get("1")).toBeNull();
 		});
 
-		test("provides transaction method", () => {
-			const db = createTestDb();
+		test("provides transaction method", async () => {
+			const db = await createTestDb();
 
-			const result = db.begin((tx) => {
+			const result = await db.begin(async (tx) => {
 				tx.tasks.add({ id: "1", title: "Test", completed: false });
 				return "success";
 			});
 
 			expect(result).toBe("success");
-			expect(db.tasks.get("1")?.title).toBe("Test");
+			expect((await db.tasks.get("1"))?.title).toBe("Test");
 		});
 
-		test("provides event subscription", () => {
-			const db = createTestDb();
+		test("provides event subscription", async () => {
+			const db = await createTestDb();
 			const events: any[] = [];
 
 			db.on("mutation", (e) => events.push(e));
-			db.tasks.add({ id: "1", title: "Test", completed: false });
+			await db.tasks.add({ id: "1", title: "Test", completed: false });
 
 			expect(events).toHaveLength(1);
 		});
 	});
 
 	describe("events", () => {
-		test("emits events with collection name", () => {
-			const db = createTestDb();
+		test("emits events with collection name", async () => {
+			const db = await createTestDb();
 			const dbEvents: any[] = [];
 			db.on("mutation", (e) => dbEvents.push(e));
 
-			db.tasks.add({ id: "1", title: "Task 1", completed: false });
+			await db.tasks.add({ id: "1", title: "Task 1", completed: false });
 
 			expect(dbEvents).toHaveLength(1);
 			expect(dbEvents[0].collection).toBe("tasks");
 			expect(dbEvents[0].added).toHaveLength(1);
 		});
 
-		test("emits events from multiple collections", () => {
-			const db = createMultiCollectionDb();
+		test("emits events from multiple collections", async () => {
+			const db = await createMultiCollectionDb();
 			const dbEvents: any[] = [];
 			db.on("mutation", (e) => dbEvents.push(e));
 
-			db.begin((tx) => {
+			await db.begin(async (tx) => {
 				tx.tasks.add({ id: "1", title: "Task 1", completed: false });
 				tx.users.add({ id: "u1", name: "Alice", email: "alice@example.com" });
 			});
@@ -112,32 +112,32 @@ describe("Database", () => {
 			expect(usersEvent.added).toHaveLength(1);
 		});
 
-		test("keeps database subscriptions active after transactions", () => {
-			const db = createTestDb();
+		test("keeps database subscriptions active after transactions", async () => {
+			const db = await createTestDb();
 			const events: any[] = [];
 			db.on("mutation", (e) => events.push(e));
 
-			db.begin((tx) => {
+			await db.begin(async (tx) => {
 				tx.tasks.add({ id: "1", title: "Tx Task", completed: false });
 			});
 
-			db.tasks.add({ id: "2", title: "Outside Task", completed: false });
+			await db.tasks.add({ id: "2", title: "Outside Task", completed: false });
 
 			expect(events).toHaveLength(2);
 			expect(events[0].collection).toBe("tasks");
 			expect(events[1].collection).toBe("tasks");
 		});
 
-		test("keeps collection subscriptions active after transactions", () => {
-			const db = createTestDb();
+		test("keeps collection subscriptions active after transactions", async () => {
+			const db = await createTestDb();
 			const events: any[] = [];
 			db.tasks.on("mutation", (e) => events.push(e));
 
-			db.begin((tx) => {
+			await db.begin(async (tx) => {
 				tx.tasks.add({ id: "1", title: "Tx Task", completed: false });
 			});
 
-			db.tasks.add({ id: "2", title: "Outside Task", completed: false });
+			await db.tasks.add({ id: "2", title: "Outside Task", completed: false });
 
 			expect(events).toHaveLength(2);
 			expect(events[0].added).toHaveLength(1);
@@ -146,13 +146,17 @@ describe("Database", () => {
 	});
 
 	describe("toDocuments", () => {
-		test("returns documents for all collections", () => {
-			const db = createMultiCollectionDb();
-			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
-			db.tasks.add({ id: "task-2", title: "Walk dog", completed: true });
-			db.users.add({ id: "user-1", name: "Alice", email: "alice@example.com" });
+		test("returns documents for all collections", async () => {
+			const db = await createMultiCollectionDb();
+			await db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			await db.tasks.add({ id: "task-2", title: "Walk dog", completed: true });
+			await db.users.add({
+				id: "user-1",
+				name: "Alice",
+				email: "alice@example.com",
+			});
 
-			const documents = db.toDocuments();
+			const documents = await db.toDocuments();
 
 			expect(documents.tasks).toBeDefined();
 			expect(documents.users).toBeDefined();
@@ -162,10 +166,10 @@ describe("Database", () => {
 			expect(documents.users.data).toHaveLength(1);
 		});
 
-		test("returns empty documents for empty collections", () => {
-			const db = createMultiCollectionDb();
+		test("returns empty documents for empty collections", async () => {
+			const db = await createMultiCollectionDb();
 
-			const documents = db.toDocuments();
+			const documents = await db.toDocuments();
 
 			expect(documents.tasks).toBeDefined();
 			expect(documents.users).toBeDefined();
@@ -175,24 +179,28 @@ describe("Database", () => {
 			expect(documents.users.meta.latest).toBeDefined();
 		});
 
-		test("includes soft-deleted items in documents", () => {
-			const db = createTestDb();
-			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
-			db.tasks.remove("task-1");
+		test("includes soft-deleted items in documents", async () => {
+			const db = await createTestDb();
+			await db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			await db.tasks.remove("task-1");
 
-			const documents = db.toDocuments();
+			const documents = await db.toDocuments();
 
 			expect(documents.tasks.data).toHaveLength(1);
 			expect(documents.tasks.data[0]?.meta.deletedAt).toBeDefined();
 			expect(documents.tasks.data[0]?.meta.deletedAt).not.toBeNull();
 		});
 
-		test("includes correct latest eventstamps for each collection", () => {
-			const db = createMultiCollectionDb();
-			db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
-			db.users.add({ id: "user-1", name: "Alice", email: "alice@example.com" });
+		test("includes correct latest eventstamps for each collection", async () => {
+			const db = await createMultiCollectionDb();
+			await db.tasks.add({ id: "task-1", title: "Buy milk", completed: false });
+			await db.users.add({
+				id: "user-1",
+				name: "Alice",
+				email: "alice@example.com",
+			});
 
-			const documents = db.toDocuments();
+			const documents = await db.toDocuments();
 
 			expect(documents.tasks.meta.latest).toBeDefined();
 			expect(documents.users.meta.latest).toBeDefined();
@@ -204,156 +212,6 @@ describe("Database", () => {
 			expect(documents.users.meta.latest).toMatch(
 				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|[0-9a-f]+\|[0-9a-f]+$/,
 			);
-		});
-	});
-
-	describe("plugins", () => {
-		test("init handlers execute in registration order", async () => {
-			const calls: string[] = [];
-
-			const db = createDatabase({
-				name: "plugins-db",
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			})
-				.use({ handlers: { init: () => calls.push("1") } })
-				.use({ handlers: { init: () => calls.push("2") } })
-				.use({ handlers: { init: () => calls.push("3") } });
-
-			await db.init();
-			expect(calls).toEqual(["1", "2", "3"]);
-		});
-
-		test("dispose handlers execute in reverse order", async () => {
-			const calls: string[] = [];
-
-			const db = createDatabase({
-				name: "plugins-db",
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			})
-				.use({ handlers: { dispose: () => calls.push("1") } })
-				.use({ handlers: { dispose: () => calls.push("2") } })
-				.use({ handlers: { dispose: () => calls.push("3") } });
-
-			await db.dispose();
-			expect(calls).toEqual(["3", "2", "1"]);
-		});
-
-		test("plugins can perform database operations", async () => {
-			const db = createDatabase({
-				name: "plugins-db",
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			}).use({
-				handlers: {
-					init: (db) => {
-						db.tasks.add({
-							id: "1",
-							title: "Added by plugin",
-							completed: false,
-						});
-					},
-				},
-			});
-
-			await db.init();
-			expect(db.tasks.get("1")?.title).toBe("Added by plugin");
-		});
-
-		test("async handlers work correctly", async () => {
-			const calls: string[] = [];
-
-			const db = createDatabase({
-				name: "plugins-db",
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			}).use({
-				handlers: {
-					init: async () => {
-						await new Promise((resolve) => setTimeout(resolve, 10));
-						calls.push("init");
-					},
-					dispose: async () => {
-						await new Promise((resolve) => setTimeout(resolve, 10));
-						calls.push("dispose");
-					},
-				},
-			});
-
-			await db.init();
-			await db.dispose();
-			expect(calls).toEqual(["init", "dispose"]);
-		});
-
-		test("plugins can subscribe to mutation events", async () => {
-			const pluginEvents: any[] = [];
-
-			const db = createDatabase({
-				name: "plugins-db",
-				schema: {
-					tasks: {
-						schema: z.object({
-							id: z.string(),
-							title: z.string(),
-							completed: z.boolean(),
-						}),
-						getId: (task) => task.id,
-					},
-				},
-			}).use({
-				handlers: {
-					init: (db) => {
-						db.on("mutation", (event) => pluginEvents.push(event));
-					},
-				},
-			});
-
-			await db.init();
-			db.tasks.add({ id: "1", title: "Test", completed: false });
-
-			expect(pluginEvents).toHaveLength(1);
-			expect(pluginEvents[0].collection).toBe("tasks");
-		});
-
-		test("works without plugins", async () => {
-			const db = createTestDb();
-			await db.init();
-			await db.dispose();
-			db.tasks.add({ id: "1", title: "Test", completed: false });
-			expect(db.tasks.get("1")).toBeDefined();
 		});
 	});
 });

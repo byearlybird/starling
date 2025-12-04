@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import { makeDocument, makeResource } from "../core";
 import { z } from "zod";
 import { createDatabase } from "./db";
@@ -19,9 +20,9 @@ export type Task = z.infer<typeof taskSchema>;
 export type User = z.infer<typeof userSchema>;
 
 // Database factories
-export function createTestDb() {
-	return createDatabase({
-		name: "test-db",
+export async function createTestDb() {
+	return await createDatabase({
+		name: `test-db-${crypto.randomUUID()}`,
 		schema: {
 			tasks: {
 				schema: taskSchema,
@@ -31,9 +32,9 @@ export function createTestDb() {
 	});
 }
 
-export function createMultiCollectionDb() {
-	return createDatabase({
-		name: "multi-collection-db",
+export async function createMultiCollectionDb() {
+	return await createDatabase({
+		name: `multi-collection-db-${crypto.randomUUID()}`,
 		schema: {
 			tasks: {
 				schema: taskSchema,
