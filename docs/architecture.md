@@ -8,18 +8,18 @@ This document covers the design and internals of Starling, including the state-b
 
 | Path | Description |
 | --- | --- |
-| `packages/starling` | Consolidated package containing core primitives, database layer, and plugins |
+| `packages/starling` | Consolidated package containing core primitives, database layer, and HTTP sync utilities |
 | `packages/starling/src/core` | Core CRDT primitives (`JsonDocument`, `ResourceObject`, `createMap`, `createClock`) for state-based replication |
-| `packages/starling/src/database` | Database utilities with typed collections, transactions, and mutation events |
-| `packages/starling/src/plugins` | Plugin implementations (IDB, HTTP) for persistence and sync |
+| `packages/starling/src/database` | Database utilities with typed collections, transactions, mutation events, and IndexedDB integration |
+| `packages/starling/src/plugins/http` | HTTP sync utilities for optional server synchronization |
 
 **Key points:**
 
 - Follows a Functional Core, Imperative Shell design—core primitives stay predictable while adapters handle IO, frameworks, and persistence.
 - Core logic lives under `src/core/` and provides minimal CRDT primitives for document merging and resource management.
-- Higher-level database features (collections, transactions, mutation events) live in `src/database/`.
-- Plugins for persistence and sync live in `src/plugins/`.
-- The package is bundled as a TypeScript module via `tsdown` with four entry points (main, core, plugin-idb, plugin-http).
+- Higher-level database features (collections, transactions, mutation events) live in `src/database/` with built-in IndexedDB persistence.
+- HTTP sync utilities live in `src/plugins/http/` as an optional enhancement.
+- The package is bundled as a TypeScript module via `tsdown` with three entry points (main, core, plugin-http).
 - Tests live alongside implementation: `packages/starling/src/**/*.test.ts`.
 
 ## Eventstamps
@@ -276,13 +276,25 @@ The main export provides typed collections with CRUD operations, transactions, a
 
 These primitives implement state-based replication, document merging, resource management, and hybrid logical clocks.
 
-### `@byearlybird/starling/plugin-idb` (IndexedDB plugin)
+### `@byearlybird/starling/plugin-http` (HTTP sync)
 
-Provides `idbPlugin()` for IndexedDB persistence with cross-tab sync via BroadcastChannel API.
+Provides `syncHttp()` for HTTP-based sync with polling, debouncing, and retry logic.
 
-### `@byearlybird/starling/plugin-http` (HTTP plugin)
+**Usage:**
+```typescript
+import { syncHttp } from "@byearlybird/starling/plugin-http";
 
-Provides `httpPlugin()` for HTTP-based sync with polling, debouncing, and retry logic.
+const db = await createDatabase({ name: "my-app", schema });
+
+// Set up HTTP sync
+const stopSync = await syncHttp(db, {
+  baseUrl: "https://api.example.com",
+  onRequest: () => ({ headers: { Authorization: `Bearer ${token}` } })
+});
+
+// Later, stop syncing
+stopSync();
+```
 
 ## Testing Strategy
 
