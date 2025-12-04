@@ -1,5 +1,5 @@
 import type { AnyObject, JsonDocument } from "../../core";
-import type { Database, DatabasePlugin } from "../../database/db";
+import type { Database } from "../../database/db";
 import type { StandardSchemaV1 } from "../../database/standard-schema";
 import type { SchemasMap } from "../../database/types";
 
@@ -95,16 +95,17 @@ export type HttpPluginConfig<_Schemas extends SchemasMap> = {
 };
 
 /**
- * Create an HTTP sync plugin for Starling databases.
+ * Set up HTTP sync for a Starling database.
  *
- * The plugin:
- * - Fetches all collections from the server on init (single attempt)
+ * This function:
+ * - Fetches all collections from the server initially (single attempt)
  * - Polls the server at regular intervals to fetch updates (with retry)
  * - Debounces local mutations and pushes them to the server (with retry)
  * - Supports request/response hooks for authentication, encryption, etc.
  *
- * @param config - HTTP plugin configuration
- * @returns A DatabasePlugin instance
+ * @param db - Database instance to sync
+ * @param config - HTTP sync configuration
+ * @returns Cleanup function to stop syncing and clear timers
  *
  * @example
  * ```typescript
@@ -113,14 +114,17 @@ export type HttpPluginConfig<_Schemas extends SchemasMap> = {
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
  *   },
- * })
- *   .use(httpPlugin({
- *     baseUrl: "https://api.example.com",
- *     onRequest: () => ({
- *       headers: { Authorization: `Bearer ${token}` }
- *     })
- *   }))
- *   .init();
+ * });
+ *
+ * const stopSync = await syncHttp(db, {
+ *   baseUrl: "https://api.example.com",
+ *   onRequest: () => ({
+ *     headers: { Authorization: `Bearer ${token}` }
+ *   })
+ * });
+ *
+ * // Later, to stop syncing:
+ * stopSync();
  * ```
  *
  * @example With encryption
@@ -130,23 +134,24 @@ export type HttpPluginConfig<_Schemas extends SchemasMap> = {
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
  *   },
- * })
- *   .use(httpPlugin({
- *     baseUrl: "https://api.example.com",
- *     onRequest: ({ document }) => ({
- *       headers: { Authorization: `Bearer ${token}` },
- *       document: document ? encrypt(document) : undefined
- *     }),
- *     onResponse: ({ document }) => ({
- *       document: decrypt(document)
- *     })
- *   }))
- *   .init();
+ * });
+ *
+ * const stopSync = await syncHttp(db, {
+ *   baseUrl: "https://api.example.com",
+ *   onRequest: ({ document }) => ({
+ *     headers: { Authorization: `Bearer ${token}` },
+ *     document: document ? encrypt(document) : undefined
+ *   }),
+ *   onResponse: ({ document }) => ({
+ *     document: decrypt(document)
+ *   })
+ * });
  * ```
  */
-export function httpPlugin<Schemas extends SchemasMap>(
+export async function syncHttp<Schemas extends SchemasMap>(
+	db: Database<Schemas>,
 	config: HttpPluginConfig<Schemas>,
-): DatabasePlugin<Schemas> {
+): Promise<() => void> {
 	const {
 		baseUrl,
 		pollingInterval = 5000,
@@ -158,118 +163,105 @@ export function httpPlugin<Schemas extends SchemasMap>(
 
 	const { maxAttempts = 3, initialDelay = 1000, maxDelay = 30000 } = retry;
 
-	// Plugin state
-	let pollingTimer: ReturnType<typeof setInterval> | null = null;
-	let unsubscribe: (() => void) | null = null;
+	const collectionNames = db.collectionKeys();
+
+	// Initial fetch for all collections (single attempt, no retry)
+	for (const collectionName of collectionNames) {
+		try {
+			await fetchCollection(
+				db,
+				collectionName,
+				baseUrl,
+				onRequest,
+				onResponse,
+				false, // No retry on init
+			);
+		} catch (error) {
+			// Log error but continue with other collections
+			console.error(
+				`Failed to fetch collection "${String(collectionName)}" during init:`,
+				error,
+			);
+		}
+	}
+
+	// Set up polling
+	const pollingTimer = setInterval(async () => {
+		for (const collectionName of collectionNames) {
+			try {
+				await fetchCollection(
+					db,
+					collectionName,
+					baseUrl,
+					onRequest,
+					onResponse,
+					true, // Enable retry for polling
+					maxAttempts,
+					initialDelay,
+					maxDelay,
+				);
+			} catch (error) {
+				// Log error but continue polling
+				console.error(
+					`Failed to poll collection "${String(collectionName)}":`,
+					error,
+				);
+			}
+		}
+	}, pollingInterval);
+
+	// Debounce timers for push operations
 	const debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-	return {
-		handlers: {
-			async init(db: Database<Schemas>) {
-				const collectionNames = db.collectionKeys();
+	// Subscribe to mutations for debounced push
+	const unsubscribe = db.on("mutation", (event) => {
+		const collectionName = event.collection;
+		const key = String(collectionName);
 
-				// Initial fetch for all collections (single attempt, no retry)
-				for (const collectionName of collectionNames) {
-					try {
-						await fetchCollection(
-							db,
-							collectionName,
-							baseUrl,
-							onRequest,
-							onResponse,
-							false, // No retry on init
-						);
-					} catch (error) {
-						// Log error but continue with other collections
-						console.error(
-							`Failed to fetch collection "${String(collectionName)}" during init:`,
-							error,
-						);
-					}
-				}
+		// Clear existing timer if any
+		const existingTimer = debounceTimers.get(key);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
 
-				// Set up polling
-				pollingTimer = setInterval(async () => {
-					for (const collectionName of collectionNames) {
-						try {
-							await fetchCollection(
-								db,
-								collectionName,
-								baseUrl,
-								onRequest,
-								onResponse,
-								true, // Enable retry for polling
-								maxAttempts,
-								initialDelay,
-								maxDelay,
-							);
-						} catch (error) {
-							// Log error but continue polling
-							console.error(
-								`Failed to poll collection "${String(collectionName)}":`,
-								error,
-							);
-						}
-					}
-				}, pollingInterval);
+		// Schedule new push
+		const timer = setTimeout(async () => {
+			debounceTimers.delete(key);
+			try {
+				await pushCollection(
+					db,
+					collectionName,
+					baseUrl,
+					onRequest,
+					onResponse,
+					maxAttempts,
+					initialDelay,
+					maxDelay,
+				);
+			} catch (error) {
+				console.error(
+					`Failed to push collection "${String(collectionName)}":`,
+					error,
+				);
+			}
+		}, debounceDelay);
 
-				// Subscribe to mutations for debounced push
-				unsubscribe = db.on("mutation", (event) => {
-					const collectionName = event.collection;
-					const key = String(collectionName);
+		debounceTimers.set(key, timer);
+	});
 
-					// Clear existing timer if any
-					const existingTimer = debounceTimers.get(key);
-					if (existingTimer) {
-						clearTimeout(existingTimer);
-					}
+	// Return cleanup function
+	return () => {
+		// Clear polling timer
+		clearInterval(pollingTimer);
 
-					// Schedule new push
-					const timer = setTimeout(async () => {
-						debounceTimers.delete(key);
-						try {
-							await pushCollection(
-								db,
-								collectionName,
-								baseUrl,
-								onRequest,
-								onResponse,
-								maxAttempts,
-								initialDelay,
-								maxDelay,
-							);
-						} catch (error) {
-							console.error(
-								`Failed to push collection "${String(collectionName)}":`,
-								error,
-							);
-						}
-					}, debounceDelay);
+		// Clear all debounce timers
+		for (const timer of debounceTimers.values()) {
+			clearTimeout(timer);
+		}
+		debounceTimers.clear();
 
-					debounceTimers.set(key, timer);
-				});
-			},
-
-			async dispose(_db: Database<Schemas>) {
-				// Clear polling timer
-				if (pollingTimer) {
-					clearInterval(pollingTimer);
-					pollingTimer = null;
-				}
-
-				// Clear all debounce timers
-				for (const timer of debounceTimers.values()) {
-					clearTimeout(timer);
-				}
-				debounceTimers.clear();
-
-				// Unsubscribe from mutations
-				if (unsubscribe) {
-					unsubscribe();
-					unsubscribe = null;
-				}
-			},
-		},
+		// Unsubscribe from mutations
+		unsubscribe();
 	};
 }
 
@@ -352,7 +344,7 @@ async function fetchCollection<Schemas extends SchemasMap>(
 				: document;
 
 		// Merge into collection
-		db[collectionName].merge(finalDocument);
+		await db[collectionName].merge(finalDocument);
 	};
 
 	if (enableRetry) {
@@ -387,7 +379,7 @@ async function pushCollection<Schemas extends SchemasMap>(
 	const url = `${baseUrl}/${db.name}/${String(collectionName)}`;
 
 	// Get current document
-	const document = db[collectionName].toDocument();
+	const document = await db[collectionName].toDocument();
 
 	// Call onRequest hook
 	const requestResult = onRequest?.({
@@ -450,7 +442,7 @@ async function pushCollection<Schemas extends SchemasMap>(
 				: responseDocument;
 
 		// Merge server response (trust LWW merge)
-		db[collectionName].merge(finalDocument);
+		await db[collectionName].merge(finalDocument);
 	};
 
 	await withRetry(executeRequest, maxAttempts, initialDelay, maxDelay);

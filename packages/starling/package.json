@@ -17,11 +17,6 @@
 			"import": "./dist/core.js",
 			"default": "./dist/core.js"
 		},
-		"./plugin-idb": {
-			"types": "./dist/plugin-idb.d.ts",
-			"import": "./dist/plugin-idb.js",
-			"default": "./dist/plugin-idb.js"
-		},
 		"./plugin-http": {
 			"types": "./dist/plugin-http.d.ts",
 			"import": "./dist/plugin-http.js",
