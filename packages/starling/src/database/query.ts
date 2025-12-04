@@ -1,10 +1,10 @@
-import type { Collection } from "./collection";
+import type { IDBCollection } from "./idb-collection";
 import type { Database } from "./db";
 import type { AnyObjectSchema, SchemasMap } from "./types";
 
 /** Read-only collection handle for queries */
 export type QueryCollectionHandle<T extends AnyObjectSchema> = Pick<
-	Collection<T>,
+	IDBCollection<T>,
 	"get" | "getAll" | "find"
 >;
 
@@ -15,8 +15,8 @@ export type QueryContext<Schemas extends SchemasMap> = {
 
 /** Handle returned by db.query() for managing the reactive query */
 export type QueryHandle<R> = {
-	/** Current query result */
-	readonly result: R;
+	/** Current query result (may be undefined initially) */
+	readonly result: R | undefined;
 	/** Subscribe to result changes. Returns unsubscribe function. */
 	subscribe(callback: (result: R) => void): () => void;
 	/** Stop tracking and clean up subscriptions */
@@ -27,12 +27,12 @@ export type QueryHandle<R> = {
  * Execute a reactive query with automatic re-computation on mutations.
  *
  * @param db - Database instance to query
- * @param callback - Query callback receiving read-only collection handles
+ * @param callback - Async query callback receiving read-only collection handles
  * @returns QueryHandle with result, subscribe, and dispose methods
  */
 export function executeQuery<Schemas extends SchemasMap, R>(
 	db: Database<Schemas>,
-	callback: (ctx: QueryContext<Schemas>) => R,
+	callback: (ctx: QueryContext<Schemas>) => Promise<R>,
 ): QueryHandle<R> {
 	// Track which collections are accessed
 	const accessedCollections = new Set<keyof Schemas>();
@@ -40,15 +40,15 @@ export function executeQuery<Schemas extends SchemasMap, R>(
 	// Subscribers to notify on result changes
 	const subscribers = new Set<(result: R) => void>();
 
-	// Current result
-	let currentResult: R;
+	// Current result (may be undefined initially)
+	let currentResult: R | undefined;
 
 	// Create tracking handles for each collection
 	const createTrackingHandles = (): QueryContext<Schemas> => {
 		const handles = {} as QueryContext<Schemas>;
 
 		for (const name of db.collectionKeys()) {
-			const collection = db[name] as Collection<Schemas[typeof name]>;
+			const collection = db[name] as IDBCollection<Schemas[typeof name]>;
 
 			handles[name] = createTrackingHandle(
 				name,
@@ -61,19 +61,21 @@ export function executeQuery<Schemas extends SchemasMap, R>(
 	};
 
 	// Run the query and capture result
-	const runQuery = (): R => {
+	const runQuery = async (): Promise<R> => {
 		const handles = createTrackingHandles();
-		return callback(handles);
+		return await callback(handles);
 	};
 
-	// Initial execution
-	currentResult = runQuery();
+	// Initial execution (async)
+	runQuery().then((result) => {
+		currentResult = result;
+	});
 
 	// Subscribe to database mutations
-	const unsubscribeMutation = db.on("mutation", (event) => {
+	const unsubscribeMutation = db.on("mutation", async (event) => {
 		// Only re-run if the mutated collection was accessed
 		if (accessedCollections.has(event.collection)) {
-			currentResult = runQuery();
+			currentResult = await runQuery();
 
 			// Notify all subscribers
 			for (const subscriber of subscribers) {
@@ -120,7 +122,7 @@ function createTrackingHandle<
 	K extends keyof Schemas,
 >(
 	name: K,
-	collection: Collection<Schemas[K]>,
+	collection: IDBCollection<Schemas[K]>,
 	accessedCollections: Set<keyof Schemas>,
 ): QueryCollectionHandle<Schemas[K]> {
 	const trackAccess = () => {
@@ -128,19 +130,19 @@ function createTrackingHandle<
 	};
 
 	return {
-		get(id, opts) {
+		async get(id, opts) {
 			trackAccess();
-			return collection.get(id, opts);
+			return await collection.get(id, opts);
 		},
 
-		getAll(opts) {
+		async getAll(opts) {
 			trackAccess();
-			return collection.getAll(opts);
+			return await collection.getAll(opts);
 		},
 
-		find(filter, opts) {
+		async find(filter, opts) {
 			trackAccess();
-			return collection.find(filter, opts);
+			return await collection.find(filter, opts);
 		},
 	};
 }

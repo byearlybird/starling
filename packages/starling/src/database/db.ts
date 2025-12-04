@@ -1,18 +1,29 @@
-import { createClock, type JsonDocument } from "../core";
 import {
-	type Collection,
-	type CollectionWithInternals,
-	createCollection,
-	type MutationBatch,
-} from "./collection";
+	createClock,
+	createClockFromEventstamp,
+	type JsonDocument,
+} from "../core";
 import { createEmitter } from "./emitter";
-import { executeQuery, type QueryContext, type QueryHandle } from "./query";
+import { loadClock, openIndexedDB, saveClock } from "./idb-helpers";
+import {
+	createIDBCollection,
+	type IDBCollection,
+	type MutationBatch,
+} from "./idb-collection";
+import {
+	executeQuery,
+	type QueryContext,
+	type QueryHandle,
+} from "./query";
 import type { StandardSchemaV1 } from "./standard-schema";
-import { executeTransaction, type TransactionContext } from "./transaction";
+import {
+	executeTransaction,
+	type TransactionContext,
+} from "./transaction";
 import type { AnyObjectSchema, SchemasMap } from "./types";
 
 export type Collections<Schemas extends SchemasMap> = {
-	[K in keyof Schemas]: Collection<Schemas[K]>;
+	[K in keyof Schemas]: IDBCollection<Schemas[K]>;
 };
 
 export type CollectionConfigMap<Schemas extends SchemasMap> = {
@@ -20,7 +31,7 @@ export type CollectionConfigMap<Schemas extends SchemasMap> = {
 };
 
 type CollectionInstances<Schemas extends SchemasMap> = {
-	[K in keyof Schemas]: CollectionWithInternals<Schemas[K]>;
+	[K in keyof Schemas]: IDBCollection<Schemas[K]>;
 };
 
 export type MutationEnvelope<Schemas extends SchemasMap> = {
@@ -41,13 +52,6 @@ export type CollectionConfig<T extends AnyObjectSchema> = {
 	getId: (item: StandardSchemaV1.InferOutput<T>) => string;
 };
 
-export type DatabasePlugin<Schemas extends SchemasMap> = {
-	handlers: {
-		init?: (db: Database<Schemas>) => Promise<unknown> | unknown;
-		dispose?: (db: Database<Schemas>) => Promise<unknown> | unknown;
-	};
-};
-
 export type DbConfig<Schemas extends SchemasMap> = {
 	name: string;
 	schema: CollectionConfigMap<Schemas>;
@@ -57,30 +61,34 @@ export type DbConfig<Schemas extends SchemasMap> = {
 export type Database<Schemas extends SchemasMap> = Collections<Schemas> & {
 	name: string;
 	version: number;
-	begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R;
-	query<R>(callback: (ctx: QueryContext<Schemas>) => R): QueryHandle<R>;
-	toDocuments(): {
+	begin<R>(
+		callback: (tx: TransactionContext<Schemas>) => Promise<R>,
+	): Promise<R>;
+	query<R>(
+		callback: (ctx: QueryContext<Schemas>) => Promise<R>,
+	): QueryHandle<R>;
+	toDocuments(): Promise<{
 		[K in keyof Schemas]: JsonDocument<
 			StandardSchemaV1.InferOutput<Schemas[K]>
 		>;
-	};
+	}>;
 	on(
 		event: "mutation",
 		handler: (payload: DatabaseMutationEvent<Schemas>) => unknown,
 	): () => void;
-	use(plugin: DatabasePlugin<Schemas>): Database<Schemas>;
-	init(): Promise<Database<Schemas>>;
 	dispose(): Promise<void>;
 	collectionKeys(): (keyof Schemas)[];
 };
 
 /**
- * Create a typed database instance with collection access.
+ * Create a typed database instance with IDB-backed collections.
+ * All data is stored in IndexedDB and loaded on demand (lazy loading).
+ *
  * @param config - Database configuration
- * @param config.name - Database name used for persistence and routing
+ * @param config.name - Database name used for IndexedDB
  * @param config.schema - Collection schema definitions
  * @param config.version - Optional database version, defaults to 1
- * @returns A database instance with typed collection properties
+ * @returns A promise that resolves to a database instance
  *
  * @example
  * ```typescript
@@ -89,29 +97,39 @@ export type Database<Schemas extends SchemasMap> = Collections<Schemas> & {
  *   schema: {
  *     tasks: { schema: taskSchema, getId: (task) => task.id },
  *   },
- * })
- *   .use(idbPlugin())
- *   .init();
+ * });
  *
- * const task = db.tasks.add({ title: 'Learn Starling' });
+ * const task = await db.tasks.add({ title: 'Learn Starling' });
  * ```
  */
-export function createDatabase<Schemas extends SchemasMap>(
+export async function createDatabase<Schemas extends SchemasMap>(
 	config: DbConfig<Schemas>,
-): Database<Schemas> {
+): Promise<Database<Schemas>> {
 	const { name, schema, version = 1 } = config;
-	const clock = createClock();
-	const getEventstamp = () => clock.now();
-	const collections = makeCollections(schema, getEventstamp);
 
-	// Cast to public Collection type (hides Symbol-keyed internals)
-	const publicCollections = collections as unknown as Collections<Schemas>;
+	// Open IndexedDB connection
+	const collectionNames = Object.keys(schema) as (keyof Schemas)[];
+	const idb = await openIndexedDB(
+		name,
+		version,
+		collectionNames.map(String),
+	);
+
+	// Load or create clock
+	const savedClock = await loadClock(idb);
+	const clock = savedClock
+		? createClockFromEventstamp(savedClock)
+		: createClock();
+	const getEventstamp = () => clock.now();
+
+	// Create IDB-backed collections
+	const collections = makeIDBCollections(idb, schema, getEventstamp);
 
 	// Database-level emitter
 	const dbEmitter = createEmitter<DatabaseEvents<Schemas>>();
 
 	// Subscribe to all collection events and re-emit at database level
-	for (const collectionName of Object.keys(collections) as (keyof Schemas)[]) {
+	for (const collectionName of collectionNames) {
 		const collection = collections[collectionName];
 
 		collection.on("mutation", (mutations) => {
@@ -131,27 +149,30 @@ export function createDatabase<Schemas extends SchemasMap>(
 		});
 	}
 
-	const plugins: DatabasePlugin<Schemas>[] = [];
-
 	const db: Database<Schemas> = {
-		...publicCollections,
+		...(collections as unknown as Collections<Schemas>),
 		name,
 		version,
-		begin<R>(callback: (tx: TransactionContext<Schemas>) => R): R {
-			return executeTransaction(schema, collections, getEventstamp, callback);
+		async begin<R>(
+			callback: (tx: TransactionContext<Schemas>) => Promise<R>,
+		): Promise<R> {
+			return await executeTransaction(idb, schema, getEventstamp, callback);
 		},
-		query<R>(callback: (ctx: QueryContext<Schemas>) => R): QueryHandle<R> {
+		query<R>(
+			callback: (ctx: QueryContext<Schemas>) => Promise<R>,
+		): QueryHandle<R> {
 			return executeQuery(db, callback);
 		},
-		toDocuments() {
+		async toDocuments() {
 			const documents = {} as {
 				[K in keyof Schemas]: JsonDocument<
 					StandardSchemaV1.InferOutput<Schemas[K]>
 				>;
 			};
 
-			for (const dbName of Object.keys(collections) as (keyof Schemas)[]) {
-				documents[dbName] = collections[dbName].toDocument();
+			for (const collectionName of collectionNames) {
+				documents[collectionName] =
+					await collections[collectionName].toDocument();
 			}
 
 			return documents;
@@ -159,37 +180,23 @@ export function createDatabase<Schemas extends SchemasMap>(
 		on(event, handler) {
 			return dbEmitter.on(event, handler);
 		},
-		use(plugin: DatabasePlugin<Schemas>) {
-			plugins.push(plugin);
-			return db;
-		},
-		async init() {
-			// Execute all plugin init handlers sequentially
-			for (const plugin of plugins) {
-				if (plugin.handlers.init) {
-					await plugin.handlers.init(db);
-				}
-			}
-			return db;
-		},
 		async dispose() {
-			// Execute all plugin dispose handlers sequentially (in reverse order)
-			for (let i = plugins.length - 1; i >= 0; i--) {
-				const plugin = plugins[i];
-				if (plugin?.handlers.dispose) {
-					await plugin.handlers.dispose(db);
-				}
-			}
+			// Save clock state
+			await saveClock(idb, clock.latest());
+
+			// Close IDB connection
+			idb.close();
 		},
 		collectionKeys() {
-			return Object.keys(collections) as (keyof Schemas)[];
+			return collectionNames;
 		},
 	};
 
 	return db;
 }
 
-function makeCollections<Schemas extends SchemasMap>(
+function makeIDBCollections<Schemas extends SchemasMap>(
+	idb: IDBDatabase,
 	configs: CollectionConfigMap<Schemas>,
 	getEventstamp: () => string,
 ): CollectionInstances<Schemas> {
@@ -197,7 +204,8 @@ function makeCollections<Schemas extends SchemasMap>(
 
 	for (const name of Object.keys(configs) as (keyof Schemas)[]) {
 		const config = configs[name];
-		collections[name] = createCollection(
+		collections[name] = createIDBCollection(
+			idb,
 			name as string,
 			config.schema,
 			config.getId,

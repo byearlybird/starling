@@ -1,8 +1,32 @@
 # Lazy Loading Implementation Plan
 
-**Status:** Proposed
+**Status:** In Progress
 **Created:** 2025-12-04
+**Updated:** 2025-12-04
 **Goal:** Transition Starling from in-memory storage to lazy-loaded IndexedDB-backed collections
+
+**Note:** NO backward compatibility needed - we're replacing all existing APIs directly.
+
+---
+
+## Progress
+
+### ✅ Completed (Phases 1-4)
+- **IDBCollection**: Lazy-loading collection with IDB storage (`idb-collection.ts`)
+- **IDB Helpers**: Database utilities (`idb-helpers.ts`)
+- **Async Database**: IDB-backed database factory (`db-async.ts` - will replace `db.ts`)
+- **Async Transactions**: Read-caching + buffered writes (`transaction-async.ts` - will replace `transaction.ts`)
+- **Async Queries**: Reactive queries with async (`query-async.ts` - will replace `query.ts`)
+- **Tests**: Comprehensive test suite (`idb-collection.test.ts`)
+
+### 🔄 Remaining
+- **Phase 5**: Replace old files with async versions (rename files)
+- **Phase 6**: Remove IDB plugin (obsolete)
+- **Phase 7**: Update HTTP plugin
+- **Phase 8**: Update all tests
+- **Phase 9**: Update documentation
+
+**Estimated completion:** 1-2 days (down from 4 weeks due to no migration needed)
 
 ---
 
@@ -666,14 +690,17 @@ const db = await createDatabase({ name: 'my-app', schema });
 3. **Latency:** Every read has ~1-5ms IDB overhead (first access)
 4. **Scanning:** Slower than in-memory (cursor-based)
 
-### Migration Required
+### Migration Strategy
 
-1. Add `await` to `createDatabase()`
-2. Add `async` to transaction callbacks
-3. Add `await` to all collection reads
-4. Add `await` to query callbacks
-5. Remove `.use(idbPlugin()).init()` calls
-6. Run data migration utility for existing users
+**NO backward compatibility** - this is a breaking change:
+
+1. Replace `createDatabase` implementation with async version
+2. Replace `Collection` with `IDBCollection`
+3. Replace `executeTransaction` with async version
+4. Replace `executeQuery` with async version
+5. Remove IDB plugin entirely (built-in now)
+6. Update all tests to use async API
+7. Bump version to 2.0.0
 
 ---
 
