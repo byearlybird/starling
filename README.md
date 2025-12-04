@@ -8,10 +8,9 @@ Starling keeps replicas in sync using field-level Last-Write-Wins powered by hyb
 
 Starling is distributed as a single package with subpath exports:
 
-- `@byearlybird/starling` — Database with typed collections, transactions, and plugins (main export)
+- `@byearlybird/starling` — Database with typed collections, transactions, and IndexedDB storage (main export)
 - `@byearlybird/starling/core` — Low-level CRDT primitives for custom sync implementations
-- `@byearlybird/starling/plugin-idb` — IndexedDB persistence plugin
-- `@byearlybird/starling/plugin-http` — HTTP sync plugin
+- `@byearlybird/starling/plugin-http` — HTTP sync utilities
 
 ## Highlights
 
@@ -40,36 +39,44 @@ const taskSchema = z.object({
   completed: z.boolean().default(false),
 });
 
-// Create a database with typed collections
-const db = createDatabase({
+// Create a database with typed collections (async, opens IndexedDB)
+const db = await createDatabase({
   name: "my-app",
   schema: {
     tasks: { schema: taskSchema, getId: (task) => task.id },
   },
 });
 
-// CRUD operations
-db.tasks.add({ id: "1", title: "Learn Starling", completed: false });
-db.tasks.update("1", { completed: true });
-const task = db.tasks.get("1");
+// CRUD operations (all async)
+await db.tasks.add({ id: "1", title: "Learn Starling", completed: false });
+await db.tasks.update("1", { completed: true });
+const task = await db.tasks.get("1");
 
 // Transactions with snapshot isolation
-db.begin((tx) => {
+await db.begin(async (tx) => {
   tx.tasks.add({ id: "2", title: "Build an app", completed: false });
   tx.tasks.update("1", { completed: false });
 });
 
 // Merge remote data (conflict resolution is automatic)
-db.tasks.merge(remoteDocument);
+await db.tasks.merge(remoteDocument);
 ```
 
 ### Additional Features
 
-**Queries** - Read-only snapshots with filtering and mapping:
+**Queries** - Reactive queries with automatic re-computation:
 ```ts
-const completedTasks = db.query((q) =>
-  q.tasks.find((task) => task.completed)
+const query = db.query(async (q) =>
+  await q.tasks.find((task) => task.completed)
 );
+
+// Access current result
+console.log(query.result);
+
+// Subscribe to changes
+const unsubscribe = query.subscribe((tasks) => {
+  console.log("Completed tasks updated:", tasks);
+});
 ```
 
 **Mutation Events** - React to data changes:
@@ -79,15 +86,22 @@ db.on("mutation", (event) => {
 });
 ```
 
-**Plugins** - Extend with persistence and sync:
+**HTTP Sync** - Optional HTTP synchronization:
 ```ts
-import { idbPlugin } from "@byearlybird/starling/plugin-idb";
-import { httpPlugin } from "@byearlybird/starling/plugin-http";
+import { syncHttp } from "@byearlybird/starling/plugin-http";
 
-const db = await createDatabase({ name: "my-app", schema })
-  .use(idbPlugin())
-  .use(httpPlugin({ baseUrl: "https://api.example.com" }))
-  .init();
+const db = await createDatabase({ name: "my-app", schema });
+
+// Set up HTTP sync (returns cleanup function)
+const stopSync = await syncHttp(db, {
+  baseUrl: "https://api.example.com",
+  onRequest: () => ({
+    headers: { Authorization: `Bearer ${token}` }
+  })
+});
+
+// Later, to stop syncing:
+stopSync();
 ```
 
 ## How Sync Works

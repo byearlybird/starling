@@ -2,11 +2,10 @@
  * @byearlybird/starling
  * Local-first data sync for JavaScript apps
  *
- * Main export: Database with typed collections, transactions, and plugins.
+ * Main export: Database with typed collections, transactions, and IDB-backed storage.
  * For low-level CRDT primitives, import from "@byearlybird/starling/core"
  *
- * Plugins are available as separate optional imports:
- * - @byearlybird/starling/plugin-idb - IndexedDB persistence
+ * HTTP sync plugin available as optional import:
  * - @byearlybird/starling/plugin-http - HTTP sync
  */
 
@@ -19,15 +18,13 @@ export type {
 	Database,
 	DbConfig,
 	CollectionConfig,
-	DatabasePlugin,
 } from "./database/db";
 
 export {
-	type Collection,
-	CollectionInternals,
+	type IDBCollection as Collection,
 	DuplicateIdError,
 	IdNotFoundError,
-} from "./database/collection";
+} from "./database/idb-collection";
 
 export type {
 	TransactionContext,

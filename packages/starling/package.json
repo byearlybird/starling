@@ -1,6 +1,6 @@
 {
 	"name": "@byearlybird/starling",
-	"version": "0.11.0",
+	"version": "0.12.0",
 	"description": "Local-first data sync for JavaScript apps. Typed collections, transactions, and automatic conflict resolution.",
 	"type": "module",
 	"license": "MIT",
@@ -16,11 +16,6 @@
 			"types": "./dist/core.d.ts",
 			"import": "./dist/core.js",
 			"default": "./dist/core.js"
-		},
-		"./plugin-idb": {
-			"types": "./dist/plugin-idb.d.ts",
-			"import": "./dist/plugin-idb.js",
-			"default": "./dist/plugin-idb.js"
 		},
 		"./plugin-http": {
 			"types": "./dist/plugin-http.d.ts",
